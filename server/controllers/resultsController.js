@@ -13,59 +13,37 @@ export async function pollResults(req, res) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    const files = await listFilesInFolder(CORSAIR_FOLDER_ID);
-    
-    const newImagesFolders = files.filter(f => 
-      f.mimeType === 'application/vnd.google-apps.folder' && 
-      f.name === 'New Images'
-    );
-
-    if (newImagesFolders.length === 0) {
-      return res.json({ 
-        status: 'processing',
-        step: 2,
-        totalSteps: 5,
-        message: 'AI is parsing your creative brief...'
+    if (job.status === 'failed') {
+      return res.json({
+        status: 'failed',
+        error: job.error || 'Processing failed'
       });
     }
 
-    const latestFolder = newImagesFolders[0];
-    const resultFiles = await listFilesInFolder(latestFolder.id);
-
-    if (resultFiles.length === 0 || resultFiles.length < job.imageCount) {
+    if (job.status === 'processing') {
       return res.json({ 
         status: 'processing',
-        step: 4,
+        step: 3,
         totalSteps: 5,
-        message: 'Editing images with AI...',
-        progress: Math.floor((resultFiles.length / job.imageCount) * 100)
+        message: job.processingStep || 'Editing images with AI...'
       });
     }
 
-    updateJob(jobId, { resultFolderId: latestFolder.id });
+    if (job.status === 'completed' && job.editedImages) {
+      return res.json({ 
+        status: 'completed',
+        jobId: jobId,
+        images: job.editedImages
+      });
+    }
 
-    const imageComparisons = resultFiles.map(editedFile => {
-      const originalName = editedFile.name.replace('_edited', '').replace('.jpg', '').replace('.jpeg', '').replace('.png', '');
-      const originalImage = job.images.find(img => 
-        img.originalName.toLowerCase().includes(originalName.toLowerCase()) ||
-        originalName.toLowerCase().includes(img.originalName.toLowerCase().replace(/\.[^/.]+$/, ''))
-      );
-
-      return {
-        id: editedFile.id,
-        name: editedFile.name,
-        editedImageId: editedFile.id,
-        originalImageId: originalImage?.driveId,
-        modifiedTime: editedFile.modifiedTime
-      };
+    return res.json({ 
+      status: 'processing',
+      step: 1,
+      totalSteps: 5,
+      message: 'Initializing...'
     });
 
-    res.json({ 
-      status: 'completed',
-      folderId: latestFolder.id,
-      jobId: jobId,
-      images: imageComparisons
-    });
   } catch (error) {
     console.error('Poll error:', error);
     res.status(500).json({ error: 'Failed to check status', details: error.message });
@@ -74,9 +52,16 @@ export async function pollResults(req, res) {
 
 export async function downloadAll(req, res) {
   try {
-    const { folderId } = req.params;
+    const { jobId } = req.params;
     
-    const files = await listFilesInFolder(folderId);
+    const job = getJob(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (!job.editedImages || job.editedImages.length === 0) {
+      return res.status(404).json({ error: 'No edited images found' });
+    }
     
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', 'attachment; filename=edited-images.zip');
@@ -87,11 +72,9 @@ export async function downloadAll(req, res) {
 
     archive.pipe(res);
 
-    for (const file of files) {
-      if (file.mimeType.startsWith('image/')) {
-        const fileData = await downloadFileFromDrive(file.id);
-        archive.append(Buffer.from(fileData), { name: file.name });
-      }
+    for (const image of job.editedImages) {
+      const fileData = await downloadFileFromDrive(image.editedImageId);
+      archive.append(Buffer.from(fileData), { name: image.name });
     }
 
     await archive.finalize();

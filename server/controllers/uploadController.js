@@ -1,5 +1,8 @@
-import { uploadFileToDrive } from '../utils/googleDrive.js';
+import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob } from '../utils/jobStore.js';
+import { editMultipleImages } from '../services/nanoBanana.js';
+import { Readable } from 'stream';
+import fetch from 'node-fetch';
 
 const PDF_FOLDER_ID = '1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697';
 const IMAGES_FOLDER_ID = '1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS';
@@ -20,8 +23,8 @@ export async function uploadPDF(req, res) {
     const result = await uploadFileToDrive(
       req.file.buffer,
       fileName,
-      PDF_FOLDER_ID,
-      'application/pdf'
+      'application/pdf',
+      PDF_FOLDER_ID
     );
 
     createJob({
@@ -70,22 +73,26 @@ export async function uploadImages(req, res) {
       const result = await uploadFileToDrive(
         file.buffer,
         file.originalname,
-        IMAGES_FOLDER_ID,
-        file.mimetype
+        file.mimetype,
+        IMAGES_FOLDER_ID
       );
+
+      await makeFilePublic(result.id);
+      const publicUrl = getPublicImageUrl(result.id);
 
       uploadedImages.push({
         id: result.id,
         name: file.originalname,
         originalName: file.originalname,
         driveId: result.id,
+        publicUrl: publicUrl,
         buffer: file.buffer
       });
     }
 
     updateJob(jobId, {
       images: uploadedImages,
-      status: 'images_uploaded',
+      status: 'processing',
       imageCount: uploadedImages.length
     });
 
@@ -93,12 +100,92 @@ export async function uploadImages(req, res) {
       success: true, 
       count: uploadedImages.length,
       images: uploadedImages,
-      message: 'Images uploaded successfully' 
+      message: 'Images uploaded successfully, processing started' 
     });
+
+    processImagesWithNanoBanana(jobId).catch(err => {
+      console.error('Background processing error:', err);
+      updateJob(jobId, { 
+        status: 'failed',
+        error: err.message
+      });
+    });
+
   } catch (error) {
     console.error('Images upload error:', error);
     res.status(500).json({ error: 'Failed to upload images', details: error.message });
   }
+}
+
+async function processImagesWithNanoBanana(jobId) {
+  const job = getJob(jobId);
+  
+  if (!job) {
+    throw new Error('Job not found');
+  }
+
+  if (!job.promptText) {
+    throw new Error('No prompt found for job');
+  }
+
+  if (!job.images || job.images.length === 0) {
+    throw new Error('No images found for job');
+  }
+
+  updateJob(jobId, { 
+    status: 'processing',
+    processingStep: 'Editing images with AI'
+  });
+
+  const imageUrls = job.images.map(img => img.publicUrl);
+  
+  const results = await editMultipleImages(imageUrls, job.promptText, {
+    enableSyncMode: true,
+    outputFormat: 'jpeg',
+    numImages: 1
+  });
+
+  const editedImages = [];
+  const EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
+  
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    const originalImage = job.images[i];
+    
+    if (result.images && result.images.length > 0) {
+      const editedImageUrl = result.images[0].url;
+      
+      const imageResponse = await fetch(editedImageUrl);
+      const imageBuffer = await imageResponse.arrayBuffer();
+      
+      const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
+      const editedFileName = `${originalNameWithoutExt}_edited.jpg`;
+      
+      const uploadedFile = await uploadFileToDrive(
+        Buffer.from(imageBuffer),
+        editedFileName,
+        'image/jpeg',
+        EDITED_IMAGES_FOLDER
+      );
+
+      await makeFilePublic(uploadedFile.id);
+
+      editedImages.push({
+        id: uploadedFile.id,
+        name: editedFileName,
+        editedImageId: uploadedFile.id,
+        originalImageId: originalImage.driveId,
+        originalName: originalImage.originalName,
+        url: getPublicImageUrl(uploadedFile.id)
+      });
+    }
+  }
+
+  updateJob(jobId, { 
+    status: 'completed',
+    editedImages,
+    processingStep: 'Complete'
+  });
 }
 
 export async function uploadTextPrompt(req, res) {
@@ -117,8 +204,8 @@ export async function uploadTextPrompt(req, res) {
     const result = await uploadFileToDrive(
       promptBuffer,
       fileName,
-      PDF_FOLDER_ID,
-      'text/plain'
+      'text/plain',
+      PDF_FOLDER_ID
     );
 
     createJob({

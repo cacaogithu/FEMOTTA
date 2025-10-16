@@ -48,7 +48,7 @@ export async function getUncachableGoogleDriveClient() {
   return google.drive({ version: 'v3', auth: oauth2Client });
 }
 
-export async function uploadFileToDrive(fileBuffer, fileName, folderId, mimeType) {
+export async function uploadFileToDrive(fileBuffer, fileName, mimeType, folderId) {
   const drive = await getUncachableGoogleDriveClient();
   
   const fileMetadata = {
@@ -66,7 +66,7 @@ export async function uploadFileToDrive(fileBuffer, fileName, folderId, mimeType
   const response = await drive.files.create({
     requestBody: fileMetadata,
     media: media,
-    fields: 'id, name, webContentLink'
+    fields: 'id, name, webContentLink, webViewLink'
   });
 
   return response.data;
@@ -110,4 +110,20 @@ export async function downloadFileFromDrive(fileId) {
   );
 
   return response.data;
+}
+
+export async function makeFilePublic(fileId) {
+  const drive = await getUncachableGoogleDriveClient();
+  
+  await drive.permissions.create({
+    fileId: fileId,
+    requestBody: {
+      role: 'reader',
+      type: 'anyone'
+    }
+  });
+}
+
+export function getPublicImageUrl(fileId) {
+  return `https://drive.google.com/uc?export=view&id=${fileId}`;
 }

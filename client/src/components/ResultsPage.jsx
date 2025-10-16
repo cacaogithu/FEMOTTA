@@ -5,7 +5,7 @@ import './ResultsPage.css';
 function ResultsPage({ results, onReset, jobId }) {
   const handleDownloadAll = async () => {
     try {
-      const response = await fetch(`/api/results/download/${results.folderId}`);
+      const response = await fetch(`/api/results/download/${jobId}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
