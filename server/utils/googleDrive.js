@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { Readable } from 'stream';
 
 let connectionSettings;
 
@@ -55,9 +56,11 @@ export async function uploadFileToDrive(fileBuffer, fileName, folderId, mimeType
     parents: [folderId]
   };
   
+  const stream = Readable.from(fileBuffer);
+  
   const media = {
     mimeType: mimeType,
-    body: Buffer.from(fileBuffer)
+    body: stream
   };
 
   const response = await drive.files.create({
