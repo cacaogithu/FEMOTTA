@@ -34,7 +34,7 @@ function App() {
         <ProcessingPage jobId={jobId} onComplete={handleProcessingComplete} />
       )}
       {page === 'results' && (
-        <ResultsPage results={results} onReset={handleReset} />
+        <ResultsPage results={results} onReset={handleReset} jobId={jobId} />
       )}
     </div>
   );

@@ -2,7 +2,9 @@ import { useState, useRef } from 'react';
 import './UploadPage.css';
 
 function UploadPage({ onComplete }) {
+  const [briefType, setBriefType] = useState('pdf');
   const [pdfFile, setPdfFile] = useState(null);
+  const [textPrompt, setTextPrompt] = useState('');
   const [images, setImages] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -72,24 +74,41 @@ function UploadPage({ onComplete }) {
   };
 
   const handleSubmit = async () => {
-    if (!pdfFile || images.length === 0) return;
+    if (images.length === 0) return;
+    if (briefType === 'pdf' && !pdfFile) return;
+    if (briefType === 'text' && !textPrompt.trim()) return;
     
     setUploading(true);
     setError('');
 
     try {
-      const pdfFormData = new FormData();
-      pdfFormData.append('pdf', pdfFile);
+      let jobId;
       
-      const pdfResponse = await fetch('/api/upload/pdf', {
-        method: 'POST',
-        body: pdfFormData
-      });
-      
-      if (!pdfResponse.ok) throw new Error('PDF upload failed');
-      
-      const pdfData = await pdfResponse.json();
-      const jobId = pdfData.jobId;
+      if (briefType === 'pdf') {
+        const pdfFormData = new FormData();
+        pdfFormData.append('pdf', pdfFile);
+        
+        const pdfResponse = await fetch('/api/upload/pdf', {
+          method: 'POST',
+          body: pdfFormData
+        });
+        
+        if (!pdfResponse.ok) throw new Error('PDF upload failed');
+        
+        const pdfData = await pdfResponse.json();
+        jobId = pdfData.jobId;
+      } else {
+        const textResponse = await fetch('/api/upload/text-prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: textPrompt })
+        });
+        
+        if (!textResponse.ok) throw new Error('Prompt upload failed');
+        
+        const textData = await textResponse.json();
+        jobId = textData.jobId;
+      }
 
       const imagesFormData = new FormData();
       images.forEach(image => {
@@ -111,7 +130,8 @@ function UploadPage({ onComplete }) {
     }
   };
 
-  const canSubmit = pdfFile && images.length > 0 && !uploading;
+  const canSubmit = images.length > 0 && !uploading && 
+    ((briefType === 'pdf' && pdfFile) || (briefType === 'text' && textPrompt.trim()));
 
   return (
     <div className="upload-page">
@@ -121,45 +141,77 @@ function UploadPage({ onComplete }) {
           <p>Upload your creative brief and product images to get started</p>
         </header>
 
-        <div className="upload-panels">
-          <div 
-            className="upload-panel"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handlePdfDrop}
-            onClick={() => pdfInputRef.current.click()}
+        <div className="brief-type-toggle">
+          <button 
+            className={`toggle-btn ${briefType === 'pdf' ? 'active' : ''}`}
+            onClick={() => setBriefType('pdf')}
           >
-            <input
-              ref={pdfInputRef}
-              type="file"
-              accept=".pdf"
-              onChange={handlePdfSelect}
-              style={{ display: 'none' }}
-            />
-            <div className="panel-content">
-              <div className="icon">📄</div>
-              {pdfFile ? (
-                <>
-                  <h3>{pdfFile.name}</h3>
-                  <p>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                  <button 
-                    className="button button-secondary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPdfFile(null);
-                    }}
-                  >
-                    Replace
-                  </button>
-                </>
-              ) : (
-                <>
-                  <h3>Upload PDF Brief</h3>
-                  <p>Drag & drop or click to browse</p>
-                  <span className="hint">Max 50MB</span>
-                </>
-              )}
+            📄 PDF Brief
+          </button>
+          <button 
+            className={`toggle-btn ${briefType === 'text' ? 'active' : ''}`}
+            onClick={() => setBriefType('text')}
+          >
+            ✍️ Text Prompt
+          </button>
+        </div>
+
+        <div className="upload-panels">
+          {briefType === 'pdf' ? (
+            <div 
+              className="upload-panel"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handlePdfDrop}
+              onClick={() => pdfInputRef.current.click()}
+            >
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={handlePdfSelect}
+                style={{ display: 'none' }}
+              />
+              <div className="panel-content">
+                <div className="icon">📄</div>
+                {pdfFile ? (
+                  <>
+                    <h3>{pdfFile.name}</h3>
+                    <p>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <button 
+                      className="button button-secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPdfFile(null);
+                      }}
+                    >
+                      Replace
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h3>Upload PDF Brief</h3>
+                    <p>Drag & drop or click to browse</p>
+                    <span className="hint">Max 50MB</span>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="upload-panel text-prompt-panel">
+              <div className="panel-content">
+                <div className="icon">✍️</div>
+                <h3>Enter Your Editing Instructions</h3>
+                <textarea
+                  className="text-prompt-input"
+                  placeholder="Describe how you want your images edited... (e.g., 'Make the background white, add a subtle shadow, and enhance the colors')"
+                  value={textPrompt}
+                  onChange={(e) => setTextPrompt(e.target.value)}
+                  rows={6}
+                />
+                <span className="hint">{textPrompt.length} characters</span>
+              </div>
+            </div>
+          )}
 
           <div 
             className="upload-panel"

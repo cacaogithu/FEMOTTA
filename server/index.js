@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import uploadRoutes from './routes/upload.js';
 import resultsRoutes from './routes/results.js';
 import imageRoutes from './routes/images.js';
+import chatRoutes from './routes/chat.js';
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/upload', uploadRoutes);
 app.use('/api/results', resultsRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });

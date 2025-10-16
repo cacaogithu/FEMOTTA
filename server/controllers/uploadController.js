@@ -101,6 +101,48 @@ export async function uploadImages(req, res) {
   }
 }
 
+export async function uploadTextPrompt(req, res) {
+  try {
+    const { prompt } = req.body;
+    
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    const jobId = `job_${Date.now()}`;
+    const fileName = `prompt-${Date.now()}.txt`;
+
+    const promptBuffer = Buffer.from(prompt, 'utf-8');
+    
+    const result = await uploadFileToDrive(
+      promptBuffer,
+      fileName,
+      PDF_FOLDER_ID,
+      'text/plain'
+    );
+
+    createJob({
+      id: jobId,
+      promptId: result.id,
+      promptText: prompt,
+      images: [],
+      status: 'prompt_uploaded',
+      createdAt: new Date()
+    });
+
+    res.json({ 
+      success: true, 
+      jobId,
+      fileId: result.id,
+      fileName: result.name,
+      message: 'Prompt uploaded successfully' 
+    });
+  } catch (error) {
+    console.error('Prompt upload error:', error);
+    res.status(500).json({ error: 'Failed to upload prompt', details: error.message });
+  }
+}
+
 export function getJobInfo(req, res) {
   const { jobId } = req.params;
   const job = getJob(jobId);

@@ -19,6 +19,35 @@
   font-size: 16px;
 }
 
+.brief-type-toggle {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.toggle-btn {
+  padding: 12px 24px;
+  border: 2px solid #dee2e6;
+  background: white;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 500;
+}
+
+.toggle-btn:hover {
+  border-color: #007BFF;
+  color: #007BFF;
+}
+
+.toggle-btn.active {
+  background: #007BFF;
+  color: white;
+  border-color: #007BFF;
+}
+
 .upload-panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -68,6 +97,33 @@
 .hint {
   font-size: 14px;
   color: #adb5bd;
+}
+
+.text-prompt-panel {
+  cursor: default;
+}
+
+.text-prompt-panel:hover {
+  border-color: #dee2e6;
+  background: white;
+}
+
+.text-prompt-input {
+  width: 100%;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 16px;
+  font-family: inherit;
+  resize: vertical;
+  margin: 16px 0;
+  outline: none;
+  min-height: 120px;
+}
+
+.text-prompt-input:focus {
+  border-color: #007BFF;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .image-grid {

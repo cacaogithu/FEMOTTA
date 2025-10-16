@@ -1,7 +1,8 @@
 import BeforeAfterSlider from './BeforeAfterSlider';
+import ChatWidget from './ChatWidget';
 import './ResultsPage.css';
 
-function ResultsPage({ results, onReset }) {
+function ResultsPage({ results, onReset, jobId }) {
   const handleDownloadAll = async () => {
     try {
       const response = await fetch(`/api/results/download/${results.folderId}`);
@@ -38,6 +39,7 @@ function ResultsPage({ results, onReset }) {
 
   return (
     <div className="results-page">
+      <ChatWidget jobId={jobId} />
       <div className="container">
         <header className="results-header">
           <h1>✨ Your Images Are Ready!</h1>
