@@ -127,18 +127,21 @@ export async function uploadImages(req, res) {
         IMAGES_FOLDER_ID
       );
 
+      console.log(`Uploaded ${file.originalname} to Drive, making public...`);
       await makeFilePublic(result.id);
       const publicUrl = getPublicImageUrl(result.id);
+      console.log(`Image public URL: ${publicUrl}`);
 
       uploadedImages.push({
         id: result.id,
         name: file.originalname,
         originalName: file.originalname,
         driveId: result.id,
-        publicUrl: publicUrl,
-        buffer: file.buffer
+        publicUrl: publicUrl
       });
     }
+
+    console.log(`Uploaded ${uploadedImages.length} images, starting processing...`);
 
     updateJob(jobId, {
       images: uploadedImages,
@@ -174,6 +177,8 @@ async function processImagesWithNanoBanana(jobId) {
     throw new Error('Job not found');
   }
 
+  console.log(`Processing job ${jobId} - Images count: ${job.images?.length || 0}`);
+
   if (!job.promptText) {
     console.error('No prompt found for job:', jobId);
     updateJob(jobId, { 
@@ -184,8 +189,11 @@ async function processImagesWithNanoBanana(jobId) {
   }
 
   if (!job.images || job.images.length === 0) {
+    console.error('No images found for job:', jobId);
     throw new Error('No images found for job');
   }
+
+  console.log(`Processing ${job.images.length} images with prompt:`, job.promptText.substring(0, 100));
 
   updateJob(jobId, { 
     status: 'processing',
@@ -193,22 +201,30 @@ async function processImagesWithNanoBanana(jobId) {
   });
 
   const imageUrls = job.images.map(img => img.publicUrl);
+  console.log('Image URLs to process:', imageUrls);
   
+  console.log('Calling Nano Banana API...');
   const results = await editMultipleImages(imageUrls, job.promptText, {
     enableSyncMode: true,
     outputFormat: 'jpeg',
     numImages: 1
   });
+  console.log(`Received ${results.length} results from API`);
 
   const editedImages = [];
   const EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
+  
+  console.log(`Saving ${results.length} edited images to Drive...`);
   
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     const originalImage = job.images[i];
     
+    console.log(`Processing result ${i + 1}:`, result);
+    
     if (result.images && result.images.length > 0) {
       const editedImageUrl = result.images[0].url;
+      console.log(`Downloading edited image from: ${editedImageUrl}`);
       
       const imageResponse = await fetch(editedImageUrl);
       const imageBuffer = await imageResponse.arrayBuffer();
@@ -216,6 +232,7 @@ async function processImagesWithNanoBanana(jobId) {
       const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
       const editedFileName = `${originalNameWithoutExt}_edited.jpg`;
       
+      console.log(`Uploading ${editedFileName} to Drive...`);
       const uploadedFile = await uploadFileToDrive(
         Buffer.from(imageBuffer),
         editedFileName,
@@ -233,9 +250,13 @@ async function processImagesWithNanoBanana(jobId) {
         originalName: originalImage.originalName,
         url: getPublicImageUrl(uploadedFile.id)
       });
+      console.log(`Saved edited image: ${editedFileName}`);
+    } else {
+      console.error(`No edited image in result ${i + 1}`);
     }
   }
 
+  console.log(`Successfully processed ${editedImages.length} images`);
   updateJob(jobId, { 
     status: 'completed',
     editedImages,
