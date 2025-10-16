@@ -3,56 +3,48 @@ import { createJob, getJob, updateJob } from '../utils/jobStore.js';
 import { editMultipleImages } from '../services/nanoBanana.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
-import pdfParse from 'pdf-parse';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 const PDF_FOLDER_ID = '1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697';
 const IMAGES_FOLDER_ID = '1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS';
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
 async function extractPromptFromPDF(pdfBuffer) {
   try {
-    const data = await pdfParse(pdfBuffer);
-    const pdfText = data.text;
-
-    const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GOOGLE_GEMINI_API_KEY not found in environment variables');
-    }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-    const prompt = `Extract image specifications from the PDF as JSON array.
-
-For each image, return:
-{
-  "image_number": 1,
-  "variant": "METAL DARK" | "WOOD DARK",
-  "title": "UPPERCASE HEADLINE",
-  "subtitle": "Copy text",
-  "asset": "filename",
-  "ai_prompt": "Add dark gradient from top (black) to middle (transparent). Overlay '{title}' in white Montserrat Extra Bold 48-60px, '{subtitle}' below in Regular 18-22px. Add text shadow. Keep product unchanged."
-}
-
-Return only valid JSON array.
-
-## Input
-
-${pdfText}`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    // Convert PDF buffer to base64 for OpenAI
+    const base64Pdf = pdfBuffer.toString('base64');
     
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      const parsedData = JSON.parse(jsonMatch[0]);
-      if (parsedData.length > 0 && parsedData[0].ai_prompt) {
-        return parsedData[0].ai_prompt;
-      }
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a PDF analysis assistant. Extract image editing specifications and return only the ai_prompt field as plain text.'
+        },
+        {
+          role: 'user',
+          content: `Extract the image editing instructions from this PDF and return ONLY the ai_prompt text (the description of how to edit the image). Do not include JSON, just the raw prompt text.
+
+Example output format:
+Add dark gradient from top (black) to middle (transparent). Overlay 'TITLE' in white Montserrat Extra Bold 48-60px, 'Subtitle text' below in Regular 18-22px. Add text shadow. Keep product unchanged.
+
+PDF base64: ${base64Pdf.substring(0, 50000)}`
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 500
+    });
+
+    const promptText = completion.choices[0].message.content.trim();
+    
+    if (!promptText || promptText.length < 10) {
+      throw new Error('Could not extract valid prompt from PDF');
     }
     
-    throw new Error('Could not extract prompt from LLM response');
+    return promptText;
   } catch (error) {
     console.error('PDF extraction error:', error);
     throw error;

@@ -8,9 +8,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "pdf-parse": "^2.3.12"
-  }
+  "description": ""
 }
