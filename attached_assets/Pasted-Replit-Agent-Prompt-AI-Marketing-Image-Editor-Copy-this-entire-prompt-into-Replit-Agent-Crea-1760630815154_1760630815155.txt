@@ -1,0 +1,444 @@
+Replit Agent Prompt - AI Marketing Image Editor
+
+Copy this entire prompt into Replit Agent:
+
+
+
+
+Create a professional full-stack web application for AI-powered marketing image editing. This app allows users to upload marketing briefs (PDF) and product images, which are then automatically processed by an existing n8n automation workflow.
+
+FRONT-END INTERFACE
+
+Upload Page (Main Landing)
+
+Create a modern, clean two-panel layout:
+
+Panel 1 - PDF Brief Upload:
+
+•
+Single file upload area with drag-and-drop support
+
+•
+Accept only .pdf files (max 10MB)
+
+•
+Show file icon when empty, display filename when uploaded
+
+•
+Include "Replace" button after upload
+
+•
+Visual feedback during upload (progress bar)
+
+Panel 2 - Product Images Upload:
+
+•
+Multiple file upload area with drag-and-drop
+
+•
+Accept .jpg, .jpeg, .png files (max 5MB each)
+
+•
+Display uploaded images as thumbnail grid
+
+•
+Show filename and size for each image
+
+•
+"Remove" button on each thumbnail
+
+•
+Counter showing "X images uploaded"
+
+•
+Support bulk selection
+
+Submit Button:
+
+•
+Large, prominent "Start AI Editing" button
+
+•
+Disabled (grayed) until 1 PDF + 1+ images uploaded
+
+•
+Blue accent color (#007BFF) when enabled
+
+•
+Show loading spinner when clicked
+
+Processing Page
+
+Replace upload interface with progress view:
+
+•
+Large heading: "Processing Your Images..."
+
+•
+Multi-step progress indicator showing:
+
+•
+Step 1/5: Uploading files to cloud storage...
+
+•
+Step 2/5: AI parsing your creative brief...
+
+•
+Step 3/5: Matching images to specifications...
+
+•
+Step 4/5: Editing images with AI (X of Y complete)...
+
+•
+Step 5/5: Preparing results...
+
+
+
+•
+Visual progress bar
+
+•
+Estimated time remaining
+
+•
+Subtle animation/spinner
+
+•
+"Cancel" button option
+
+Results Gallery Page
+
+Display processed images in a responsive grid:
+
+Image Comparison Cards:
+
+•
+Each card shows one image with before/after comparison
+
+•
+Interactive slider to reveal original vs. edited
+
+•
+Display image title (bold, large text)
+
+•
+Display subtitle (regular, smaller text)
+
+•
+"Download" button for individual image
+
+•
+Processing time indicator
+
+•
+Subtle card shadow and hover effect
+
+Gallery Controls:
+
+•
+"Download All as ZIP" button at top
+
+•
+"Start New Project" button to reset
+
+•
+Responsive grid: 1 column mobile, 2-3 columns desktop
+
+BACK-END LOGIC
+
+File Upload Integration
+
+Use Replit's Google Drive Connector:
+
+Upload PDF Brief:
+
+JavaScript
+
+
+// Upload to Google Drive folder: "Instructions2"
+const pdfUpload = await googleDrive.upload({
+  file: pdfFile,
+  folderId: '1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697',
+  name: `brief-${Date.now()}.pdf`
+});
+
+
+Upload Product Images:
+
+JavaScript
+
+
+// Upload to Google Drive folder: "Product Images"
+for (const image of imageFiles) {
+  await googleDrive.upload({
+    file: image,
+    folderId: '1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS',
+    name: image.name
+  });
+}
+
+
+Processing Status Polling
+
+After uploads complete, poll for results:
+
+JavaScript
+
+
+// Poll Google Drive for "New Images" folder
+// This folder is created by the n8n workflow when processing completes
+const pollInterval = setInterval(async () => {
+  try {
+    const newImagesFolder = await googleDrive.listFiles({
+      folderId: 'NEW_IMAGES_FOLDER_ID', // Get this from Google Drive
+      orderBy: 'modifiedTime desc'
+    });
+    
+    if (newImagesFolder.files.length >= expectedImageCount) {
+      clearInterval(pollInterval);
+      displayResults(newImagesFolder.files);
+    }
+  } catch (error) {
+    console.error('Polling error:', error);
+  }
+}, 5000); // Check every 5 seconds
+
+
+Results Retrieval
+
+Fetch edited images and original metadata:
+
+•
+Get files from "New Images" folder
+
+•
+Match with original images by filename
+
+•
+Generate download URLs
+
+•
+Create ZIP archive for bulk download
+
+DESIGN SYSTEM
+
+Color Palette:
+
+•
+Primary Background: #FFFFFF
+
+•
+Secondary Background: #F8F9FA
+
+•
+Primary Accent: #007BFF
+
+•
+Success: #28A745
+
+•
+Error: #DC3545
+
+•
+Text Primary: #212529
+
+•
+Text Secondary: #6C757D
+
+Typography:
+
+•
+Font: Inter or Lato (sans-serif)
+
+•
+Headings: 600-700 weight
+
+•
+Body: 400 weight
+
+•
+Buttons: 500-600 weight
+
+Spacing:
+
+•
+Use 8px grid system
+
+•
+Generous padding and margins
+
+•
+Max content width: 1200px
+
+Responsiveness:
+
+•
+Mobile-first approach
+
+•
+Breakpoints: 640px, 768px, 1024px
+
+•
+Touch-friendly buttons (min 44x44px)
+
+ERROR HANDLING
+
+Upload Errors:
+
+•
+Show error message next to failed file
+
+•
+Provide "Retry" button
+
+•
+Specific messages: "File too large", "Invalid format", "Network error"
+
+Processing Errors:
+
+•
+If polling times out (>10 minutes), show error
+
+•
+Message: "Processing is taking longer than expected. Please check back later."
+
+•
+Provide "Check Status" button to resume polling
+
+Validation:
+
+•
+Client-side file type and size validation
+
+•
+Show errors immediately on file selection
+
+•
+Prevent submission until all files valid
+
+ADDITIONAL FEATURES
+
+Progress Persistence:
+
+•
+Store job ID in localStorage
+
+•
+Allow users to close browser and return
+
+•
+Resume polling on page reload
+
+Email Notifications (Optional):
+
+•
+Input field for email address
+
+•
+Use Gmail Connector to send completion notification
+
+•
+Include link to results page
+
+Job History:
+
+•
+Store completed jobs in Replit Database
+
+•
+Show list of previous projects
+
+•
+Allow re-downloading results
+
+TECHNICAL REQUIREMENTS
+
+Stack:
+
+•
+React.js for front-end
+
+•
+Node.js/Express for back-end
+
+•
+Replit Database for job storage
+
+•
+Google Drive Connector for file operations
+
+•
+Gmail Connector for notifications
+
+Security:
+
+•
+Validate all file uploads
+
+•
+Sanitize filenames
+
+•
+Rate limiting on API endpoints
+
+•
+Secure file URLs with expiration
+
+Performance:
+
+•
+Lazy load images
+
+•
+Compress thumbnails
+
+•
+Efficient polling strategy
+
+•
+Cancel polling on page exit
+
+INTEGRATION NOTES
+
+This application integrates with an existing n8n workflow that:
+
+1.
+Monitors the "Instructions2" folder for new PDFs
+
+2.
+Monitors the "Product Images" folder for new images
+
+3.
+Processes images using AI (Wavespeed Nano Banana API)
+
+4.
+Creates a "New Images" folder with edited results
+
+5.
+Sends email notification when complete
+
+The front-end simply uploads files to the correct folders and polls for results. The n8n workflow handles all AI processing automatically.
+
+
+
+
+Build this application with:
+
+•
+Clean, professional UI
+
+•
+Smooth animations and transitions
+
+•
+Mobile-responsive design
+
+•
+Comprehensive error handling
+
+•
+Real-time progress updates
+
+•
+One-click deployment ready
+

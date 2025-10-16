@@ -1,0 +1,802 @@
+{
+  "name": "Image Editor Corsair",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/u/0/folders/1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697",
+          "mode": "url"
+        },
+        "event": "fileCreated",
+        "options": {
+          "fileType": "all"
+        }
+      },
+      "id": "1bb99134-3b56-4ca3-be31-f80570d401f9",
+      "name": "PDF Uploaded to Instructions2",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "position": [
+        -8096,
+        3232
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "J9wIimFY6ZhseHVL",
+          "name": "Google Drive account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -7792,
+        3232
+      ],
+      "id": "b047da11-a275-43e8-8d53-181c5203be2d",
+      "name": "Download PDF2",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "J9wIimFY6ZhseHVL",
+          "name": "Google Drive account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -7584,
+        3232
+      ],
+      "id": "c8be8ce2-56eb-47e8-9f93-1b9c74588ec6",
+      "name": "Extract PDF Text2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# Role\nYou are an AI creative assistant specialized in extracting marketing image specifications from briefs.\n\nYour task is to read the provided PDF brief and extract each image specification into structured JSON format.\n\n## Instructions\n\n1. Extract ALL images mentioned in the brief (IMAGE 1, IMAGE 2, IMAGE 3, etc.)\n2. For each image, extract:\n   - image_number: The sequential number\n   - title: The HEADLINE text (convert to uppercase)\n   - subtitle: The COPY text (keep as written)\n   - asset: The ASSET filename\n   - variant: Either \"METAL DARK\" or \"WOOD DARK\"\n\n3. For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this template:\n\n\"Add a dark gradient overlay to the top portion of this image, fading from black at the top to transparent around the middle. The gradient should be subtle and natural looking. Overlay the following text at the top center of the image: {title} in large bold white text (Montserrat Extra Bold font, approximately 48-60px, all caps), and below it {subtitle} in smaller regular white text (Montserrat Regular font, approximately 18-22px). Add a subtle shadow behind the text for readability. Keep the product and background unchanged. Output as a high-resolution image suitable for web marketing.\"\n\nReplace {title} and {subtitle} with the actual extracted values.\n\n4. Return ONLY a valid JSON array, no additional text.\n\n## Output Format\n\n[\n  {\n    \"image_number\": 1,\n    \"variant\": \"METAL DARK\",\n    \"title\": \"CORSAIR ONE I600\",\n    \"subtitle\": \"A Compact PC packed with cutting-edge components and excellent performance.\",\n    \"asset\": \"CORSAIR_ONE_i600_DARK_METAL_12\",\n    \"ai_prompt\": \"Add a dark gradient overlay to the top portion of this image, fading from black at the top to transparent around the middle. The gradient should be subtle and natural looking. Overlay the following text at the top center of the image: CORSAIR ONE I600 in large bold white text (Montserrat Extra Bold font, approximately 48-60px, all caps), and below it A Compact PC packed with cutting-edge components and excellent performance. in smaller regular white text (Montserrat Regular font, approximately 18-22px). Add a subtle shadow behind the text for readability. Keep the product and background unchanged. Output as a high-resolution image suitable for web marketing.\"\n  }\n]\n\n## Input\n\n{{ $('Extract PDF Text2').item.json.text }}\n",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -6928,
+        3264
+      ],
+      "id": "eb22386a-3749-43ab-9d4d-0a295ba8e6d1",
+      "name": "Parse PDF with LLM2"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "[\n  {\n    \"image_number\": 1,\n    \"variant\": \"METAL DARK\",\n    \"title\": \"CORSAIR ONE I600\",\n    \"subtitle\": \"A Compact PC packed with cutting-edge components and excellent performance.\",\n    \"asset\": \"CORSAIR_ONE_i600_DARK_METAL_12\",\n    \"ai_prompt\": \"Add a dark gradient overlay to the top portion of this image, fading from black at the top to transparent around the middle. The gradient should be subtle and natural looking. Overlay the following text at the top center of the image: CORSAIR ONE I600 in large bold white text (Montserrat Extra Bold font, approximately 48-60px, all caps), and below it A Compact PC packed with cutting-edge components and excellent performance. in smaller regular white text (Montserrat Regular font, approximately 18-22px). Add a subtle shadow behind the text for readability. Keep the product and background unchanged. Output as a high-resolution image suitable for web marketing.\"\n  },\n  {\n    \"image_number\": 2,\n    \"variant\": \"METAL DARK\",\n    \"title\": \"DUAL 240MM LIQUID COOLING\",\n    \"subtitle\": \"Modern liquid cooling minimizes CPU and GPU temperatures, achieving faster performance with quiet operation.\",\n    \"asset\": \"CORSAIR_ONE_i600_DARK_METAL_17\",\n    \"ai_prompt\": \"Add a dark gradient overlay to the top portion of this image, fading from black at the top to transparent around the middle. The gradient should be subtle and natural looking. Overlay the following text at the top center of the image: DUAL 240MM LIQUID COOLING in large bold white text (Montserrat Extra Bold font, approximately 48-60px, all caps), and below it Modern liquid cooling minimizes CPU and GPU temperatures, achieving faster performance with quiet operation. in smaller regular white text (Montserrat Regular font, approximately 18-22px). Add a subtle shadow behind the text for readability. Keep the product and background unchanged. Output as a high-resolution image suitable for web marketing.\"\n  }\n]\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -6800,
+        3472
+      ],
+      "id": "73aae240-0912-4f46-9f04-d65c8322a373",
+      "name": "Structured Output Parser2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -6992,
+        3488
+      ],
+      "id": "d4b499d9-f531-45bb-b143-42ea1e13ccf3",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "BM9GfMk2VfLbt2ci",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "mode": "url",
+            "value": "https://drive.google.com/drive/u/0/folders/1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS",
+            "__regex": "https:\\/\\/drive\\.google\\.com(?:\\/.*|)\\/folders\\/([0-9a-zA-Z\\-_]+)(?:\\/.*|)"
+          }
+        },
+        "options": {
+          "fields": [
+            "webContentLink",
+            "id"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -6576,
+        3296
+      ],
+      "id": "a9d90113-df32-40fb-b5a9-c995eb145bf1",
+      "name": "Get All Images from Folder2",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "J9wIimFY6ZhseHVL",
+          "name": "Google Drive account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.wavespeed.ai/api/v3/google/nano-banana/edit",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"enable_base64_output\": false,\n  \"enable_sync_mode\": true,\n  \"images\": [\n    \"{{ $json.imageUrl }}\"\n  ],\n  \"output_format\": \"jpeg\",\n  \"prompt\": \" {{ $json.prompt }}\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5728,
+        3504
+      ],
+      "id": "ed075cac-a508-4c9e-878d-bd7ea71b41e6",
+      "name": "Wavespeed Edit Image2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "LmoOzwuK3WopDjyF",
+          "name": "Header Auth account"
+        },
+        "httpBearerAuth": {
+          "id": "IIwSh0kpG9nk9uKi",
+          "name": "Wavespeed"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the combined data from the loop context\nconst combinedData = $('Loop Over Items').first().json;\n\n// Get the Wavespeed result\nconst wavespeedData = $input.first().json.data;\n\n// Get the edited image URL\nconst editedUrl = wavespeedData.outputs && wavespeedData.outputs[0] \n  ? wavespeedData.outputs[0] \n  : 'Processing...';\n\nreturn [{\n  json: {\n    image_number: combinedData.index + 1,\n    asset: combinedData.asset,\n    title: combinedData.title,\n    subtitle: combinedData.subtitle,\n    original_image_name: combinedData.imageName,\n    original_image_url: combinedData.imageUrl,\n    edited_image_url: editedUrl,\n    status: wavespeedData.status,\n    processing_time_ms: wavespeedData.timings?.inference || 0\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5504,
+        3520
+      ],
+      "id": "7d2d6288-aa47-437e-bd43-420bed62df70",
+      "name": "Collect Result2"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -5072,
+        3520
+      ],
+      "id": "3cd0edf7-8062-493f-b16d-8de5dd7f043d",
+      "name": "Wait for Processing2",
+      "webhookId": "1fa3a1a2-168d-4fe8-8437-c04903ec0ee3"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Wavespeed Edit Image2').item.json.data.urls.get }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4864,
+        3520
+      ],
+      "id": "1b7513da-9a05-42e2-9d49-63da3c8898bb",
+      "name": "Get Wavespeed Result2",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "IIwSh0kpG9nk9uKi",
+          "name": "Wavespeed"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "status-check",
+              "operator": {
+                "name": "filter.operator.equals",
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.data.status }}",
+              "rightValue": "completed"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -4608,
+        3600
+      ],
+      "id": "c2636912-3034-480d-9363-f93f917e5fd9",
+      "name": "Check If Completed2"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.data.outputs[0] }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4368,
+        3344
+      ],
+      "id": "e3bacfde-6c9e-4b8c-af08-ccc60391e676",
+      "name": "Download Edited Image2"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "New Images",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB",
+          "mode": "list",
+          "cachedResultName": "Corsair",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -7216,
+        3248
+      ],
+      "id": "a45d093e-ae42-4c9f-b6fe-58382e058a22",
+      "name": "Create New Images Folder2",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "J9wIimFY6ZhseHVL",
+          "name": "Google Drive account 3"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Code in JavaScript').item.json.asset }}_edited.jpg",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $('Create New Images Folder2').item.json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -4176,
+        3376
+      ],
+      "id": "5f1d88e9-c45c-45f8-8b6b-956dbb2749a9",
+      "name": "Upload to New Images Folder2",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "J9wIimFY6ZhseHVL",
+          "name": "Google Drive account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect the results with Drive upload info\nconst originalUrl = $('Loop Over Items').first().json.imageUrl;\nconst editedUrl = $('Get Wavespeed Result2').first().json.data.outputs[0];\nconst promptData = $('Loop Over Items').first().json.prompt;\n\nreturn [{\n  json: {\n    image_number: promptData.imageIndex + 1,\n    asset: promptData.asset,\n    title: promptData.title,\n    subtitle: promptData.subtitle,\n    original_image_name: promptData.imageName,\n    original_image_url: originalUrl,\n    edited_image_url: editedUrl,\n    drive_file_id: $('Loop Over Items').first().json.fileId,\n    drive_file_url: $input.first().json.webContentLink,\n    status: $('Get Wavespeed Result2').first().json.data.status,\n   \n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3984,
+        3584
+      ],
+      "id": "cfccec4e-7333-4f1e-a8c1-7bad332870f3",
+      "name": "Collect Result with Drive Info2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the combined data from the loop\nconst combinedData = $('Loop Over Items').first().json;\n\n// Get the Wavespeed result\nconst wavespeedData = $input.first().json.data;\n\n// Get the edited image URL\nconst editedUrl = wavespeedData.outputs && wavespeedData.outputs[0] \n  ? wavespeedData.outputs[0] \n  : 'Processing...';\n\nreturn [{\n  json: {\n    image_number: combinedData.index + 1,\n    asset: combinedData.asset,\n    title: combinedData.title,\n    subtitle: combinedData.subtitle,\n    original_image_name: combinedData.imageName,\n    original_image_url: combinedData.imageUrl,\n    edited_image_url: editedUrl,\n    drive_file_id: combinedData.fileId,\n    drive_file_url: `https://drive.google.com/uc?id=${combinedData.fileId}&export=download`,\n    status: wavespeedData.status,\n    processing_time_ms: wavespeedData.timings?.inference || 0\n  }\n}];\n\n\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3248,
+        3248
+      ],
+      "id": "ad3b7519-dd39-48d4-9410-ceb8d03cdc9e",
+      "name": "Aggregate All Results2"
+    },
+    {
+      "parameters": {
+        "fromEmail": "info@cacao-ai.com",
+        "toEmail": "rafacrvg@icloud.com",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.html_email }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -3040,
+        3248
+      ],
+      "id": "9abab492-32bf-4bc3-a9d3-4a098684ade6",
+      "name": "Send email1",
+      "webhookId": "2e155ffb-94af-44a3-bacb-916b13e27d09",
+      "credentials": {
+        "smtp": {
+          "id": "KompgYs6hULIuobD",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all images\nconst images = $('Get All Images from Folder2').all().map(item => item.json);\n\n// Get all prompts (this is already an array!)\nconst prompts = $('Parse PDF with LLM2').first().json.output;\n\n// Combine them by index\nconst combined = [];\n\nfor (let i = 0; i < images.length; i++) {\n  const image = images[i];\n  const prompt = prompts[i] || prompts[0];  // Get prompt at index i\n  \n  // Extract file ID\n  let fileId = image.id;\n  if (!fileId && image.webContentLink) {\n    const match = image.webContentLink.match(/id=([^&]+)/);\n    if (match) fileId = match[1];\n  }\n  \n  combined.push({\n    json: {\n      imageUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,\n      imageName: image.name || `image_${i + 1}`,\n      fileId: fileId,\n      prompt: prompt.ai_prompt,\n      title: prompt.title,\n      subtitle: prompt.subtitle,\n      asset: prompt.asset,\n      index: i\n    }\n  } );\n}\n\nreturn combined;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6368,
+        3296
+      ],
+      "id": "0f5cab84-57fa-4675-b167-65ede3f32202",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -6096,
+        3344
+      ],
+      "id": "a7569a95-9c53-4567-9fbe-056b398d34ea",
+      "name": "Loop Over Items"
+    }
+  ],
+  "pinData": {
+    "PDF Uploaded to Instructions2": [
+      {
+        "json": {
+          "parents": [
+            "1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697"
+          ],
+          "lastModifyingUser": {
+            "displayName": "Rafael Almeida",
+            "kind": "drive#user",
+            "me": true,
+            "permissionId": "15673562140372004766",
+            "emailAddress": "rafacrvg@icloud.com",
+            "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocI3AcxtdzYV6scOOEjawwEcYqzCnyrAjDt-Cf5s91It_5xv1A=s64"
+          },
+          "owners": [
+            {
+              "displayName": "Rafael Almeida",
+              "kind": "drive#user",
+              "me": true,
+              "permissionId": "15673562140372004766",
+              "emailAddress": "rafacrvg@icloud.com",
+              "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocI3AcxtdzYV6scOOEjawwEcYqzCnyrAjDt-Cf5s91It_5xv1A=s64"
+            }
+          ],
+          "permissions": [
+            {
+              "kind": "drive#permission",
+              "id": "15673562140372004766",
+              "type": "user",
+              "emailAddress": "rafacrvg@icloud.com",
+              "role": "owner",
+              "displayName": "Rafael Almeida",
+              "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocI3AcxtdzYV6scOOEjawwEcYqzCnyrAjDt-Cf5s91It_5xv1A=s64",
+              "deleted": false,
+              "pendingOwner": false
+            }
+          ],
+          "spaces": [
+            "drive"
+          ],
+          "capabilities": {
+            "canAcceptOwnership": false,
+            "canAddChildren": false,
+            "canAddMyDriveParent": false,
+            "canChangeCopyRequiresWriterPermission": true,
+            "canChangeItemDownloadRestriction": true,
+            "canChangeSecurityUpdateEnabled": false,
+            "canChangeViewersCanCopyContent": true,
+            "canComment": true,
+            "canCopy": true,
+            "canDelete": true,
+            "canDisableInheritedPermissions": false,
+            "canDownload": true,
+            "canEdit": true,
+            "canEnableInheritedPermissions": true,
+            "canListChildren": false,
+            "canModifyContent": true,
+            "canModifyContentRestriction": true,
+            "canModifyEditorContentRestriction": true,
+            "canModifyOwnerContentRestriction": true,
+            "canModifyLabels": false,
+            "canMoveChildrenWithinDrive": false,
+            "canMoveItemIntoTeamDrive": true,
+            "canMoveItemOutOfDrive": true,
+            "canMoveItemWithinDrive": true,
+            "canReadLabels": false,
+            "canReadRevisions": true,
+            "canRemoveChildren": false,
+            "canRemoveContentRestriction": false,
+            "canRemoveMyDriveParent": true,
+            "canRename": true,
+            "canShare": true,
+            "canTrash": true,
+            "canUntrash": true
+          },
+          "permissionIds": [
+            "15673562140372004766"
+          ],
+          "linkShareMetadata": {
+            "securityUpdateEligible": false,
+            "securityUpdateEnabled": true
+          },
+          "downloadRestrictions": {
+            "itemDownloadRestriction": {
+              "restrictedForReaders": false,
+              "restrictedForWriters": false
+            },
+            "effectiveDownloadRestrictionWithContext": {
+              "restrictedForReaders": false,
+              "restrictedForWriters": false
+            }
+          },
+          "kind": "drive#file",
+          "id": "1XhCDZaxwS7HutooA2g7c62a9loxjf2Ps",
+          "name": "CORSAIR%20ONE%20i600%20-%20Enhanced%20Image%20Brief 2.pdf",
+          "mimeType": "application/pdf",
+          "starred": false,
+          "trashed": false,
+          "explicitlyTrashed": false,
+          "version": "3",
+          "webContentLink": "https://drive.google.com/uc?id=1XhCDZaxwS7HutooA2g7c62a9loxjf2Ps&export=download",
+          "webViewLink": "https://drive.google.com/file/d/1XhCDZaxwS7HutooA2g7c62a9loxjf2Ps/view?usp=drivesdk",
+          "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/application/pdf",
+          "hasThumbnail": true,
+          "thumbnailLink": "https://lh3.googleusercontent.com/drive-storage/AJQWtBPfPL-w3yYELfxUJwQR2osU7f3BhwxqZrQ5_I7VN1If6_ESfVng-iBLnR9C1AXnnzt-P8kG84iCnWs0CZaq5JbEgboQlyHIq7SOWojSa6NhhfU=s220",
+          "thumbnailVersion": "1",
+          "viewedByMe": true,
+          "viewedByMeTime": "2025-10-15T14:12:57.441Z",
+          "createdTime": "2025-10-15T14:12:57.441Z",
+          "modifiedTime": "2025-10-09T15:36:17.000Z",
+          "modifiedByMeTime": "2025-10-09T15:36:17.000Z",
+          "modifiedByMe": true,
+          "shared": false,
+          "ownedByMe": true,
+          "viewersCanCopyContent": true,
+          "copyRequiresWriterPermission": false,
+          "writersCanShare": true,
+          "originalFilename": "CORSAIR%20ONE%20i600%20-%20Enhanced%20Image%20Brief 2.pdf",
+          "fullFileExtension": "pdf",
+          "fileExtension": "pdf",
+          "md5Checksum": "fdea942f31f4cc62f2a9d711c63e4b37",
+          "sha1Checksum": "dbbf81f8442fa697bed2173e82af758e07c13c94",
+          "sha256Checksum": "0dcd597777f4daf04573ddc61e5935b8b1c2a75bb0ded2cef510591d272d3560",
+          "size": "11514367",
+          "quotaBytesUsed": "11514367",
+          "headRevisionId": "0B_rB7ECKhQ90cHM5N1h1RGMzY2VzNXZBa2srMnp3clMvYS9NPQ",
+          "isAppAuthorized": false,
+          "inheritedPermissionsDisabled": false
+        }
+      }
+    ]
+  },
+  "connections": {
+    "PDF Uploaded to Instructions2": {
+      "main": [
+        [
+          {
+            "node": "Download PDF2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download PDF2": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text2": {
+      "main": [
+        [
+          {
+            "node": "Create New Images Folder2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse PDF with LLM2": {
+      "main": [
+        [
+          {
+            "node": "Get All Images from Folder2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser2": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Parse PDF with LLM2",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Parse PDF with LLM2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Images from Folder2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wavespeed Edit Image2": {
+      "main": [
+        [
+          {
+            "node": "Collect Result2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Result2": {
+      "main": [
+        [
+          {
+            "node": "Wait for Processing2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Processing2": {
+      "main": [
+        [
+          {
+            "node": "Get Wavespeed Result2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Wavespeed Result2": {
+      "main": [
+        [
+          {
+            "node": "Check If Completed2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Completed2": {
+      "main": [
+        [
+          {
+            "node": "Download Edited Image2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for Processing2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Edited Image2": {
+      "main": [
+        [
+          {
+            "node": "Upload to New Images Folder2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New Images Folder2": {
+      "main": [
+        [
+          {
+            "node": "Parse PDF with LLM2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to New Images Folder2": {
+      "main": [
+        [
+          {
+            "node": "Collect Result with Drive Info2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Result with Drive Info2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Results2": {
+      "main": [
+        [
+          {
+            "node": "Send email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Results2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wavespeed Edit Image2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "337463a9-c667-46e6-bbfc-c1e9f5855125",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "61a277352ba408db8662a8149b1a5cf83059144bd22ba16285bd4ca98da453cc"
+  },
+  "id": "ggLjFZNjukUKxDAu",
+  "tags": []
+}
