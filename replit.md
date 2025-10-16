@@ -33,7 +33,8 @@ A professional full-stack web application for AI-powered marketing image editing
 
 ## Features
 1. **File Upload Interface**
-   - Drag-and-drop PDF brief upload (max 50MB)
+   - **Dual input modes**: PDF brief upload OR text prompt
+   - Toggle between PDF (max 50MB) and text prompt input
    - Multiple product image upload (JPG, PNG, max 20MB each)
    - Client-side validation and error handling
 
@@ -43,10 +44,17 @@ A professional full-stack web application for AI-powered marketing image editing
    - Automatic completion detection
 
 3. **Results Gallery**
+   - Interactive before/after image comparison slider
    - Grid display of edited images
    - Individual image download
    - Bulk download as ZIP file
    - Reset functionality for new projects
+
+4. **AI Chat Assistant**
+   - Floating chat widget on results page
+   - OpenAI-powered image editing assistance
+   - Context-aware responses based on original prompt/brief
+   - Help users refine and iterate on edits
 
 ## Google Drive Integration
 The app uploads files to specific Google Drive folders:
@@ -64,10 +72,13 @@ The n8n workflow:
 
 ## API Endpoints
 - `POST /api/upload/pdf` - Upload PDF brief
+- `POST /api/upload/text-prompt` - Upload text prompt as alternative to PDF
 - `POST /api/upload/images` - Upload product images
 - `GET /api/upload/job/:jobId` - Get job details
 - `GET /api/results/poll/:jobId` - Poll for processing status
 - `GET /api/results/download/:folderId` - Download all images as ZIP
+- `GET /api/images/:imageId` - Proxy endpoint for secure image downloads
+- `POST /api/chat` - OpenAI chat completions for image editing assistance
 
 ## Environment Setup
 - Frontend runs on port 5000
@@ -75,13 +86,16 @@ The n8n workflow:
 - Google Drive authentication managed by Replit integration
 
 ## Recent Changes
-- **October 16, 2025**: Initial project setup
+- **October 16, 2025**: Initial project setup and feature enhancements
   - Created full-stack application structure with React + Express
   - Integrated Google Drive API for file operations
   - Built responsive UI with three-page flow (Upload → Processing → Results)
   - Added before/after image comparison slider
   - Implemented backend image proxy for secure downloads
   - Configured shared job store for cross-controller state management
+  - **Added dual input mode**: Toggle between PDF brief and text prompt
+  - **Integrated OpenAI chat widget** for real-time image editing assistance
+  - Increased file size limits: PDF (50MB), Images (20MB each)
   - Set up workflows for development (Frontend: port 5000, Backend: port 3000)
 
 ## Current Limitations & Production Considerations
