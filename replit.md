@@ -1,7 +1,7 @@
 # CORSAIR AI Marketing Image Editor
 
 ## Overview
-A professional full-stack web application for AI-powered marketing image editing with CORSAIR branding. This app allows users to upload marketing briefs (PDF or text prompt) and product images, which can be processed either through an existing n8n automation workflow or directly via the Wavespeed Nano Banana API.
+A professional full-stack web application for AI-powered marketing image editing with CORSAIR branding. Users upload marketing briefs (PDF or text prompt) and product images, which are processed directly via the Wavespeed Nano Banana API for instant AI-powered image editing. The app features a sleek dark gaming aesthetic with before/after comparison sliders and an AI chat assistant that can trigger real-time image re-editing.
 
 ## Project Structure
 ```
@@ -57,28 +57,31 @@ A professional full-stack web application for AI-powered marketing image editing
    - Help users refine and iterate on edits
 
 ## Google Drive Integration
-The app uploads files to specific Google Drive folders:
-- **PDF Briefs**: `1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697` (Instructions2 folder)
-- **Product Images**: `1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS` (Product Images folder)
-- **Results**: Polls `17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB` (Corsair folder) for "New Images" subfolder
+The app uses Google Drive for file storage:
+- **PDF Briefs/Prompts**: Uploaded to `1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697` (Instructions2 folder)
+- **Product Images**: Uploaded to `1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS` (Product Images folder)
+- **Edited Results**: Saved to `17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB` (Corsair folder)
+- All uploaded images are made publicly accessible to work with the Nano Banana API
 
-## n8n Workflow Integration
-The n8n workflow:
-1. Monitors the Instructions2 folder for new PDFs
-2. Monitors the Product Images folder for new images
-3. Processes images using AI (Wavespeed Nano Banana API)
-4. Creates a "New Images" folder with edited results
-5. Sends email notification when complete
+## Wavespeed Nano Banana API Integration
+Direct API integration (no n8n dependency):
+1. Images are uploaded to Google Drive and made public
+2. Public URLs are sent to Wavespeed Nano Banana API with the editing prompt
+3. API processes images in sync mode and returns edited results
+4. Edited images are downloaded and saved back to Google Drive
+5. Results are displayed instantly in the UI with before/after comparison
+6. AI chat can trigger re-editing with new prompts via `/api/re-edit` endpoint
 
 ## API Endpoints
 - `POST /api/upload/pdf` - Upload PDF brief
 - `POST /api/upload/text-prompt` - Upload text prompt as alternative to PDF
-- `POST /api/upload/images` - Upload product images
+- `POST /api/upload/images` - Upload product images (auto-triggers Nano Banana processing)
 - `GET /api/upload/job/:jobId` - Get job details
 - `GET /api/results/poll/:jobId` - Poll for processing status
-- `GET /api/results/download/:folderId` - Download all images as ZIP
+- `GET /api/results/download/:jobId` - Download all edited images as ZIP
 - `GET /api/images/:imageId` - Proxy endpoint for secure image downloads
 - `POST /api/chat` - OpenAI chat completions for image editing assistance
+- `POST /api/re-edit` - Re-edit images with new prompt (triggered by chat)
 
 ## Environment Setup
 - Frontend runs on port 5000
@@ -86,44 +89,40 @@ The n8n workflow:
 - Google Drive authentication managed by Replit integration
 
 ## Recent Changes
-- **October 16, 2025**: Initial project setup and feature enhancements
-  - Created full-stack application structure with React + Express
-  - Integrated Google Drive API for file operations
-  - Built responsive UI with three-page flow (Upload → Processing → Results)
-  - Added before/after image comparison slider
-  - Implemented backend image proxy for secure downloads
-  - Configured shared job store for cross-controller state management
-  - **Added dual input mode**: Toggle between PDF brief and text prompt
-  - **Integrated OpenAI chat widget** for real-time image editing assistance
-  - Increased file size limits: PDF (50MB), Images (20MB each)
-  - **Applied CORSAIR branding**: Dark theme (#0A0A0A background), yellow accents (#FFC107), premium gaming aesthetic
-  - **Created Nano Banana API service**: Direct integration with Wavespeed API for bypassing n8n workflow
-  - Updated chat system prompts to reference CORSAIR brand guidelines
-  - Set up workflows for development (Frontend: port 5000, Backend: port 3000)
+- **October 16, 2025**: Complete Nano Banana API Integration
+  - **Replaced n8n workflow with direct Wavespeed API integration**
+  - Created `nanoBanana.js` service with sync mode processing
+  - Updated upload flow to make images public and auto-trigger processing
+  - Implemented automatic image editing after upload completion
+  - Added `/api/re-edit` endpoint for chat-triggered re-editing
+  - Fixed image matching logic using stored metadata
+  - Updated results polling to use job status instead of Drive folder monitoring
+  - Enhanced chat widget to trigger actual image re-editing, not just guidance
+  - Applied full CORSAIR branding across all components
+  - Increased body size limits to 50MB for large file handling
+  - All workflows running successfully (Frontend: port 5000, Backend: port 3000)
 
-## Current Limitations & Production Considerations
+## Architecture Highlights
 
-### Sequential Processing Design
-This application is designed to work with your existing n8n workflow which:
-- Monitors shared folders (Instructions2, Product Images)
-- Creates a single "New Images" folder for results
-- Processes files sequentially
+### Direct API Processing
+- **No n8n dependency**: All image processing happens via direct Wavespeed API calls
+- **Automatic flow**: Upload images → Make public → Call Nano Banana API → Save results
+- **Background processing**: Async processing with real-time status updates
+- **Job-based architecture**: Each job stores original and edited image metadata
 
-**For Sequential Use (Current Setup):**
-- Works perfectly for one user/job at a time
-- Simple workflow integration
-- No modifications needed to n8n
+### Image Matching & Metadata
+- Original and edited images are paired using stored Drive IDs
+- Each job maintains:
+  - `images[]` - Original uploaded images with public URLs
+  - `editedImages[]` - Processed results with before/after pairing
+  - `promptText` - The editing instructions used
+- Re-editing preserves original image references for comparison sliders
 
-**For Concurrent Users (Production Enhancement):**
-To support multiple simultaneous users, you would need to modify the n8n workflow to:
-1. Create job-specific result folders (e.g., "New Images_{jobId}")
-2. Include job metadata in folder names or file metadata
-3. Filter results by job ID in the polling logic
-
-### Image Matching
-- Original and edited images are matched by filename similarity
-- Works reliably when n8n workflow maintains consistent naming (e.g., `image.jpg` → `image_edited.jpg`)
-- For guaranteed matching, consider storing Drive file IDs during n8n processing
+### Concurrent User Support
+- Job-based architecture supports multiple simultaneous users
+- Each job has unique ID and isolated file storage
+- No shared state between jobs
+- All processing tracked via in-memory job store
 
 ## Development
 ```bash
