@@ -1,35 +1,43 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import UploadPage from './components/UploadPage';
+import ProcessingPage from './components/ProcessingPage';
+import ResultsPage from './components/ResultsPage';
+import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [page, setPage] = useState('upload');
+  const [jobId, setJobId] = useState(null);
+  const [results, setResults] = useState(null);
+
+  const handleUploadComplete = (id) => {
+    setJobId(id);
+    setPage('processing');
+  };
+
+  const handleProcessingComplete = (data) => {
+    setResults(data);
+    setPage('results');
+  };
+
+  const handleReset = () => {
+    setPage('upload');
+    setJobId(null);
+    setResults(null);
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="app">
+      {page === 'upload' && (
+        <UploadPage onComplete={handleUploadComplete} />
+      )}
+      {page === 'processing' && (
+        <ProcessingPage jobId={jobId} onComplete={handleProcessingComplete} />
+      )}
+      {page === 'results' && (
+        <ResultsPage results={results} onReset={handleReset} />
+      )}
+    </div>
+  );
 }
 
-export default App
+export default App;
