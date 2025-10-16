@@ -33,8 +33,8 @@ A professional full-stack web application for AI-powered marketing image editing
 
 ## Features
 1. **File Upload Interface**
-   - Drag-and-drop PDF brief upload (max 10MB)
-   - Multiple product image upload (JPG, PNG, max 5MB each)
+   - Drag-and-drop PDF brief upload (max 50MB)
+   - Multiple product image upload (JPG, PNG, max 20MB each)
    - Client-side validation and error handling
 
 2. **Processing Flow**

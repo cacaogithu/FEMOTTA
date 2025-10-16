@@ -29,8 +29,8 @@ function UploadPage({ onComplete }) {
       return;
     }
     
-    if (file.size > 10 * 1024 * 1024) {
-      setError('PDF must be less than 10MB');
+    if (file.size > 50 * 1024 * 1024) {
+      setError('PDF must be less than 50MB');
       return;
     }
     
@@ -56,8 +56,8 @@ function UploadPage({ onComplete }) {
         setError(`${file.name} is not a valid image format`);
         return false;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        setError(`${file.name} is larger than 5MB`);
+      if (file.size > 20 * 1024 * 1024) {
+        setError(`${file.name} is larger than 20MB`);
         return false;
       }
       return true;
@@ -155,7 +155,7 @@ function UploadPage({ onComplete }) {
                 <>
                   <h3>Upload PDF Brief</h3>
                   <p>Drag & drop or click to browse</p>
-                  <span className="hint">Max 10MB</span>
+                  <span className="hint">Max 50MB</span>
                 </>
               )}
             </div>
@@ -201,7 +201,7 @@ function UploadPage({ onComplete }) {
                 <>
                   <h3>Upload Product Images</h3>
                   <p>Drag & drop or click to browse</p>
-                  <span className="hint">JPG, PNG - Max 5MB each</span>
+                  <span className="hint">JPG, PNG - Max 20MB each</span>
                 </>
               )}
             </div>
