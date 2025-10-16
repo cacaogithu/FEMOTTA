@@ -1,7 +1,7 @@
-# AI Marketing Image Editor
+# CORSAIR AI Marketing Image Editor
 
 ## Overview
-A professional full-stack web application for AI-powered marketing image editing. This app allows users to upload marketing briefs (PDF) and product images, which are then automatically processed by an existing n8n automation workflow.
+A professional full-stack web application for AI-powered marketing image editing with CORSAIR branding. This app allows users to upload marketing briefs (PDF or text prompt) and product images, which can be processed either through an existing n8n automation workflow or directly via the Wavespeed Nano Banana API.
 
 ## Project Structure
 ```
@@ -96,6 +96,9 @@ The n8n workflow:
   - **Added dual input mode**: Toggle between PDF brief and text prompt
   - **Integrated OpenAI chat widget** for real-time image editing assistance
   - Increased file size limits: PDF (50MB), Images (20MB each)
+  - **Applied CORSAIR branding**: Dark theme (#0A0A0A background), yellow accents (#FFC107), premium gaming aesthetic
+  - **Created Nano Banana API service**: Direct integration with Wavespeed API for bypassing n8n workflow
+  - Updated chat system prompts to reference CORSAIR brand guidelines
   - Set up workflows for development (Frontend: port 5000, Backend: port 3000)
 
 ## Current Limitations & Production Considerations
