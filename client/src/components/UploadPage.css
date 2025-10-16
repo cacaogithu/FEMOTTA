@@ -8,15 +8,17 @@
 }
 
 .header h1 {
-  font-size: 32px;
+  font-size: 42px;
   font-weight: 700;
   margin-bottom: 8px;
-  color: #212529;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
 .header p {
-  color: #6C757D;
-  font-size: 16px;
+  color: #B0B0B0;
+  font-size: 18px;
 }
 
 .brief-type-toggle {
@@ -28,24 +30,27 @@
 
 .toggle-btn {
   padding: 12px 24px;
-  border: 2px solid #dee2e6;
-  background: white;
-  border-radius: 8px;
+  border: 2px solid #3A3A3A;
+  background: transparent;
+  border-radius: 4px;
   font-size: 16px;
   cursor: pointer;
   transition: all 0.3s;
-  font-weight: 500;
+  font-weight: 600;
+  color: #B0B0B0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .toggle-btn:hover {
-  border-color: #007BFF;
-  color: #007BFF;
+  border-color: #FFC107;
+  color: #FFC107;
 }
 
 .toggle-btn.active {
-  background: #007BFF;
-  color: white;
-  border-color: #007BFF;
+  background: #FFC107;
+  color: #0A0A0A;
+  border-color: #FFC107;
 }
 
 .upload-panels {
@@ -56,9 +61,9 @@
 }
 
 .upload-panel {
-  background: white;
-  border: 2px dashed #dee2e6;
-  border-radius: 12px;
+  background: #1A1A1A;
+  border: 2px dashed #3A3A3A;
+  border-radius: 8px;
   padding: 48px 24px;
   cursor: pointer;
   transition: all 0.3s;
@@ -69,8 +74,9 @@
 }
 
 .upload-panel:hover {
-  border-color: #007BFF;
-  background: #f8f9ff;
+  border-color: #FFC107;
+  background: #202020;
+  box-shadow: 0 4px 20px rgba(255, 193, 7, 0.15);
 }
 
 .panel-content {
@@ -81,22 +87,25 @@
 .icon {
   font-size: 64px;
   margin-bottom: 16px;
+  color: #FFC107;
 }
 
 .panel-content h3 {
   font-size: 20px;
   margin-bottom: 8px;
-  color: #212529;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .panel-content p {
-  color: #6C757D;
+  color: #B0B0B0;
   margin-bottom: 16px;
 }
 
 .hint {
   font-size: 14px;
-  color: #adb5bd;
+  color: #707070;
 }
 
 .text-prompt-panel {
@@ -104,14 +113,15 @@
 }
 
 .text-prompt-panel:hover {
-  border-color: #dee2e6;
-  background: white;
+  border-color: #3A3A3A;
+  background: #1A1A1A;
+  box-shadow: none;
 }
 
 .text-prompt-input {
   width: 100%;
-  border: 1px solid #ced4da;
-  border-radius: 8px;
+  border: 1px solid #3A3A3A;
+  border-radius: 4px;
   padding: 12px;
   font-size: 16px;
   font-family: inherit;
@@ -119,11 +129,13 @@
   margin: 16px 0;
   outline: none;
   min-height: 120px;
+  background: #0A0A0A;
+  color: #FFFFFF;
 }
 
 .text-prompt-input:focus {
-  border-color: #007BFF;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: #FFC107;
+  box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.2);
 }
 
 .image-grid {
@@ -177,12 +189,13 @@
 }
 
 .error-message {
-  background: #f8d7da;
-  color: #721c24;
+  background: rgba(220, 53, 69, 0.2);
+  color: #FF6B6B;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 4px;
   margin-bottom: 16px;
   text-align: center;
+  border: 1px solid rgba(220, 53, 69, 0.4);
 }
 
 @media (max-width: 768px) {

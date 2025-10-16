@@ -42,7 +42,7 @@ function ResultsPage({ results, onReset, jobId }) {
       <ChatWidget jobId={jobId} />
       <div className="container">
         <header className="results-header">
-          <h1>✨ Your Images Are Ready!</h1>
+          <h1>⚡ Your Images Are Ready!</h1>
           <p>{results.images?.length || 0} images processed successfully</p>
           <div className="header-actions">
             <button className="button button-primary" onClick={handleDownloadAll}>

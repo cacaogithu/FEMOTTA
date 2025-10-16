@@ -4,7 +4,7 @@ import './ChatWidget.css';
 function ChatWidget({ jobId }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hi! I can help you edit your images. What would you like to change?' }
+    { role: 'assistant', content: 'Welcome to CORSAIR AI Assistant. I can help you optimize and edit your product images. What would you like to change?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -71,7 +71,7 @@ function ChatWidget({ jobId }) {
       {isOpen && (
         <div className="chat-widget">
           <div className="chat-header">
-            <h3>AI Image Editor Assistant</h3>
+            <h3>⚡ CORSAIR AI Assistant</h3>
             <button onClick={() => setIsOpen(false)} className="close-btn">✕</button>
           </div>
 

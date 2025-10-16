@@ -6,8 +6,8 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #F8F9FA;
-  color: #212529;
+  background: #0A0A0A;
+  color: #FFFFFF;
 }
 
 .app {
@@ -16,6 +16,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
+  background: linear-gradient(135deg, #0A0A0A 0%, #1A1A1A 100%);
 }
 
 .container {
@@ -27,36 +28,42 @@ body {
 .button {
   padding: 12px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 4px;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
   min-height: 44px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .button-primary {
-  background: #007BFF;
-  color: white;
+  background: #FFC107;
+  color: #0A0A0A;
 }
 
 .button-primary:hover:not(:disabled) {
-  background: #0056b3;
-  transform: translateY(-1px);
+  background: #FFD54F;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
 }
 
 .button-primary:disabled {
-  background: #ccc;
+  background: #4A4A4A;
+  color: #8A8A8A;
   cursor: not-allowed;
 }
 
 .button-secondary {
-  background: #6C757D;
-  color: white;
+  background: transparent;
+  color: #FFC107;
+  border: 2px solid #FFC107;
 }
 
 .button-secondary:hover {
-  background: #545b62;
+  background: rgba(255, 193, 7, 0.1);
+  border-color: #FFD54F;
 }
 
 @keyframes spin {
@@ -64,8 +71,8 @@ body {
 }
 
 .spinner {
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #007BFF;
+  border: 3px solid #2A2A2A;
+  border-top: 3px solid #FFC107;
   border-radius: 50%;
   width: 24px;
   height: 24px;

@@ -137,7 +137,7 @@ function UploadPage({ onComplete }) {
     <div className="upload-page">
       <div className="container">
         <header className="header">
-          <h1>AI Marketing Image Editor</h1>
+          <h1>CORSAIR Image Editor</h1>
           <p>Upload your creative brief and product images to get started</p>
         </header>
 

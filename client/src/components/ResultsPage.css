@@ -8,15 +8,17 @@
 }
 
 .results-header h1 {
-  font-size: 32px;
+  font-size: 42px;
   font-weight: 700;
   margin-bottom: 8px;
-  color: #212529;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
 .results-header p {
-  color: #6C757D;
-  font-size: 16px;
+  color: #B0B0B0;
+  font-size: 18px;
   margin-bottom: 24px;
 }
 
@@ -34,23 +36,25 @@
 }
 
 .result-card {
-  background: white;
-  border-radius: 12px;
+  background: #1A1A1A;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   transition: transform 0.3s, box-shadow 0.3s;
+  border: 1px solid #2A2A2A;
 }
 
 .result-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(255, 193, 7, 0.2);
+  border-color: #FFC107;
 }
 
 .image-container {
   width: 100%;
   aspect-ratio: 16/9;
   overflow: hidden;
-  background: #f8f9fa;
+  background: #0A0A0A;
 }
 
 .result-image {
@@ -66,8 +70,10 @@
 .card-info h3 {
   font-size: 16px;
   margin-bottom: 12px;
-  color: #212529;
+  color: #FFFFFF;
   word-break: break-all;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .download-btn {

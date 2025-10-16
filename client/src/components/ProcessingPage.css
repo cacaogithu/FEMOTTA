@@ -11,23 +11,25 @@
 .spinner-large {
   width: 80px;
   height: 80px;
-  border: 6px solid #f3f3f3;
-  border-top: 6px solid #007BFF;
+  border: 6px solid #2A2A2A;
+  border-top: 6px solid #FFC107;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 32px;
 }
 
 .processing-content h1 {
-  font-size: 28px;
+  font-size: 32px;
   margin-bottom: 32px;
-  color: #212529;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
 .progress-bar {
   width: 100%;
   height: 8px;
-  background: #e9ecef;
+  background: #2A2A2A;
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 48px;
@@ -35,8 +37,9 @@
 
 .progress-fill {
   height: 100%;
-  background: #007BFF;
+  background: #FFC107;
   transition: width 0.5s ease;
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
 }
 
 .steps {
@@ -51,16 +54,18 @@
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: white;
-  border-radius: 8px;
+  background: #1A1A1A;
+  border-radius: 4px;
   opacity: 0.5;
   transition: all 0.3s;
+  border: 1px solid #2A2A2A;
 }
 
 .step.active {
   opacity: 1;
-  background: #f8f9ff;
-  border: 1px solid #007BFF;
+  background: #202020;
+  border: 1px solid #FFC107;
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.15);
 }
 
 .step.completed {
@@ -71,8 +76,8 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #e9ecef;
-  color: #6C757D;
+  background: #2A2A2A;
+  color: #707070;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,22 +86,22 @@
 }
 
 .step.active .step-number {
-  background: #007BFF;
-  color: white;
+  background: #FFC107;
+  color: #0A0A0A;
 }
 
 .step.completed .step-number {
-  background: #28A745;
-  color: white;
+  background: #4CAF50;
+  color: #0A0A0A;
 }
 
 .step-text {
   text-align: left;
-  color: #212529;
+  color: #FFFFFF;
   font-size: 16px;
 }
 
 .estimate {
-  color: #6C757D;
+  color: #B0B0B0;
   font-size: 14px;
 }
