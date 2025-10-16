@@ -125,7 +125,12 @@ async function processImagesWithNanoBanana(jobId) {
   }
 
   if (!job.promptText) {
-    throw new Error('No prompt found for job');
+    console.error('No prompt found for job:', jobId);
+    updateJob(jobId, { 
+      status: 'waiting_for_prompt',
+      processingStep: 'Waiting for prompt or PDF brief'
+    });
+    return;
   }
 
   if (!job.images || job.images.length === 0) {

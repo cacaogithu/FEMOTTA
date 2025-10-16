@@ -93,7 +93,10 @@ function UploadPage({ onComplete }) {
           body: pdfFormData
         });
         
-        if (!pdfResponse.ok) throw new Error('PDF upload failed');
+        if (!pdfResponse.ok) {
+          const errorData = await pdfResponse.json();
+          throw new Error(errorData.error || errorData.details || 'PDF upload failed');
+        }
         
         const pdfData = await pdfResponse.json();
         jobId = pdfData.jobId;
@@ -104,7 +107,10 @@ function UploadPage({ onComplete }) {
           body: JSON.stringify({ prompt: textPrompt })
         });
         
-        if (!textResponse.ok) throw new Error('Prompt upload failed');
+        if (!textResponse.ok) {
+          const errorData = await textResponse.json();
+          throw new Error(errorData.error || errorData.details || 'Prompt upload failed');
+        }
         
         const textData = await textResponse.json();
         jobId = textData.jobId;
@@ -121,11 +127,16 @@ function UploadPage({ onComplete }) {
         body: imagesFormData
       });
       
-      if (!imagesResponse.ok) throw new Error('Images upload failed');
+      if (!imagesResponse.ok) {
+        const errorData = await imagesResponse.json();
+        throw new Error(errorData.error || errorData.details || 'Images upload failed');
+      }
       
       onComplete(jobId);
     } catch (err) {
-      setError(err.message || 'Upload failed. Please try again.');
+      console.error('Upload error:', err);
+      const errorMsg = err.message || 'Upload failed. Please try again.';
+      setError(errorMsg);
       setUploading(false);
     }
   };
