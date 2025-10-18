@@ -130,22 +130,40 @@ ${docxText}`
     
     // Remove markdown code blocks more aggressively
     if (jsonText.includes('```')) {
-      console.log('[Extraction] Removing markdown code fences...');
+      console.log('[DOCX Extraction] Removing markdown code fences...');
       
-      // Remove opening ```json or ```
-      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '');
+      // Find the actual JSON content between code fences
+      const startMarker = jsonText.indexOf('[');
+      const endMarker = jsonText.lastIndexOf(']');
       
-      // Remove closing ```
-      jsonText = jsonText.replace(/\s*```\s*$/,'');
+      if (startMarker !== -1 && endMarker !== -1 && endMarker > startMarker) {
+        jsonText = jsonText.substring(startMarker, endMarker + 1);
+      }
     }
     
     jsonText = jsonText.trim();
     
-    console.log('[DOCX Extraction] Cleaned JSON (first 300 chars):', jsonText.substring(0, 300));
-    console.log('[DOCX Extraction] Cleaned JSON (last 300 chars):', jsonText.substring(jsonText.length - 300));
+    console.log('[DOCX Extraction] Cleaned JSON (first 500 chars):', jsonText.substring(0, 500));
+    console.log('[DOCX Extraction] Cleaned JSON (last 500 chars):', jsonText.substring(Math.max(0, jsonText.length - 500)));
 
     // Parse the JSON array of image specifications
-    const imageSpecs = JSON.parse(jsonText);
+    let imageSpecs;
+    try {
+      imageSpecs = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('[DOCX Extraction] JSON parse error:', parseError.message);
+      console.error('[DOCX Extraction] Problematic JSON around position', parseError.message.match(/\d+/)?.[0] || 'unknown');
+      
+      // Log the area around the error for debugging
+      const errorPos = parseInt(parseError.message.match(/\d+/)?.[0] || '0');
+      if (errorPos > 0) {
+        const start = Math.max(0, errorPos - 100);
+        const end = Math.min(jsonText.length, errorPos + 100);
+        console.error('[DOCX Extraction] Context around error:', jsonText.substring(start, end));
+      }
+      
+      throw new Error('Failed to parse AI response - the response may contain invalid characters');
+    }
     
     if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
       throw new Error('Invalid image specifications - expected array with at least one image');
@@ -275,22 +293,40 @@ ${pdfText}`
     
     // Remove markdown code blocks more aggressively
     if (jsonText.includes('```')) {
-      console.log('[Extraction] Removing markdown code fences...');
+      console.log('[PDF Extraction] Removing markdown code fences...');
       
-      // Remove opening ```json or ```
-      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '');
+      // Find the actual JSON content between code fences
+      const startMarker = jsonText.indexOf('[');
+      const endMarker = jsonText.lastIndexOf(']');
       
-      // Remove closing ```
-      jsonText = jsonText.replace(/\s*```\s*$/,'');
+      if (startMarker !== -1 && endMarker !== -1 && endMarker > startMarker) {
+        jsonText = jsonText.substring(startMarker, endMarker + 1);
+      }
     }
     
     jsonText = jsonText.trim();
     
-    console.log('[PDF Extraction] Cleaned JSON (first 300 chars):', jsonText.substring(0, 300));
-    console.log('[PDF Extraction] Cleaned JSON (last 300 chars):', jsonText.substring(jsonText.length - 300));
+    console.log('[PDF Extraction] Cleaned JSON (first 500 chars):', jsonText.substring(0, 500));
+    console.log('[PDF Extraction] Cleaned JSON (last 500 chars):', jsonText.substring(Math.max(0, jsonText.length - 500)));
 
     // Parse the JSON array of image specifications
-    const imageSpecs = JSON.parse(jsonText);
+    let imageSpecs;
+    try {
+      imageSpecs = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('[PDF Extraction] JSON parse error:', parseError.message);
+      console.error('[PDF Extraction] Problematic JSON around position', parseError.message.match(/\d+/)?.[0] || 'unknown');
+      
+      // Log the area around the error for debugging
+      const errorPos = parseInt(parseError.message.match(/\d+/)?.[0] || '0');
+      if (errorPos > 0) {
+        const start = Math.max(0, errorPos - 100);
+        const end = Math.min(jsonText.length, errorPos + 100);
+        console.error('[PDF Extraction] Context around error:', jsonText.substring(start, end));
+      }
+      
+      throw new Error('Failed to parse AI response - the response may contain invalid characters');
+    }
     
     if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
       throw new Error('Invalid image specifications - expected array with at least one image');
