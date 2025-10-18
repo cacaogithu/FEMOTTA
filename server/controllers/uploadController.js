@@ -20,9 +20,21 @@ async function extractPromptFromDOCX(docxBuffer) {
     console.log('[DOCX Extraction] Starting DOCX text extraction...');
     console.log('[DOCX Extraction] Buffer size:', docxBuffer.length, 'bytes');
     
-    // Extract text and images from DOCX
-    const result = await mammoth.extractRawText({ buffer: docxBuffer });
-    const docxText = result.value;
+    // Extract text from DOCX
+    const textResult = await mammoth.extractRawText({ buffer: docxBuffer });
+    const docxText = textResult.value;
+    
+    // Extract images from DOCX (if any)
+    const imagesResult = await mammoth.convertToHtml({ 
+      buffer: docxBuffer,
+      convertImage: mammoth.images.imgElement(async (image) => {
+        const buffer = await image.read();
+        console.log('[DOCX Extraction] Found embedded image:', buffer.length, 'bytes');
+        return { src: `data:${image.contentType};base64,${buffer.toString('base64')}` };
+      })
+    });
+    
+    console.log('[DOCX Extraction] Found', (imagesResult.messages || []).length, 'embedded images');
     
     console.log('[DOCX Extraction] Extracted text length:', docxText.length);
     console.log('[DOCX Extraction] First 500 chars:', docxText.substring(0, 500));
@@ -266,13 +278,18 @@ export async function uploadPDF(req, res) {
       return res.status(400).json({ error: 'No brief file uploaded' });
     }
 
-    const isPDF = req.file.mimetype === 'application/pdf';
-    const isDOCX = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
-    if (!isPDF && !isDOCX) {
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    if (!allowedTypes.includes(req.file.mimetype)) {
       console.log('[Upload Brief] Invalid file type:', req.file.mimetype);
       return res.status(400).json({ error: 'File must be a PDF or DOCX' });
     }
+
+    const isPDF = req.file.mimetype === 'application/pdf';
+    const isDOCX = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
     const fileType = isPDF ? 'pdf' : 'docx';
     console.log(`[Upload Brief] ${fileType.toUpperCase()} file received:`, req.file.originalname, 'Size:', req.file.size, 'bytes');
