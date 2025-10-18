@@ -56,10 +56,17 @@ Your task:
 4. Explain what changes you made and why
 
 Focus on:
-- Clarity and specificity of instructions
-- Technical accuracy (colors, sizes, positioning)
-- Artistic quality (shadows, gradients, effects)
-- Consistency with user expectations`
+- Clarity and specificity of instructions for gradient application (positioning, fade points, opacity)
+- Technical accuracy (gradient darkness, text shadow strength, font sizing flexibility)
+- Artistic quality (natural-looking gradients, readable shadows)
+- Maintaining brand consistency while adapting to different image compositions
+
+CRITICAL RULES:
+- DO NOT include specific text content in your improved prompt (like "EXPERIENCE THE FUTURE")
+- Text content comes from the PDF brief and varies per image - keep it as placeholders like {title} and {subtitle}
+- Focus on improving gradient positioning, shadow effects, and font sizing guidelines
+- Allow font sizes to be adaptive based on image composition (e.g., "48-60px for title, adjust based on image aspect ratio")
+- Ensure gradients adapt to image brightness - darker images need lighter gradients, lighter images need darker gradients`
         },
         {
           role: 'user',
@@ -111,6 +118,8 @@ Focus on:
 }
 
 function extractSuggestedPrompt(analysis, originalPrompt) {
+  // Don't use GPT-4's suggested prompt if it contains specific text content
+  // We need to keep text content variable from the brief
   const lines = analysis.split('\n');
   
   for (let i = 0; i < lines.length; i++) {
@@ -123,16 +132,17 @@ function extractSuggestedPrompt(analysis, originalPrompt) {
       for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
         const nextLine = lines[j].trim();
         if (nextLine.length > 50 && !nextLine.toLowerCase().startsWith('explanation')) {
-          return nextLine.replace(/^["']|["']$/g, '');
+          const suggested = nextLine.replace(/^["']|["']$/g, '');
+          // Reject if it contains specific hardcoded text
+          if (suggested.toLowerCase().includes('experience the future') || 
+              suggested.toLowerCase().includes('transform your workout')) {
+            console.log('[ML Learning] Rejecting hallucinated prompt with specific text content');
+            return originalPrompt;
+          }
+          return suggested;
         }
       }
     }
-  }
-  
-  const quotedPattern = /"([^"]{50,})"/g;
-  const matches = analysis.match(quotedPattern);
-  if (matches && matches.length > 0) {
-    return matches[matches.length - 1].replace(/^"|"$/g, '');
   }
   
   return originalPrompt;
