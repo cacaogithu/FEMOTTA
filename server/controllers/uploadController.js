@@ -24,17 +24,25 @@ async function extractPromptFromDOCX(docxBuffer) {
     const textResult = await mammoth.extractRawText({ buffer: docxBuffer });
     const docxText = textResult.value;
     
-    // Extract images from DOCX (if any)
+    // Extract images from DOCX
+    const extractedImages = [];
     const imagesResult = await mammoth.convertToHtml({ 
       buffer: docxBuffer,
       convertImage: mammoth.images.imgElement(async (image) => {
         const buffer = await image.read();
-        console.log('[DOCX Extraction] Found embedded image:', buffer.length, 'bytes');
+        console.log('[DOCX Extraction] Found embedded image:', buffer.length, 'bytes, type:', image.contentType);
+        
+        // Store the image buffer for later processing
+        extractedImages.push({
+          buffer: buffer,
+          contentType: image.contentType
+        });
+        
         return { src: `data:${image.contentType};base64,${buffer.toString('base64')}` };
       })
     });
     
-    console.log('[DOCX Extraction] Found', (imagesResult.messages || []).length, 'embedded images');
+    console.log('[DOCX Extraction] Found', extractedImages.length, 'embedded images');
     
     console.log('[DOCX Extraction] Extracted text length:', docxText.length);
     console.log('[DOCX Extraction] First 500 chars:', docxText.substring(0, 500));
@@ -118,8 +126,12 @@ ${docxText}`
     }
 
     console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
+    console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
     
-    return imageSpecs;
+    return {
+      imageSpecs,
+      extractedImages
+    };
     
   } catch (error) {
     console.error('[DOCX Extraction] Error:', error.message);
@@ -307,31 +319,96 @@ export async function uploadPDF(req, res) {
     console.log('[Upload Brief] Uploaded to Drive, ID:', result.id);
 
     console.log(`[Upload Brief] Extracting image specifications from ${fileType.toUpperCase()}...`);
-    const imageSpecs = isPDF 
-      ? await extractPromptFromPDF(req.file.buffer)
-      : await extractPromptFromDOCX(req.file.buffer);
+    let imageSpecs, extractedImages;
+    
+    if (isPDF) {
+      imageSpecs = await extractPromptFromPDF(req.file.buffer);
+      extractedImages = [];
+    } else {
+      const docxResult = await extractPromptFromDOCX(req.file.buffer);
+      imageSpecs = docxResult.imageSpecs;
+      extractedImages = docxResult.extractedImages;
+    }
+    
     console.log('[Upload Brief] Extracted', imageSpecs.length, 'image specifications');
+    console.log('[Upload Brief] Extracted', extractedImages.length, 'embedded images');
+
+    // If DOCX has embedded images, upload them to Drive immediately
+    const uploadedImages = [];
+    if (extractedImages.length > 0) {
+      console.log('[Upload Brief] Uploading', extractedImages.length, 'embedded images to Drive...');
+      
+      for (let i = 0; i < extractedImages.length; i++) {
+        const img = extractedImages[i];
+        const fileName = `docx_image_${i + 1}.${img.contentType.split('/')[1]}`;
+        
+        const uploadResult = await uploadFileToDrive(
+          img.buffer,
+          fileName,
+          img.contentType,
+          IMAGES_FOLDER_ID
+        );
+        
+        console.log(`Uploaded ${fileName} to Drive, making public...`);
+        await makeFilePublic(uploadResult.id);
+        const publicUrl = getPublicImageUrl(uploadResult.id);
+        
+        uploadedImages.push({
+          id: uploadResult.id,
+          name: fileName,
+          originalName: fileName,
+          driveId: uploadResult.id,
+          publicUrl: publicUrl
+        });
+      }
+      
+      console.log('[Upload Brief] All embedded images uploaded and made public');
+    }
 
     createJob({
       id: jobId,
       pdfId: result.id,
       pdfName: result.name,
       imageSpecs: imageSpecs,
-      images: [],
-      status: 'pdf_uploaded',
+      images: uploadedImages,
+      status: uploadedImages.length > 0 ? 'processing' : 'pdf_uploaded',
       createdAt: new Date()
     });
 
-    console.log('[Upload PDF] Job created:', jobId);
+    console.log('[Upload Brief] Job created:', jobId);
 
-    res.json({ 
-      success: true, 
-      jobId,
-      fileId: result.id,
-      fileName: result.name,
-      imageCount: imageSpecs.length,
-      message: `Brief uploaded and ${imageSpecs.length} image specifications extracted successfully` 
-    });
+    // If we have images from DOCX, start processing immediately
+    if (uploadedImages.length > 0) {
+      console.log('[Upload Brief] Starting automatic processing with embedded images...');
+      
+      res.json({ 
+        success: true, 
+        jobId,
+        fileId: result.id,
+        fileName: result.name,
+        imageCount: imageSpecs.length,
+        embeddedImageCount: uploadedImages.length,
+        message: `Brief uploaded with ${uploadedImages.length} embedded images. Processing started automatically.` 
+      });
+      
+      // Start processing in the background
+      processImagesWithNanoBanana(jobId).catch(err => {
+        console.error('Background processing error:', err);
+        updateJob(jobId, { 
+          status: 'failed',
+          error: err.message
+        });
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        jobId,
+        fileId: result.id,
+        fileName: result.name,
+        imageCount: imageSpecs.length,
+        message: `Brief uploaded and ${imageSpecs.length} image specifications extracted successfully` 
+      });
+    }
     
   } catch (error) {
     console.error('[Upload Brief] Error:', error.message);

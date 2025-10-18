@@ -79,7 +79,10 @@ function UploadPage({ onComplete }) {
   };
 
   const handleSubmit = async () => {
-    if (images.length === 0) return;
+    // For DOCX, images are optional (will use embedded images)
+    const isDOCX = pdfFile && pdfFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    
+    if (!isDOCX && images.length === 0) return;
     if (briefType === 'pdf' && !pdfFile) return;
     if (briefType === 'text' && !textPrompt.trim()) return;
     
@@ -121,20 +124,27 @@ function UploadPage({ onComplete }) {
         jobId = textData.jobId;
       }
 
-      const imagesFormData = new FormData();
-      images.forEach(image => {
-        imagesFormData.append('images', image);
-      });
-      imagesFormData.append('jobId', jobId);
+      // Check if this was a DOCX with embedded images
+      const responseData = briefType === 'pdf' ? pdfData : textData;
+      const hasEmbeddedImages = responseData.embeddedImageCount > 0;
       
-      const imagesResponse = await fetch('/api/upload/images', {
-        method: 'POST',
-        body: imagesFormData
-      });
-      
-      if (!imagesResponse.ok) {
-        const errorData = await imagesResponse.json();
-        throw new Error(errorData.error || errorData.details || 'Images upload failed');
+      // Only upload separate images if we have them and didn't get embedded ones
+      if (images.length > 0 && !hasEmbeddedImages) {
+        const imagesFormData = new FormData();
+        images.forEach(image => {
+          imagesFormData.append('images', image);
+        });
+        imagesFormData.append('jobId', jobId);
+        
+        const imagesResponse = await fetch('/api/upload/images', {
+          method: 'POST',
+          body: imagesFormData
+        });
+        
+        if (!imagesResponse.ok) {
+          const errorData = await imagesResponse.json();
+          throw new Error(errorData.error || errorData.details || 'Images upload failed');
+        }
       }
       
       onComplete(jobId);
@@ -146,8 +156,12 @@ function UploadPage({ onComplete }) {
     }
   };
 
-  const canSubmit = images.length > 0 && !uploading && 
-    ((briefType === 'pdf' && pdfFile) || (briefType === 'text' && textPrompt.trim()));
+  const isDOCX = pdfFile && pdfFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  
+  const canSubmit = !uploading && (
+    (briefType === 'pdf' && pdfFile && (isDOCX || images.length > 0)) ||
+    (briefType === 'text' && textPrompt.trim() && images.length > 0)
+  );
 
   return (
     <div className="upload-page">
@@ -193,6 +207,11 @@ function UploadPage({ onComplete }) {
                   <>
                     <h3>{pdfFile.name}</h3>
                     <p>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    {pdfFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && (
+                      <p className="hint" style={{ color: '#4CAF50', marginTop: '8px' }}>
+                        ✓ Images will be extracted from DOCX
+                      </p>
+                    )}
                     <button 
                       className="button button-secondary"
                       onClick={(e) => {
@@ -208,6 +227,7 @@ function UploadPage({ onComplete }) {
                     <h3>Upload Brief (PDF or DOCX)</h3>
                     <p>Drag & drop or click to browse</p>
                     <span className="hint">PDF or DOCX - Max 50MB</span>
+                    <span className="hint" style={{ marginTop: '4px' }}>DOCX files with embedded images will auto-extract them</span>
                   </>
                 )}
               </div>
@@ -234,6 +254,7 @@ function UploadPage({ onComplete }) {
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleImagesDrop}
             onClick={() => imagesInputRef.current.click()}
+            style={{ opacity: isDOCX ? 0.6 : 1 }}
           >
             <input
               ref={imagesInputRef}
@@ -242,10 +263,17 @@ function UploadPage({ onComplete }) {
               multiple
               onChange={handleImagesSelect}
               style={{ display: 'none' }}
+              disabled={isDOCX}
             />
             <div className="panel-content">
               <div className="icon">🖼️</div>
-              {images.length > 0 ? (
+              {isDOCX && images.length === 0 ? (
+                <>
+                  <h3>Images will be extracted from DOCX</h3>
+                  <p>No separate upload needed</p>
+                  <span className="hint">DOCX contains embedded images</span>
+                </>
+              ) : images.length > 0 ? (
                 <>
                   <h3>{images.length} images uploaded</h3>
                   <div className="image-grid">
