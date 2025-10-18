@@ -102,6 +102,17 @@ Direct API integration (no n8n dependency):
 - Google Drive authentication managed by Replit integration
 
 ## Recent Changes
+- **October 18, 2025**: DOCX Image Extraction Fix + JSON Parsing Fix
+  - **Fixed critical DOCX embedded image extraction**:
+    - Corrected mammoth.js API usage with proper `convertImage` option placement
+    - Implemented `mammoth.images.imgElement()` with `image.read("base64")` promise handling
+    - Images now properly extracted from DOCX and uploaded to Drive automatically
+    - Added detailed logging for image extraction debugging
+  - **Fixed JSON parsing from OpenAI responses**:
+    - Fixed markdown code fence removal (```json blocks)
+    - Updated substring extraction to properly skip opening ```
+    - Both PDF and DOCX workflows now handle wrapped JSON responses
+  
 - **October 18, 2025**: PDF Upload Fix + Parallel Processing, Workflow Visualization & ML Feedback System
   - **Fixed critical PDF upload issue**:
     - Converted Buffer to Uint8Array for pdfjs-dist compatibility
