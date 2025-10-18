@@ -1,6 +1,6 @@
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
-import { editMultipleImages } from '../services/nanoBanana.js';
+import { editMultipleImages, editImageWithNanoBanana } from '../services/nanoBanana.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
@@ -54,7 +54,7 @@ async function extractPromptFromPDF(pdfBuffer) {
       throw new Error('Could not extract text from PDF - file may be image-based, empty, or encrypted');
     }
 
-    console.log('[PDF Extraction] Sending to OpenAI for prompt generation...');
+    console.log('[PDF Extraction] Sending to OpenAI to extract image specifications...');
     
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -63,42 +63,75 @@ async function extractPromptFromPDF(pdfBuffer) {
           role: 'system',
           content: `You are an AI creative assistant specialized in extracting marketing image specifications from briefs.
 
-Your task is to read the provided PDF brief text and create a detailed AI image editing prompt.
+Your task is to read the provided PDF brief and extract ALL image specifications into structured JSON format.
 
-Extract the following information:
-- HEADLINE/TITLE text (should be in uppercase)
-- COPY/SUBTITLE text (keep as written)
+Extract ALL images mentioned in the brief (IMAGE 1, IMAGE 2, IMAGE 3, etc.). For each image, extract:
+- image_number: The sequential number
+- title: The HEADLINE text (convert to uppercase)
+- subtitle: The COPY text (keep as written)
+- asset: The ASSET filename (if mentioned)
 
-Then generate a detailed, plain text instruction (no markdown, no line breaks) using this template:
+For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this template:
 
-"Add a dark gradient overlay to the image, fading from black/dark gray at the top to transparent by the middle section. The gradient intensity and positioning should adapt to the image's brightness and composition - use darker gradients (black) for lighter images, and lighter gradients (dark gray) for darker images. Position the gradient to complement the product without obscuring key features. Overlay the following text at the top center: [TITLE] in white Montserrat Extra Bold font (all caps, approximately 48-60px, adjust size based on image dimensions and text length to ensure readability). Below the title, add [SUBTITLE] in white Montserrat Regular font (approximately 18-24px, adjust based on text length). Apply a subtle drop shadow to both text elements (2-4px offset, 30-50% opacity black) to ensure readability against varying backgrounds. Maintain consistent branding while adapting shadow strength to image brightness. Keep the product and background unchanged. Output as a high-resolution image suitable for web marketing."
+"Add a dark gradient overlay to the image, fading from black/dark gray at the top to transparent by the middle section. The gradient intensity and positioning should adapt to the image's brightness and composition - use darker gradients (black) for lighter images, and lighter gradients (dark gray) for darker images. Position the gradient to complement the product without obscuring key features. Overlay the following text at the top center: {title} in white Montserrat Extra Bold font (all caps, approximately 48-60px, adjust size based on image dimensions and text length to ensure readability). Below the title, add {subtitle} in white Montserrat Regular font (approximately 18-24px, adjust based on text length). Apply a subtle drop shadow to both text elements (2-4px offset, 30-50% opacity black) to ensure readability against varying backgrounds. Maintain consistent branding while adapting shadow strength to image brightness. Keep the product and background unchanged. Output as a high-resolution image suitable for web marketing."
 
-Replace [TITLE] and [SUBTITLE] with the actual extracted values from the PDF.
+Replace {title} and {subtitle} with the actual extracted values for EACH image.
 
-Return ONLY the generated prompt text, nothing else.`
+Return ONLY a valid JSON array with ALL image specifications, no additional text.
+
+Example output format:
+[
+  {
+    "image_number": 1,
+    "title": "PRODUCT NAME",
+    "subtitle": "Product description text",
+    "asset": "filename.jpg",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 2,
+    "title": "ANOTHER PRODUCT",
+    "subtitle": "Different description",
+    "asset": "another_file.jpg",
+    "ai_prompt": "Add a dark gradient overlay..."
+  }
+]`
         },
         {
           role: 'user',
-          content: `Extract the headline and copy from this PDF brief and generate a detailed AI editing prompt following the template.
+          content: `Extract ALL image specifications from this PDF brief and generate individual prompts for each image.
 
 PDF Content:
 ${pdfText}`
         }
       ],
       temperature: 0.3,
-      max_tokens: 800
+      max_tokens: 4000
     });
 
-    const promptText = completion.choices[0].message.content.trim();
+    const responseText = completion.choices[0].message.content.trim();
     
-    console.log('[PDF Extraction] AI prompt generated successfully');
-    console.log('[PDF Extraction] Generated prompt (first 200 chars):', promptText.substring(0, 200));
+    console.log('[PDF Extraction] AI response received, parsing JSON...');
+    console.log('[PDF Extraction] Response (first 300 chars):', responseText.substring(0, 300));
 
-    if (!promptText || promptText.length < 50) {
-      throw new Error('Generated prompt is too short or invalid');
+    // Clean up response - remove markdown code blocks if present
+    let jsonText = responseText;
+    if (jsonText.includes('```json')) {
+      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    }
+    jsonText = jsonText.trim();
+
+    // Parse the JSON array of image specifications
+    const imageSpecs = JSON.parse(jsonText);
+    
+    if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
+      throw new Error('Invalid image specifications - expected array with at least one image');
     }
 
-    return promptText;
+    console.log('[PDF Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
+    
+    // Return the array of image specifications
+    return imageSpecs;
     
   } catch (error) {
     console.error('[PDF Extraction] Error:', error.message);
@@ -146,15 +179,15 @@ export async function uploadPDF(req, res) {
     );
     console.log('[Upload PDF] Uploaded to Drive, ID:', result.id);
 
-    console.log('[Upload PDF] Extracting prompt from PDF...');
-    const promptText = await extractPromptFromPDF(req.file.buffer);
-    console.log('[Upload PDF] Prompt extracted successfully, length:', promptText.length);
+    console.log('[Upload PDF] Extracting image specifications from PDF...');
+    const imageSpecs = await extractPromptFromPDF(req.file.buffer);
+    console.log('[Upload PDF] Extracted', imageSpecs.length, 'image specifications');
 
     createJob({
       id: jobId,
       pdfId: result.id,
       pdfName: result.name,
-      promptText: promptText,
+      imageSpecs: imageSpecs,
       images: [],
       status: 'pdf_uploaded',
       createdAt: new Date()
@@ -167,8 +200,8 @@ export async function uploadPDF(req, res) {
       jobId,
       fileId: result.id,
       fileName: result.name,
-      promptText: promptText,
-      message: 'PDF uploaded and prompt extracted successfully' 
+      imageCount: imageSpecs.length,
+      message: `PDF uploaded and ${imageSpecs.length} image specifications extracted successfully` 
     });
     
   } catch (error) {
@@ -263,11 +296,11 @@ async function processImagesWithNanoBanana(jobId) {
 
   console.log(`Processing job ${jobId} - Images count: ${job.images?.length || 0}`);
 
-  if (!job.promptText) {
-    console.error('No prompt found for job:', jobId);
+  if (!job.imageSpecs || job.imageSpecs.length === 0) {
+    console.error('No image specifications found for job:', jobId);
     updateJob(jobId, { 
       status: 'waiting_for_prompt',
-      processingStep: 'Waiting for prompt or PDF brief'
+      processingStep: 'Waiting for image specifications from PDF brief'
     });
     return;
   }
@@ -277,56 +310,46 @@ async function processImagesWithNanoBanana(jobId) {
     throw new Error('No images found for job');
   }
 
-  console.log(`Processing ${job.images.length} images with prompt:`, job.promptText.substring(0, 100));
+  console.log(`Processing ${job.images.length} images with ${job.imageSpecs.length} specifications`);
 
-  const promptDecision = shouldUseImprovedPrompt(job.promptText);
-  let finalPrompt = job.promptText;
-  let promptSource = 'original';
-
-  if (promptDecision.use) {
-    console.log('[ML Learning] Using improved prompt:', promptDecision.reason);
-    finalPrompt = promptDecision.prompt;
-    promptSource = 'ml_improved';
-    
-    updateJob(jobId, {
-      mlPromptUsed: true,
-      mlPromptConfidence: promptDecision.confidence,
-      originalPrompt: job.promptText,
-      improvedPrompt: finalPrompt
-    });
-  } else {
-    console.log('[ML Learning] Using original prompt:', promptDecision.reason);
-  }
+  // Match images to specifications (in order)
+  const imagePrompts = job.images.map((img, idx) => {
+    const spec = job.imageSpecs[idx] || job.imageSpecs[0]; // Use first spec as fallback
+    console.log(`Image ${idx + 1}: ${img.originalName} -> "${spec.title}"`);
+    return spec.ai_prompt;
+  });
 
   addWorkflowStep(jobId, {
     name: 'Prepare Processing',
     status: 'completed',
-    description: 'Preparing images and AI prompt for processing',
+    description: 'Preparing images with individual prompts for each image',
     details: {
       imageCount: job.images.length,
-      prompt: finalPrompt,
-      promptSource: promptSource,
-      mlLearningActive: promptDecision.use,
-      code: `// Images uploaded to Google Drive\n// Making images publicly accessible\nconst imageUrls = images.map(img => makePublic(img.driveId));`
+      specsCount: job.imageSpecs.length,
+      imagePrompts: imagePrompts.map((p, i) => ({
+        image: job.images[i].originalName,
+        title: job.imageSpecs[i]?.title || 'N/A',
+        subtitle: job.imageSpecs[i]?.subtitle || 'N/A'
+      })),
+      code: `// Images uploaded to Google Drive\n// Making images publicly accessible\nconst imageUrls = images.map(img => makePublic(img.driveId));\n// Each image gets its own prompt with unique title/subtitle`
     }
   });
 
   updateJob(jobId, { 
     status: 'processing',
-    processingStep: 'Creating AI editing prompt'
+    processingStep: 'Processing images with individual prompts'
   });
 
   addWorkflowStep(jobId, {
-    name: 'AI Prompt Created',
+    name: 'Individual Prompts Ready',
     status: 'completed',
-    description: promptDecision.use 
-      ? `🤖 ML-Improved prompt (confidence: ${(promptDecision.confidence * 100).toFixed(0)}%)`
-      : 'AI editing prompt created from brief',
+    description: `${imagePrompts.length} unique prompts extracted from PDF brief`,
     details: {
-      prompt: finalPrompt,
-      promptSource: promptSource,
-      mlImproved: promptDecision.use,
-      confidence: promptDecision.confidence,
+      prompts: imagePrompts.map((p, i) => ({
+        image: i + 1,
+        title: job.imageSpecs[i]?.title,
+        preview: p.substring(0, 100) + '...'
+      })),
       api: 'Wavespeed Nano Banana',
       endpoint: '/api/v3/google/nano-banana/edit',
       parameters: {
@@ -343,60 +366,89 @@ async function processImagesWithNanoBanana(jobId) {
 
   updateJob(jobId, { 
     status: 'processing',
-    processingStep: 'Editing images with AI (parallel processing)'
+    processingStep: 'Editing images with AI (individual prompts per image)'
   });
 
   addWorkflowStep(jobId, {
     name: 'AI Processing Started',
     status: 'in_progress',
-    description: `Processing ${imageUrls.length} images in parallel batches of 5`,
+    description: `Processing ${imageUrls.length} images with unique prompts`,
     details: {
       totalImages: imageUrls.length,
       batchSize: 5,
-      parallelProcessing: true,
-      code: `// Parallel batch processing\nconst batchSize = 5;\nfor (let i = 0; i < images.length; i += batchSize) {\n  const batch = images.slice(i, i + batchSize);\n  const results = await Promise.all(\n    batch.map(img => editWithAI(img, prompt))\n  );\n}`
+      uniquePrompts: true,
+      code: `// Each image processed with its own prompt\nconst batchSize = 5;\nfor (let i = 0; i < images.length; i += batchSize) {\n  const batch = images.slice(i, i + batchSize);\n  const results = await Promise.all(\n    batch.map((img, idx) => editWithAI(img, prompts[i + idx]))\n  );\n}`
     }
   });
 
-  console.log('Calling Nano Banana API with parallel processing...');
-  console.log('Using prompt:', finalPrompt.substring(0, 150));
-  const results = await editMultipleImages(imageUrls, finalPrompt, {
-    enableSyncMode: true,
-    outputFormat: 'jpeg',
-    numImages: 1,
-    batchSize: 5,
-    onProgress: (progressInfo) => {
-      if (progressInfo.type === 'batch_start') {
-        addWorkflowStep(jobId, {
-          name: `Batch ${progressInfo.batchNumber}/${progressInfo.totalBatches}`,
-          status: 'in_progress',
-          description: `Processing ${progressInfo.imagesInBatch} images in parallel`,
-          details: {
-            batchNumber: progressInfo.batchNumber,
-            totalBatches: progressInfo.totalBatches,
-            imagesInBatch: progressInfo.imagesInBatch
-          }
-        });
-      } else if (progressInfo.type === 'image_complete') {
-        updateJob(jobId, {
-          processingStep: `AI editing: ${progressInfo.imageIndex + 1} of ${progressInfo.totalImages} images`,
-          progress: progressInfo.progress,
-          currentImageIndex: progressInfo.imageIndex
-        });
-      } else if (progressInfo.type === 'batch_complete') {
-        addWorkflowStep(jobId, {
-          name: `Batch ${progressInfo.batchNumber} Complete`,
-          status: 'completed',
-          description: `Completed ${progressInfo.totalProcessed} of ${progressInfo.totalImages} images`,
-          details: {
-            totalProcessed: progressInfo.totalProcessed,
-            totalImages: progressInfo.totalImages
-          }
-        });
+  console.log('Calling Nano Banana API with individual prompts per image...');
+  
+  // Process images with their individual prompts
+  const results = [];
+  const batchSize = 5;
+  
+  for (let i = 0; i < imageUrls.length; i += batchSize) {
+    const batchUrls = imageUrls.slice(i, i + batchSize);
+    const batchPrompts = imagePrompts.slice(i, i + batchSize);
+    const batchNumber = Math.floor(i / batchSize) + 1;
+    const totalBatches = Math.ceil(imageUrls.length / batchSize);
+    
+    console.log(`Processing batch ${batchNumber}/${totalBatches} (${batchUrls.length} images)`);
+    
+    addWorkflowStep(jobId, {
+      name: `Batch ${batchNumber}/${totalBatches}`,
+      status: 'in_progress',
+      description: `Processing ${batchUrls.length} images with unique prompts`,
+      details: {
+        batchNumber,
+        totalBatches,
+        imagesInBatch: batchUrls.length,
+        prompts: batchPrompts.map((p, idx) => ({
+          image: job.images[i + idx].originalName,
+          title: job.imageSpecs[i + idx]?.title
+        }))
       }
-    }
-  });
+    });
+    
+    const batchPromises = batchUrls.map((url, idx) => {
+      const imageIndex = i + idx;
+      const prompt = batchPrompts[idx];
+      console.log(`  Image ${imageIndex + 1}: Using prompt for "${job.imageSpecs[imageIndex]?.title}"`);
+      
+      return editImageWithNanoBanana(url, prompt, {
+        enableSyncMode: true,
+        outputFormat: 'jpeg',
+        numImages: 1
+      }).then(result => {
+        updateJob(jobId, {
+          processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
+          progress: Math.round(((imageIndex + 1) / imageUrls.length) * 100),
+          currentImageIndex: imageIndex
+        });
+        return result;
+      });
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+    
+    addWorkflowStep(jobId, {
+      name: `Batch ${batchNumber} Complete`,
+      status: 'completed',
+      description: `Completed ${i + batchUrls.length} of ${imageUrls.length} images`,
+      details: {
+        totalProcessed: i + batchUrls.length,
+        totalImages: imageUrls.length
+      }
+    });
+  }
+  
   console.log(`Received ${results.length} results from API`);
+  
+  // Continue with existing result processing (remove old editMultipleImages call)
+  const unusedProgressCallback = (progressInfo) => {
+      // This callback is no longer used
+  };
 
   addWorkflowStep(jobId, {
     name: 'AI Processing Complete',
