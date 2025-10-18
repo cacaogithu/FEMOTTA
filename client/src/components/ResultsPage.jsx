@@ -1,5 +1,7 @@
 import BeforeAfterSlider from './BeforeAfterSlider';
 import ChatWidget from './ChatWidget';
+import FeedbackWidget from './FeedbackWidget';
+import WorkflowViewer from './WorkflowViewer';
 import './ResultsPage.css';
 
 function ResultsPage({ results, onReset, jobId }) {
@@ -84,6 +86,10 @@ function ResultsPage({ results, onReset, jobId }) {
             </div>
           ))}
         </div>
+
+        <WorkflowViewer workflowSteps={results.workflowSteps || []} />
+        
+        <FeedbackWidget jobId={jobId} />
       </div>
     </div>
   );

@@ -57,21 +57,54 @@ export async function editImageWithNanoBanana(imageUrl, prompt, options = {}) {
 export async function editMultipleImages(imageUrls, prompt, options = {}) {
   try {
     const batchSize = options.batchSize || 5; // Process 5 images at a time
+    const progressCallback = options.onProgress || (() => {});
     const results = [];
+    
+    const totalImages = imageUrls.length;
+    const totalBatches = Math.ceil(totalImages / batchSize);
     
     // Process in batches to avoid overwhelming the API
     for (let i = 0; i < imageUrls.length; i += batchSize) {
       const batch = imageUrls.slice(i, i + batchSize);
-      console.log(`Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(imageUrls.length / batchSize)} (${batch.length} images)`);
+      const batchNumber = Math.floor(i / batchSize) + 1;
       
-      const batchPromises = batch.map(imageUrl => 
-        editImageWithNanoBanana(imageUrl, prompt, options)
+      console.log(`Processing batch ${batchNumber} of ${totalBatches} (${batch.length} images)`);
+      
+      progressCallback({
+        type: 'batch_start',
+        batchNumber,
+        totalBatches,
+        imagesInBatch: batch.length,
+        totalProcessed: i,
+        totalImages
+      });
+      
+      const batchPromises = batch.map((imageUrl, idx) => 
+        editImageWithNanoBanana(imageUrl, prompt, options).then(result => {
+          const imageIndex = i + idx;
+          progressCallback({
+            type: 'image_complete',
+            imageIndex,
+            totalImages,
+            imageName: `Image ${imageIndex + 1}`,
+            progress: Math.round(((imageIndex + 1) / totalImages) * 100)
+          });
+          return result;
+        })
       );
       
       const batchResults = await Promise.all(batchPromises);
       results.push(...batchResults);
       
-      console.log(`Batch ${Math.floor(i / batchSize) + 1} completed`);
+      progressCallback({
+        type: 'batch_complete',
+        batchNumber,
+        totalBatches,
+        totalProcessed: i + batch.length,
+        totalImages
+      });
+      
+      console.log(`Batch ${batchNumber} completed`);
     }
 
     return results;

@@ -25,7 +25,10 @@ export async function pollResults(req, res) {
         status: 'processing',
         step: 3,
         totalSteps: 5,
-        message: job.processingStep || 'Editing images with AI...'
+        message: job.processingStep || 'Editing images with AI...',
+        progress: job.progress || 0,
+        workflowSteps: job.workflowSteps || [],
+        currentImageIndex: job.currentImageIndex
       });
     }
 
@@ -33,7 +36,8 @@ export async function pollResults(req, res) {
       return res.json({ 
         status: 'completed',
         jobId: jobId,
-        images: job.editedImages
+        images: job.editedImages,
+        workflowSteps: job.workflowSteps || []
       });
     }
 
@@ -41,7 +45,8 @@ export async function pollResults(req, res) {
       status: 'processing',
       step: 1,
       totalSteps: 5,
-      message: 'Initializing...'
+      message: 'Initializing...',
+      workflowSteps: job.workflowSteps || []
     });
 
   } catch (error) {

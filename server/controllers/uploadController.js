@@ -1,6 +1,7 @@
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
-import { createJob, getJob, updateJob } from '../utils/jobStore.js';
+import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { editMultipleImages } from '../services/nanoBanana.js';
+import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
@@ -195,27 +196,154 @@ async function processImagesWithNanoBanana(jobId) {
 
   console.log(`Processing ${job.images.length} images with prompt:`, job.promptText.substring(0, 100));
 
+  const promptDecision = shouldUseImprovedPrompt(job.promptText);
+  let finalPrompt = job.promptText;
+  let promptSource = 'original';
+
+  if (promptDecision.use) {
+    console.log('[ML Learning] Using improved prompt:', promptDecision.reason);
+    finalPrompt = promptDecision.prompt;
+    promptSource = 'ml_improved';
+    
+    updateJob(jobId, {
+      mlPromptUsed: true,
+      mlPromptConfidence: promptDecision.confidence,
+      originalPrompt: job.promptText,
+      improvedPrompt: finalPrompt
+    });
+  } else {
+    console.log('[ML Learning] Using original prompt:', promptDecision.reason);
+  }
+
+  addWorkflowStep(jobId, {
+    name: 'Prepare Processing',
+    status: 'completed',
+    description: 'Preparing images and AI prompt for processing',
+    details: {
+      imageCount: job.images.length,
+      prompt: finalPrompt,
+      promptSource: promptSource,
+      mlLearningActive: promptDecision.use,
+      code: `// Images uploaded to Google Drive\n// Making images publicly accessible\nconst imageUrls = images.map(img => makePublic(img.driveId));`
+    }
+  });
+
   updateJob(jobId, { 
     status: 'processing',
-    processingStep: 'Editing images with AI'
+    processingStep: 'Creating AI editing prompt'
+  });
+
+  addWorkflowStep(jobId, {
+    name: 'AI Prompt Created',
+    status: 'completed',
+    description: promptDecision.use 
+      ? `🤖 ML-Improved prompt (confidence: ${(promptDecision.confidence * 100).toFixed(0)}%)`
+      : 'AI editing prompt created from brief',
+    details: {
+      prompt: finalPrompt,
+      promptSource: promptSource,
+      mlImproved: promptDecision.use,
+      confidence: promptDecision.confidence,
+      api: 'Wavespeed Nano Banana',
+      endpoint: '/api/v3/google/nano-banana/edit',
+      parameters: {
+        enable_sync_mode: true,
+        output_format: 'jpeg',
+        num_images: 1,
+        batch_size: 5
+      }
+    }
   });
 
   const imageUrls = job.images.map(img => img.publicUrl);
   console.log('Image URLs to process:', imageUrls);
 
-  console.log('Calling Nano Banana API...');
-  const results = await editMultipleImages(imageUrls, job.promptText, {
+  updateJob(jobId, { 
+    status: 'processing',
+    processingStep: 'Editing images with AI (parallel processing)'
+  });
+
+  addWorkflowStep(jobId, {
+    name: 'AI Processing Started',
+    status: 'in_progress',
+    description: `Processing ${imageUrls.length} images in parallel batches of 5`,
+    details: {
+      totalImages: imageUrls.length,
+      batchSize: 5,
+      parallelProcessing: true,
+      code: `// Parallel batch processing\nconst batchSize = 5;\nfor (let i = 0; i < images.length; i += batchSize) {\n  const batch = images.slice(i, i + batchSize);\n  const results = await Promise.all(\n    batch.map(img => editWithAI(img, prompt))\n  );\n}`
+    }
+  });
+
+  console.log('Calling Nano Banana API with parallel processing...');
+  console.log('Using prompt:', finalPrompt.substring(0, 150));
+  const results = await editMultipleImages(imageUrls, finalPrompt, {
     enableSyncMode: true,
     outputFormat: 'jpeg',
     numImages: 1,
-    batchSize: 5
+    batchSize: 5,
+    onProgress: (progressInfo) => {
+      if (progressInfo.type === 'batch_start') {
+        addWorkflowStep(jobId, {
+          name: `Batch ${progressInfo.batchNumber}/${progressInfo.totalBatches}`,
+          status: 'in_progress',
+          description: `Processing ${progressInfo.imagesInBatch} images in parallel`,
+          details: {
+            batchNumber: progressInfo.batchNumber,
+            totalBatches: progressInfo.totalBatches,
+            imagesInBatch: progressInfo.imagesInBatch
+          }
+        });
+      } else if (progressInfo.type === 'image_complete') {
+        updateJob(jobId, {
+          processingStep: `AI editing: ${progressInfo.imageIndex + 1} of ${progressInfo.totalImages} images`,
+          progress: progressInfo.progress,
+          currentImageIndex: progressInfo.imageIndex
+        });
+      } else if (progressInfo.type === 'batch_complete') {
+        addWorkflowStep(jobId, {
+          name: `Batch ${progressInfo.batchNumber} Complete`,
+          status: 'completed',
+          description: `Completed ${progressInfo.totalProcessed} of ${progressInfo.totalImages} images`,
+          details: {
+            totalProcessed: progressInfo.totalProcessed,
+            totalImages: progressInfo.totalImages
+          }
+        });
+      }
+    }
   });
   console.log(`Received ${results.length} results from API`);
+
+  addWorkflowStep(jobId, {
+    name: 'AI Processing Complete',
+    status: 'completed',
+    description: `Successfully edited ${results.length} images`,
+    details: {
+      totalProcessed: results.length,
+      apiResponse: 'Received edited images from Wavespeed API'
+    }
+  });
 
   const editedImages = [];
   const EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
 
   console.log(`Saving ${results.length} edited images to Drive...`);
+
+  updateJob(jobId, { 
+    processingStep: 'Saving edited images to cloud storage'
+  });
+
+  addWorkflowStep(jobId, {
+    name: 'Saving Results',
+    status: 'in_progress',
+    description: 'Downloading and saving edited images to Google Drive',
+    details: {
+      destination: 'Google Drive (Corsair folder)',
+      folderId: EDITED_IMAGES_FOLDER,
+      code: `// Download and save each edited image\nfor (const result of apiResults) {\n  const imageBuffer = await fetch(result.url).then(r => r.arrayBuffer());\n  await uploadToDrive(imageBuffer, fileName, folderId);\n  await makeFilePublic(fileId);\n}`
+    }
+  });
 
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
@@ -223,7 +351,6 @@ async function processImagesWithNanoBanana(jobId) {
 
     console.log(`Processing result ${i + 1}/${results.length}:`, result);
 
-    // Fix: API returns data.outputs, not images
     if (result.data && result.data.outputs && result.data.outputs.length > 0) {
       const editedImageUrl = result.data.outputs[0];
       console.log(`Downloading edited image from: ${editedImageUrl}`);
@@ -254,9 +381,8 @@ async function processImagesWithNanoBanana(jobId) {
       });
       console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
 
-      // Update progress
       updateJob(jobId, {
-        processingStep: `Processed ${i + 1} of ${results.length} images`,
+        processingStep: `Saved ${i + 1} of ${results.length} images`,
         progress: Math.round(((i + 1) / results.length) * 100)
       });
     } else {
@@ -264,11 +390,34 @@ async function processImagesWithNanoBanana(jobId) {
     }
   }
 
+  addWorkflowStep(jobId, {
+    name: 'Saving Complete',
+    status: 'completed',
+    description: `All ${editedImages.length} edited images saved successfully`,
+    details: {
+      totalSaved: editedImages.length,
+      location: 'Google Drive - Corsair folder',
+      publicAccess: true
+    }
+  });
+
   console.log(`Successfully processed ${editedImages.length} images`);
   updateJob(jobId, { 
     status: 'completed',
     editedImages,
-    processingStep: 'Complete'
+    processingStep: 'Complete',
+    progress: 100
+  });
+
+  addWorkflowStep(jobId, {
+    name: 'Job Complete',
+    status: 'completed',
+    description: 'All processing complete - results ready',
+    details: {
+      totalImages: editedImages.length,
+      jobId: jobId,
+      completedAt: new Date().toISOString()
+    }
   });
 }
 

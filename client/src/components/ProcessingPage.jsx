@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import WorkflowViewer from './WorkflowViewer';
 import './ProcessingPage.css';
 
 const steps = [
@@ -12,6 +13,7 @@ const steps = [
 function ProcessingPage({ jobId, onComplete }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [workflowSteps, setWorkflowSteps] = useState([]);
 
   useEffect(() => {
     let pollInterval;
@@ -27,15 +29,24 @@ function ProcessingPage({ jobId, onComplete }) {
           clearInterval(stepInterval);
           setProgress(100);
           setCurrentStep(4);
+          if (data.workflowSteps) {
+            setWorkflowSteps(data.workflowSteps);
+          }
           setTimeout(() => onComplete(data), 500);
         } else if (data.status === 'processing') {
-          // Update progress from job data
           if (data.progress !== undefined) {
             setProgress(data.progress);
           }
-          setCurrentStep(3); // Editing images step
+          if (data.workflowSteps) {
+            setWorkflowSteps(data.workflowSteps);
+          }
+          setCurrentStep(3);
         } else if (data.step) {
           setCurrentStep(data.step - 1);
+        }
+        
+        if (data.workflowSteps && data.workflowSteps.length > 0) {
+          setWorkflowSteps(data.workflowSteps);
         }
       } catch (error) {
         console.error('Polling error:', error);
@@ -47,7 +58,7 @@ function ProcessingPage({ jobId, onComplete }) {
       setProgress(prev => Math.min(prev + 20, 80));
     }, 3000);
 
-    pollInterval = setInterval(poll, 5000);
+    pollInterval = setInterval(poll, 2000);
     poll();
 
     return () => {
@@ -87,6 +98,8 @@ function ProcessingPage({ jobId, onComplete }) {
           )}
 
           <p className="estimate">Estimated time: 2-3 minutes</p>
+          
+          <WorkflowViewer workflowSteps={workflowSteps} />
         </div>
       </div>
     </div>
