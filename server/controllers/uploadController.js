@@ -290,18 +290,13 @@ export async function uploadPDF(req, res) {
       return res.status(400).json({ error: 'No brief file uploaded' });
     }
 
-    const allowedTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    
-    if (!allowedTypes.includes(req.file.mimetype)) {
+    const isPDF = req.file.mimetype === 'application/pdf';
+    const isDOCX = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+    if (!isPDF && !isDOCX) {
       console.log('[Upload Brief] Invalid file type:', req.file.mimetype);
       return res.status(400).json({ error: 'File must be a PDF or DOCX' });
     }
-
-    const isPDF = req.file.mimetype === 'application/pdf';
-    const isDOCX = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
     const fileType = isPDF ? 'pdf' : 'docx';
     console.log(`[Upload Brief] ${fileType.toUpperCase()} file received:`, req.file.originalname, 'Size:', req.file.size, 'bytes');
