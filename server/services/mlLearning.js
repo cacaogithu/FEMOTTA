@@ -138,8 +138,8 @@ export async function improvePromptWithFeedback(jobId, feedbackData, includeExam
     const allFeedback = getAllFeedback();
     const recentFeedback = allFeedback.slice(-20);
 
-    const lowRatingFeedback = recentFeedback.filter(f => f.rating <= 2);
-    const highRatingFeedback = recentFeedback.filter(f => f.rating >= 4);
+    const lowRatingFeedback = recentFeedback.filter(f => f.rating < 60);
+    const highRatingFeedback = recentFeedback.filter(f => f.rating >= 75);
 
     if (lowRatingFeedback.length === 0) {
       console.log('[ML Learning] No low ratings - current prompts performing well');
@@ -154,11 +154,11 @@ RECENT FEEDBACK ANALYSIS:
 Total feedback entries: ${recentFeedback.length}
 Average rating: ${(recentFeedback.reduce((sum, f) => sum + f.rating, 0) / recentFeedback.length).toFixed(2)}/5
 
-HIGH-RATED RESULTS (${highRatingFeedback.length} cases):
-${highRatingFeedback.map(f => `- Prompt: "${f.originalPrompt?.substring(0, 100)}..." (Rating: ${f.rating}/5)${f.comments ? `\n  Feedback: ${f.comments}` : ''}`).join('\n')}
+HIGH-RATED RESULTS (${highRatingFeedback.length} cases, ≥75/100):
+${highRatingFeedback.map(f => `- Prompt: "${f.originalPrompt?.substring(0, 100)}..." (Rating: ${f.rating}/100)${f.comments ? `\n  Feedback: ${f.comments}` : ''}`).join('\n')}
 
-LOW-RATED RESULTS (${lowRatingFeedback.length} cases):
-${lowRatingFeedback.map(f => `- Prompt: "${f.originalPrompt?.substring(0, 100)}..." (Rating: ${f.rating}/5)${f.comments ? `\n  User feedback: ${f.comments}` : ''}`).join('\n')}
+LOW-RATED RESULTS (${lowRatingFeedback.length} cases, <60/100):
+${lowRatingFeedback.map(f => `- Prompt: "${f.originalPrompt?.substring(0, 100)}..." (Rating: ${f.rating}/100)${f.comments ? `\n  User feedback: ${f.comments}` : ''}`).join('\n')}
 
 ${successfulExamples.length > 0 ? `
 SUCCESSFUL EXAMPLES FROM ACTIVE LEARNING (${successfulExamples.length} high-quality results):
@@ -172,7 +172,7 @@ Example ${i + 1} (Score: ${ex.score}/10):
 
 CURRENT FEEDBACK:
 Prompt: "${feedbackData.originalPrompt}"
-Rating: ${feedbackData.rating}/5
+Rating: ${feedbackData.rating}/100
 Comments: ${feedbackData.comments || 'None'}
 `;
 
@@ -394,7 +394,7 @@ export function shouldUseImprovedPrompt(originalPrompt) {
   
   const avgRating = allFeedback.reduce((sum, f) => sum + f.rating, 0) / allFeedback.length;
   
-  if (avgRating >= 4.0) {
+  if (avgRating >= 75) {
     return { use: false, reason: 'Current prompts performing well', avgRating };
   }
   

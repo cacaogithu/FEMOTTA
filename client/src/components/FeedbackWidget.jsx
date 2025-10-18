@@ -2,19 +2,22 @@ import { useState } from 'react';
 import './FeedbackWidget.css';
 
 function FeedbackWidget({ jobId, onSubmit }) {
-  const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
+  const [rating, setRating] = useState(50);
   const [comments, setComments] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const getRatingLabel = (score) => {
+    if (score < 20) return { emoji: '😞', text: 'Poor', color: '#f44336' };
+    if (score < 40) return { emoji: '😕', text: 'Below Average', color: '#ff9800' };
+    if (score < 60) return { emoji: '😐', text: 'Average', color: '#ffc107' };
+    if (score < 80) return { emoji: '😊', text: 'Good', color: '#8bc34a' };
+    if (score < 90) return { emoji: '🙂', text: 'Very Good', color: '#4caf50' };
+    return { emoji: '🤩', text: 'Excellent', color: '#00e676' };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (rating === 0) {
-      alert('Please select a rating');
-      return;
-    }
 
     setSubmitting(true);
 
@@ -67,30 +70,27 @@ function FeedbackWidget({ jobId, onSubmit }) {
       
       <form onSubmit={handleSubmit}>
         <div className="rating-section">
-          <label>How satisfied are you with the edited images?</label>
-          <div className="star-rating">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                type="button"
-                className={`star ${star <= (hoverRating || rating) ? 'active' : ''}`}
-                onClick={() => setRating(star)}
-                onMouseEnter={() => setHoverRating(star)}
-                onMouseLeave={() => setHoverRating(0)}
-              >
-                ★
-              </button>
-            ))}
-          </div>
-          {rating > 0 && (
-            <div className="rating-label">
-              {rating === 1 && '😞 Poor'}
-              {rating === 2 && '😕 Fair'}
-              {rating === 3 && '😐 Good'}
-              {rating === 4 && '😊 Very Good'}
-              {rating === 5 && '🤩 Excellent'}
+          <label>Rate the overall quality (0-100)</label>
+          <div className="slider-container">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={rating}
+              onChange={(e) => setRating(parseInt(e.target.value))}
+              className="quality-slider"
+              style={{
+                background: `linear-gradient(to right, ${getRatingLabel(rating).color} 0%, ${getRatingLabel(rating).color} ${rating}%, #333 ${rating}%, #333 100%)`
+              }}
+            />
+            <div className="rating-display">
+              <span className="rating-emoji">{getRatingLabel(rating).emoji}</span>
+              <span className="rating-score">{rating}/100</span>
+              <span className="rating-text" style={{ color: getRatingLabel(rating).color }}>
+                {getRatingLabel(rating).text}
+              </span>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="comments-section">

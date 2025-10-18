@@ -49,14 +49,14 @@ export async function getFeedbackStats(req, res) {
     const stats = {
       totalFeedback: allFeedback.length,
       averageRating: allFeedback.length > 0
-        ? (allFeedback.reduce((sum, f) => sum + f.rating, 0) / allFeedback.length).toFixed(2)
+        ? (allFeedback.reduce((sum, f) => sum + f.rating, 0) / allFeedback.length).toFixed(1)
         : 0,
       ratingDistribution: {
-        1: allFeedback.filter(f => f.rating === 1).length,
-        2: allFeedback.filter(f => f.rating === 2).length,
-        3: allFeedback.filter(f => f.rating === 3).length,
-        4: allFeedback.filter(f => f.rating === 4).length,
-        5: allFeedback.filter(f => f.rating === 5).length
+        poor: allFeedback.filter(f => f.rating < 40).length,
+        belowAverage: allFeedback.filter(f => f.rating >= 40 && f.rating < 60).length,
+        average: allFeedback.filter(f => f.rating >= 60 && f.rating < 75).length,
+        good: allFeedback.filter(f => f.rating >= 75 && f.rating < 90).length,
+        excellent: allFeedback.filter(f => f.rating >= 90).length
       },
       recentFeedback: allFeedback.slice(-10).reverse()
     };
