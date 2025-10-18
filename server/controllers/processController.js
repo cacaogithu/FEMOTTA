@@ -101,10 +101,35 @@ export async function processImages(req, res) {
       }
     }
 
+    // Calculate time metrics
+    const endTime = new Date();
+    const startTime = job.startTime ? new Date(job.startTime) : endTime;
+    const processingTimeMs = endTime - startTime;
+    const processingTimeSeconds = Math.round(processingTimeMs / 1000);
+    const processingTimeMinutes = (processingTimeSeconds / 60).toFixed(1);
+    
+    // Estimate manual time saved (5 minutes per image for manual editing)
+    const MANUAL_TIME_PER_IMAGE_MINUTES = 5;
+    const estimatedManualTimeMinutes = editedImages.length * MANUAL_TIME_PER_IMAGE_MINUTES;
+    const timeSavedMinutes = Math.max(0, estimatedManualTimeMinutes - parseFloat(processingTimeMinutes));
+    const timeSavedPercent = estimatedManualTimeMinutes > 0 
+      ? Math.round((timeSavedMinutes / estimatedManualTimeMinutes) * 100)
+      : 0;
+    
+    console.log(`[Time Tracking] Job ${jobId} completed in ${processingTimeMinutes} minutes`);
+    console.log(`[Time Tracking] Estimated manual time: ${estimatedManualTimeMinutes} minutes`);
+    console.log(`[Time Tracking] Time saved: ${timeSavedMinutes.toFixed(1)} minutes (${timeSavedPercent}%)`);
+    
     updateJob(jobId, {
       status: 'completed',
       editedImages,
-      processingStep: 'Complete'
+      processingStep: 'Complete',
+      endTime: endTime,
+      processingTimeSeconds: processingTimeSeconds,
+      processingTimeMinutes: parseFloat(processingTimeMinutes),
+      estimatedManualTimeMinutes: estimatedManualTimeMinutes,
+      timeSavedMinutes: parseFloat(timeSavedMinutes.toFixed(1)),
+      timeSavedPercent: timeSavedPercent
     });
 
     res.json({

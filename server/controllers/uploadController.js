@@ -199,9 +199,30 @@ ${docxText}`
     console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
     console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
 
+    // Filter out logos and non-product images
+    // Strategy: Remove small images (logos are typically smaller) and only keep images needed for specs
+    const MIN_IMAGE_SIZE = 50000; // 50KB minimum - logos are usually much smaller
+    
+    // First, filter by size to remove obvious logos/icons
+    const productImages = extractedImages.filter(img => img.buffer.length >= MIN_IMAGE_SIZE);
+    console.log(`[DOCX Extraction] After size filtering (>=${MIN_IMAGE_SIZE} bytes): ${productImages.length} images`);
+    
+    // Second, only take the number of images we need for the specs
+    const imagesToProcess = productImages.slice(0, imageSpecs.length);
+    
+    console.log(`[DOCX Extraction] Final image count: ${imagesToProcess.length} (matching ${imageSpecs.length} specs)`);
+    
+    if (imagesToProcess.length < imageSpecs.length) {
+      console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
+    }
+    
+    if (extractedImages.length > imagesToProcess.length) {
+      console.log(`[DOCX Extraction] Filtered out ${extractedImages.length - imagesToProcess.length} images (likely logos/icons)`);
+    }
+
     return {
       imageSpecs,
-      extractedImages
+      extractedImages: imagesToProcess
     };
 
   } catch (error) {
@@ -468,6 +489,7 @@ export async function uploadPDF(req, res) {
       console.log('[Upload Brief] All embedded images uploaded and made public');
     }
 
+    const startTime = new Date();
     createJob({
       id: jobId,
       pdfId: result.id,
@@ -475,7 +497,9 @@ export async function uploadPDF(req, res) {
       imageSpecs: imageSpecs,
       images: uploadedImages,
       status: uploadedImages.length > 0 ? 'processing' : 'pdf_uploaded',
-      createdAt: new Date()
+      createdAt: startTime,
+      startTime: startTime,
+      imageCount: uploadedImages.length
     });
 
     console.log('[Upload Brief] Job created:', jobId);
@@ -905,13 +929,16 @@ export async function uploadTextPrompt(req, res) {
       PDF_FOLDER_ID
     );
 
+    const startTime = new Date();
     createJob({
       id: jobId,
       promptId: result.id,
       promptText: prompt,
       images: [],
       status: 'prompt_uploaded',
-      createdAt: new Date()
+      createdAt: startTime,
+      startTime: startTime,
+      imageCount: 0
     });
 
     res.json({ 
