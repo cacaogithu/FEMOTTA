@@ -76,8 +76,15 @@ async function extractPromptFromDOCX(docxBuffer) {
 
 Your task is to read the provided document brief and extract ALL image specifications into structured JSON format.
 
-Extract ALL images mentioned in the brief (IMAGE 1, IMAGE 2, IMAGE 3, etc.). For each image, extract:
-- image_number: The sequential number
+CRITICAL INSTRUCTIONS:
+1. Extract EVERY image variant mentioned in the brief (IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
+2. If a brief mentions BOTH "Metal Dark" AND "Wood Dark" variants, create SEPARATE specifications for EACH variant
+3. Create one JSON object per variant, even if they share the same image number
+4. The total number of specifications should match the total number of product variant images described
+
+For each image specification, extract:
+- image_number: The sequential number from the brief (1, 2, 3, etc.)
+- variant: The variant name if specified (e.g., "METAL DARK", "WOOD DARK", or null if not applicable)
 - title: The HEADLINE text (convert to uppercase)
 - subtitle: The COPY text (keep as written)
 - asset: The ASSET filename (if mentioned)
@@ -86,31 +93,43 @@ For the ai_prompt field, generate a plain text instruction (no markdown, no line
 
 "Add a dark gradient overlay to the image, fading from black/dark gray at the top to transparent by the middle section. The gradient intensity and positioning should adapt to the image's brightness and composition - use darker gradients (black) for lighter images, and lighter gradients (dark gray) for darker images. Position the gradient to complement the product without obscuring key features. Overlay the following text at the top center: {title} in white Montserrat Extra Bold font (all caps, approximately 48-60px, adjust size based on image dimensions and text length to ensure readability). Below the title, add {subtitle} in white Montserrat Regular font (approximately 18-24px, adjust based on text length). Apply a subtle drop shadow to both text elements (2-4px offset, 30-50% opacity black) to ensure readability against varying backgrounds. Maintain consistent branding while adapting shadow strength to image brightness. Keep the product and background unchanged. Output as a high-resolution image suitable for web marketing."
 
-Replace {title} and {subtitle} with the actual extracted values for EACH image.
+Replace {title} and {subtitle} with the actual extracted values for EACH image variant.
 
-Return ONLY a valid JSON array with ALL image specifications, no additional text.
+Return ONLY a valid JSON array with ALL image variant specifications, no additional text.
 
-Example output format:
+Example for document with variants:
 [
   {
     "image_number": 1,
-    "title": "PRODUCT NAME",
-    "subtitle": "Product description text",
-    "asset": "filename.jpg",
+    "variant": "METAL DARK",
+    "title": "CORSAIR ONE I600",
+    "subtitle": "A Compact PC...",
+    "asset": "CORSAIR_ONE_i600_DARK_METAL_12",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 1,
+    "variant": "WOOD DARK",
+    "title": "CORSAIR ONE I600",
+    "subtitle": "A Compact PC...",
+    "asset": "CORSAIR_ONE_i600_WOOD_DARK_PHOTO_17",
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
     "image_number": 2,
-    "title": "ANOTHER PRODUCT",
-    "subtitle": "Different description",
-    "asset": "another_file.jpg",
+    "variant": "METAL DARK",
+    "title": "DUAL 240MM LIQUID COOLING",
+    "subtitle": "Modern liquid cooling...",
+    "asset": "CORSAIR_ONE_i600_DARK_METAL_17",
     "ai_prompt": "Add a dark gradient overlay..."
   }
 ]`
         },
         {
           role: 'user',
-          content: `Extract ALL image specifications from this document brief and generate individual prompts for each image.
+          content: `Extract ALL image specifications from this document brief. 
+
+IMPORTANT: If the brief describes multiple variants (like "Metal Dark" and "Wood Dark") for the same image number, create SEPARATE specifications for EACH variant. Count all variants to ensure the specification count matches the number of product images described.
 
 Document Content:
 ${docxText}`
@@ -129,23 +148,32 @@ ${docxText}`
     let jsonText = responseText.trim();
     
     console.log('[DOCX Extraction] Extracting JSON from response...');
+    console.log('[DOCX Extraction] Original response length:', jsonText.length);
     
     // Remove markdown code fences if present
     jsonText = jsonText.replace(/^```json\s*/i, '');
-    jsonText = jsonText.replace(/\s*```$/, '');
+    jsonText = jsonText.replace(/^```\s*/i, ''); // Also try without json
+    jsonText = jsonText.replace(/\s*```$/gm, '');
     jsonText = jsonText.trim();
+    
+    console.log('[DOCX Extraction] After markdown removal, length:', jsonText.length);
+    console.log('[DOCX Extraction] After markdown removal (first 200 chars):', jsonText.substring(0, 200));
     
     // Find the first [ and last ] to extract just the JSON array
     const startMarker = jsonText.indexOf('[');
     const endMarker = jsonText.lastIndexOf(']');
     
+    console.log('[DOCX Extraction] Array markers - start:', startMarker, 'end:', endMarker);
+    
     if (startMarker === -1 || endMarker === -1 || endMarker <= startMarker) {
+      console.error('[DOCX Extraction] Full response text:', responseText);
       throw new Error('No valid JSON array found in AI response');
     }
     
     // Extract only the JSON array content
     jsonText = jsonText.substring(startMarker, endMarker + 1);
     
+    console.log('[DOCX Extraction] Cleaned JSON length:', jsonText.length);
     console.log('[DOCX Extraction] Cleaned JSON (first 500 chars):', jsonText.substring(0, 500));
     console.log('[DOCX Extraction] Cleaned JSON (last 500 chars):', jsonText.substring(Math.max(0, jsonText.length - 500)));
 
@@ -370,13 +398,19 @@ export async function uploadPDF(req, res) {
       return res.status(400).json({ error: 'No brief file uploaded' });
     }
 
-    const isPDF = req.file.mimetype === 'application/pdf';
-    const isDOCX = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    // Check file type by MIME type and file extension
+    const isPDF = req.file.mimetype === 'application/pdf' || 
+                  req.file.originalname.toLowerCase().endsWith('.pdf');
+    const isDOCX = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                   (req.file.mimetype === 'application/octet-stream' && req.file.originalname.toLowerCase().endsWith('.docx')) ||
+                   req.file.originalname.toLowerCase().endsWith('.docx');
 
     if (!isPDF && !isDOCX) {
-      console.log('[Upload Brief] Invalid file type:', req.file.mimetype);
+      console.log('[Upload Brief] Invalid file type:', req.file.mimetype, 'for file:', req.file.originalname);
       return res.status(400).json({ error: 'File must be a PDF or DOCX' });
     }
+    
+    console.log(`[Upload Brief] File type detected: ${isPDF ? 'PDF' : 'DOCX'} (MIME: ${req.file.mimetype}, Name: ${req.file.originalname})`);
 
     const fileType = isPDF ? 'pdf' : 'docx';
     console.log(`[Upload Brief] ${fileType.toUpperCase()} file received:`, req.file.originalname, 'Size:', req.file.size, 'bytes');
@@ -593,12 +627,18 @@ async function processImagesWithNanoBanana(jobId) {
 
   console.log(`Processing ${job.images.length} images with ${job.imageSpecs.length} specifications`);
 
-  // Match images to specifications (in order)
+  // Match images to specifications
+  // If we have more images than specs, intelligently cycle through specs
+  // This handles cases like logo images or product variant images
   const imagePrompts = job.images.map((img, idx) => {
-    const spec = job.imageSpecs[idx] || job.imageSpecs[0]; // Use first spec as fallback
-    console.log(`Image ${idx + 1}: ${img.originalName} -> "${spec.title}"`);
-    return spec.ai_prompt;
+    // Use modulo to cycle through specs if we have more images than specs
+    const specIndex = idx % job.imageSpecs.length;
+    const spec = job.imageSpecs[specIndex];
+    console.log(`Image ${idx + 1}: ${img.originalName} -> "${spec?.title || 'FALLBACK'}" (spec ${specIndex + 1}/${job.imageSpecs.length})`);
+    return spec?.ai_prompt || job.imageSpecs[0].ai_prompt;
   });
+  
+  console.log(`[Matching Strategy] ${job.images.length} images mapped to ${job.imageSpecs.length} specifications using ${job.images.length > job.imageSpecs.length ? 'cyclic' : 'direct'} matching`);
 
   addWorkflowStep(jobId, {
     name: 'Prepare Processing',
@@ -607,12 +647,17 @@ async function processImagesWithNanoBanana(jobId) {
     details: {
       imageCount: job.images.length,
       specsCount: job.imageSpecs.length,
-      imagePrompts: imagePrompts.map((p, i) => ({
-        image: job.images[i].originalName,
-        title: job.imageSpecs[i]?.title || 'N/A',
-        subtitle: job.imageSpecs[i]?.subtitle || 'N/A'
-      })),
-      code: `// Images uploaded to Google Drive\n// Making images publicly accessible\nconst imageUrls = images.map(img => makePublic(img.driveId));\n// Each image gets its own prompt with unique title/subtitle`
+      matchingStrategy: job.images.length > job.imageSpecs.length ? 'cyclic (images > specs)' : 'direct (1:1)',
+      imagePrompts: imagePrompts.map((p, i) => {
+        const specIndex = i % job.imageSpecs.length;
+        return {
+          image: job.images[i].originalName,
+          specUsed: `${specIndex + 1}/${job.imageSpecs.length}`,
+          title: job.imageSpecs[specIndex]?.title || 'N/A',
+          subtitle: job.imageSpecs[specIndex]?.subtitle || 'N/A'
+        };
+      }),
+      code: `// Images uploaded to Google Drive\n// Making images publicly accessible\nconst imageUrls = images.map(img => makePublic(img.driveId));\n// Each image gets its own prompt with unique title/subtitle\n// Using ${job.images.length > job.imageSpecs.length ? 'cyclic matching' : 'direct 1:1 matching'}`
     }
   });
 
@@ -626,11 +671,14 @@ async function processImagesWithNanoBanana(jobId) {
     status: 'completed',
     description: `${imagePrompts.length} unique prompts extracted from PDF brief`,
     details: {
-      prompts: imagePrompts.map((p, i) => ({
-        image: i + 1,
-        title: job.imageSpecs[i]?.title,
-        preview: p.substring(0, 100) + '...'
-      })),
+      prompts: imagePrompts.map((p, i) => {
+        const specIndex = i % job.imageSpecs.length;
+        return {
+          image: i + 1,
+          title: job.imageSpecs[specIndex]?.title || 'N/A',
+          preview: p.substring(0, 100) + '...'
+        };
+      }),
       api: 'Wavespeed Nano Banana',
       endpoint: '/api/v3/google/nano-banana/edit',
       parameters: {
@@ -684,17 +732,23 @@ async function processImagesWithNanoBanana(jobId) {
         batchNumber,
         totalBatches,
         imagesInBatch: batchUrls.length,
-        prompts: batchPrompts.map((p, idx) => ({
-          image: job.images[i + idx].originalName,
-          title: job.imageSpecs[i + idx]?.title
-        }))
+        prompts: batchPrompts.map((p, idx) => {
+          const imageIndex = i + idx;
+          const specIndex = imageIndex % job.imageSpecs.length;
+          return {
+            image: job.images[imageIndex].originalName,
+            title: job.imageSpecs[specIndex]?.title || 'N/A'
+          };
+        })
       }
     });
     
     const batchPromises = batchUrls.map((url, idx) => {
       const imageIndex = i + idx;
+      const specIndex = imageIndex % job.imageSpecs.length;
       const prompt = batchPrompts[idx];
-      console.log(`  Image ${imageIndex + 1}: Using prompt for "${job.imageSpecs[imageIndex]?.title}"`);
+      const specTitle = job.imageSpecs[specIndex]?.title || 'N/A';
+      console.log(`  Image ${imageIndex + 1}: Using prompt for "${specTitle}"`);
       
       return editImageWithNanoBanana(url, prompt, {
         enableSyncMode: true,

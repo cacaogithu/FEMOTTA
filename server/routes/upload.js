@@ -10,13 +10,21 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024
   },
   fileFilter: (req, file, cb) => {
+    console.log(`[Upload] File detected: ${file.originalname}, MIME type: ${file.mimetype}`);
     const allowedTypes = [
       'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/octet-stream' // Sometimes DOCX is detected as this
     ];
-    if (allowedTypes.includes(file.mimetype)) {
+    
+    // Also check by file extension as a backup
+    const allowedExtensions = ['.pdf', '.docx'];
+    const hasAllowedExtension = allowedExtensions.some(ext => file.originalname.toLowerCase().endsWith(ext));
+    
+    if (allowedTypes.includes(file.mimetype) || hasAllowedExtension) {
       cb(null, true);
     } else {
+      console.log(`[Upload] Rejected file: ${file.originalname} with MIME: ${file.mimetype}`);
       cb(new Error('Only PDF and DOCX files are allowed'));
     }
   }
