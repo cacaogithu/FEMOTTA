@@ -24,8 +24,27 @@ export async function reEditImages(req, res) {
       ? job.editedImages.filter(img => imageIds.includes(img.id))
       : job.editedImages;
 
-    if (imagesToReEdit.length === 0) {
-      return res.status(400).json({ error: 'No valid images to re-edit' });
+    // Validate imageIds if provided
+    if (imageIds && imageIds.length > 0) {
+      const foundIds = imagesToReEdit.map(img => img.id);
+      const invalidIds = imageIds.filter(id => !foundIds.includes(id));
+      
+      if (invalidIds.length > 0) {
+        console.warn('[Re-edit] Invalid image IDs provided:', invalidIds);
+        console.log('[Re-edit] Available image IDs:', job.editedImages.map(img => img.id));
+      }
+      
+      if (imagesToReEdit.length === 0) {
+        return res.status(400).json({ 
+          error: 'No valid images found to re-edit',
+          invalidIds,
+          availableIds: job.editedImages.map(img => ({ id: img.id, name: img.name }))
+        });
+      }
+      
+      console.log(`[Re-edit] Editing ${imagesToReEdit.length} of ${imageIds.length} requested images`);
+    } else if (imagesToReEdit.length === 0) {
+      return res.status(400).json({ error: 'No edited images found for this job' });
     }
 
     const reEditedResults = [];
@@ -68,10 +87,14 @@ export async function reEditImages(req, res) {
       }
     }
 
-    const updatedEditedImages = [
-      ...job.editedImages.filter(img => !imageIds || !imageIds.includes(img.id)),
-      ...reEditedResults
-    ];
+    // When editing specific images: keep others unchanged, replace only the edited ones
+    // When editing all images: replace entire array with new results
+    const updatedEditedImages = imageIds && imageIds.length > 0
+      ? [
+          ...job.editedImages.filter(img => !imageIds.includes(img.id)),
+          ...reEditedResults
+        ]
+      : reEditedResults;
 
     updateJob(jobId, {
       editedImages: updatedEditedImages

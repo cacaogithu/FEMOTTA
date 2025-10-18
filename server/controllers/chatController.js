@@ -16,19 +16,31 @@ export async function handleChat(req, res) {
 
     const job = getJob(jobId);
     let context = '';
+    let imageList = '';
     
     if (job) {
       if (job.promptText) {
         context = `The user's original editing instructions were: "${job.promptText}". `;
       }
-      if (job.imageCount) {
-        context += `They uploaded ${job.imageCount} images for editing. `;
+      if (job.editedImages && job.editedImages.length > 0) {
+        context += `They have ${job.editedImages.length} edited images. `;
+        imageList = `\n\nAvailable images:\n${job.editedImages.map((img, idx) => `${idx + 1}. ${img.originalName || img.name} (ID: ${img.id})`).join('\n')}`;
       }
     }
 
     const systemMessage = {
       role: 'system',
-      content: `You are CORSAIR's AI image editing assistant with the ability to ACTUALLY EDIT IMAGES in real-time. ${context}When users ask you to edit, change, fix, adjust, or modify images, you can trigger actual image editing by calling the editImages function. You can make changes like: fix typos in text, adjust text positioning, change colors, modify gradients, add/remove elements, etc. After triggering an edit, confirm what you're doing. Be helpful, creative, and focus on creating visuals that convey performance and quality with CORSAIR's premium aesthetic.`
+      content: `You are CORSAIR's AI image editing assistant with the ability to ACTUALLY EDIT IMAGES in real-time. ${context}
+
+When users ask you to edit images, you can trigger actual image editing by calling the editImages function. You can edit:
+- SPECIFIC images: "fix image 3", "edit the first one", "change images 1 and 5"
+- ALL images: "fix all images", "edit everything", "change all the text"
+
+You can make changes like: fix typos in text, adjust text positioning, change colors, modify gradients, add/remove elements, etc.
+
+When the user mentions specific images (by number, position, or name), extract those image IDs and pass them to the function. If they say "all" or don't specify, edit all images.${imageList}
+
+After triggering an edit, confirm what you're doing. Be helpful, creative, and focus on creating visuals that convey performance and quality with CORSAIR's premium aesthetic.`
     };
 
     const tools = [
@@ -36,13 +48,18 @@ export async function handleChat(req, res) {
         type: 'function',
         function: {
           name: 'editImages',
-          description: 'Actually edit all images in the job with new instructions. Use this when the user asks to change, fix, edit, or modify the images.',
+          description: 'Actually edit specific images or all images in the job with new instructions. Use this when the user asks to change, fix, edit, or modify images.',
           parameters: {
             type: 'object',
             properties: {
               newPrompt: {
                 type: 'string',
-                description: 'The new editing instructions to apply to all images. Be specific about what to change (e.g., "Fix the typo: change customiable to customizable", "Make the gradient lighter and only at the top", "Remove the text overlay entirely")'
+                description: 'The new editing instructions to apply to the selected images. Be specific about what to change (e.g., "Fix the typo: change customiable to customizable", "Make the gradient lighter and only at the top", "Remove the text overlay entirely")'
+              },
+              imageIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional: Array of image IDs to edit. If not provided or empty, all images will be edited. Extract IDs from the image list provided in the system context when user specifies particular images (e.g., "edit image 3" -> use the ID of image #3)'
               }
             },
             required: ['newPrompt']
@@ -94,23 +111,37 @@ export async function handleChat(req, res) {
           });
         }
 
+        const imageIds = args.imageIds && Array.isArray(args.imageIds) ? args.imageIds : null;
+        const targetDescription = imageIds && imageIds.length > 0 
+          ? `${imageIds.length} specific image${imageIds.length > 1 ? 's' : ''}`
+          : 'all your images';
+
         console.log('[Chat] AI triggering image re-edit with prompt:', args.newPrompt);
+        if (imageIds) {
+          console.log('[Chat] Targeting specific images:', imageIds);
+        }
         
         // Call the re-edit endpoint
         try {
+          const requestBody = {
+            jobId,
+            newPrompt: args.newPrompt
+          };
+          
+          if (imageIds && imageIds.length > 0) {
+            requestBody.imageIds = imageIds;
+          }
+
           const reEditResponse = await fetch(`http://localhost:3000/api/re-edit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jobId,
-              newPrompt: args.newPrompt
-            })
+            body: JSON.stringify(requestBody)
           });
 
           if (reEditResponse.ok) {
             return res.json({
               success: true,
-              message: `I'm now editing all your images with these instructions: "${args.newPrompt}". The processing will take about 30-60 seconds. Refresh the page to see the updated results!`,
+              message: `I'm now editing ${targetDescription} with these instructions: "${args.newPrompt}". The processing will take about 30-60 seconds. Refresh the page to see the updated results!`,
               editTriggered: true
             });
           } else {
