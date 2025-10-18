@@ -128,18 +128,15 @@ ${docxText}`
     // Clean up response - remove markdown code blocks if present
     let jsonText = responseText;
     
-    // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+    // Remove markdown code blocks more aggressively
     if (jsonText.includes('```')) {
-      // Find the first ``` and the last ```
-      const firstBacktick = jsonText.indexOf('```');
-      const lastBacktick = jsonText.lastIndexOf('```');
+      console.log('[Extraction] Removing markdown code fences...');
       
-      if (firstBacktick !== -1 && lastBacktick !== -1 && firstBacktick !== lastBacktick) {
-        // Extract everything between the code fences
-        const betweenFences = jsonText.substring(firstBacktick + 3, lastBacktick);
-        // Remove the 'json' language identifier if present
-        jsonText = betweenFences.replace(/^json\s*\n?/i, '').trim();
-      }
+      // Remove opening ```json or ```
+      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '');
+      
+      // Remove closing ```
+      jsonText = jsonText.replace(/\s*```\s*$/,'');
     }
     
     jsonText = jsonText.trim();
@@ -276,18 +273,15 @@ ${pdfText}`
     // Clean up response - remove markdown code blocks if present
     let jsonText = responseText;
     
-    // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+    // Remove markdown code blocks more aggressively
     if (jsonText.includes('```')) {
-      // Find the first ``` and the last ```
-      const firstBacktick = jsonText.indexOf('```');
-      const lastBacktick = jsonText.lastIndexOf('```');
+      console.log('[Extraction] Removing markdown code fences...');
       
-      if (firstBacktick !== -1 && lastBacktick !== -1 && firstBacktick !== lastBacktick) {
-        // Extract everything between the code fences
-        const betweenFences = jsonText.substring(firstBacktick + 3, lastBacktick);
-        // Remove the 'json' language identifier if present
-        jsonText = betweenFences.replace(/^json\s*\n?/i, '').trim();
-      }
+      // Remove opening ```json or ```
+      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/^```\s*/, '');
+      
+      // Remove closing ```
+      jsonText = jsonText.replace(/\s*```\s*$/,'');
     }
     
     jsonText = jsonText.trim();
