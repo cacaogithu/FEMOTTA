@@ -17,26 +17,45 @@ const openai = new OpenAI({
 async function extractPromptFromPDF(pdfBuffer) {
   try {
     console.log('[PDF Extraction] Starting PDF text extraction...');
+    console.log('[PDF Extraction] Buffer size:', pdfBuffer.length, 'bytes');
+    
+    // Convert Buffer to Uint8Array for pdfjs-dist compatibility
+    const uint8Array = new Uint8Array(pdfBuffer);
+    console.log('[PDF Extraction] Converted to Uint8Array, length:', uint8Array.length);
     
     // Extract text from PDF using pdfjs-dist
-    const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
+    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
     const pdfDocument = await loadingTask.promise;
+    
+    console.log('[PDF Extraction] PDF loaded successfully, pages:', pdfDocument.numPages);
     
     let pdfText = '';
     for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+      console.log(`[PDF Extraction] Processing page ${pageNum}/${pdfDocument.numPages}`);
       const page = await pdfDocument.getPage(pageNum);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => item.str).join(' ');
-      pdfText += pageText + '\n';
+      
+      // Improved text extraction with better spacing
+      const pageText = textContent.items
+        .map(item => item.str)
+        .filter(str => str.trim().length > 0)
+        .join(' ');
+      
+      pdfText += pageText + '\n\n';
     }
+    
+    // Clean up extra whitespace
+    pdfText = pdfText.replace(/\s+/g, ' ').trim();
     
     console.log('[PDF Extraction] Extracted text length:', pdfText.length);
     console.log('[PDF Extraction] First 500 chars:', pdfText.substring(0, 500));
 
     if (!pdfText || pdfText.trim().length < 10) {
-      throw new Error('Could not extract text from PDF - file may be image-based or encrypted');
+      throw new Error('Could not extract text from PDF - file may be image-based, empty, or encrypted');
     }
 
+    console.log('[PDF Extraction] Sending to OpenAI for prompt generation...');
+    
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -72,42 +91,64 @@ ${pdfText}`
 
     const promptText = completion.choices[0].message.content.trim();
     
-    console.log('[PDF Extraction] Generated prompt:', promptText);
+    console.log('[PDF Extraction] AI prompt generated successfully');
+    console.log('[PDF Extraction] Generated prompt (first 200 chars):', promptText.substring(0, 200));
 
-    if (!promptText || promptText.length < 10) {
-      throw new Error('Could not extract valid prompt from PDF');
+    if (!promptText || promptText.length < 50) {
+      throw new Error('Generated prompt is too short or invalid');
     }
 
     return promptText;
+    
   } catch (error) {
-    console.error('[PDF Extraction] Error:', error);
-    throw error;
+    console.error('[PDF Extraction] Error:', error.message);
+    
+    // Provide user-friendly error messages
+    if (error.message.includes('Uint8Array')) {
+      throw new Error('PDF format error - please ensure the file is a valid PDF');
+    } else if (error.message.includes('image-based') || error.message.includes('encrypted')) {
+      throw new Error('Cannot read PDF text - file may be image-based or password-protected');
+    } else if (error.message.includes('OpenAI') || error.message.includes('API')) {
+      throw new Error('AI service temporarily unavailable - please try again');
+    } else if (error.code === 'ENOENT' || error.code === 'EACCES') {
+      throw new Error('File access error - please try uploading again');
+    }
+    
+    throw new Error(`PDF processing failed: ${error.message}`);
   }
 }
 
 export async function uploadPDF(req, res) {
   try {
+    console.log('[Upload PDF] Request received');
+    
     if (!req.file) {
+      console.log('[Upload PDF] No file in request');
       return res.status(400).json({ error: 'No PDF file uploaded' });
     }
 
     if (req.file.mimetype !== 'application/pdf') {
+      console.log('[Upload PDF] Invalid file type:', req.file.mimetype);
       return res.status(400).json({ error: 'File must be a PDF' });
     }
+
+    console.log('[Upload PDF] File received:', req.file.originalname, 'Size:', req.file.size, 'bytes');
 
     const jobId = `job_${Date.now()}`;
     const fileName = `brief-${Date.now()}.pdf`;
 
+    console.log('[Upload PDF] Uploading to Google Drive...');
     const result = await uploadFileToDrive(
       req.file.buffer,
       fileName,
       'application/pdf',
       PDF_FOLDER_ID
     );
+    console.log('[Upload PDF] Uploaded to Drive, ID:', result.id);
 
-    console.log('Extracting prompt from PDF...');
+    console.log('[Upload PDF] Extracting prompt from PDF...');
     const promptText = await extractPromptFromPDF(req.file.buffer);
-    console.log('Prompt extracted:', promptText);
+    console.log('[Upload PDF] Prompt extracted successfully, length:', promptText.length);
 
     createJob({
       id: jobId,
@@ -119,6 +160,8 @@ export async function uploadPDF(req, res) {
       createdAt: new Date()
     });
 
+    console.log('[Upload PDF] Job created:', jobId);
+
     res.json({ 
       success: true, 
       jobId,
@@ -127,9 +170,16 @@ export async function uploadPDF(req, res) {
       promptText: promptText,
       message: 'PDF uploaded and prompt extracted successfully' 
     });
+    
   } catch (error) {
-    console.error('PDF upload error:', error);
-    res.status(500).json({ error: 'Failed to upload PDF', details: error.message });
+    console.error('[Upload PDF] Error:', error.message);
+    
+    // Return user-friendly error messages
+    const statusCode = error.message.includes('No PDF') ? 400 : 500;
+    res.status(statusCode).json({ 
+      error: 'PDF upload failed', 
+      details: error.message 
+    });
   }
 }
 
