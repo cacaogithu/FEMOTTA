@@ -160,3 +160,42 @@
   font-weight: 300;
   margin-top: 32px;
 }
+
+@media (max-width: 768px) {
+  .processing-page {
+    padding: 20px 16px;
+  }
+  
+  .processing-page .container {
+    max-width: 100%;
+  }
+  
+  .processing-content h1 {
+    font-size: 36px;
+    letter-spacing: 2px;
+  }
+  
+  .spinner-large {
+    width: 80px;
+    height: 80px;
+    border-width: 6px;
+  }
+  
+  .step {
+    padding: 16px 18px;
+  }
+  
+  .step-number {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+  
+  .step-text {
+    font-size: 15px;
+  }
+  
+  .progress-text {
+    font-size: 20px;
+  }
+}
