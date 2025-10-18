@@ -1,52 +1,128 @@
 .results-page {
   width: 100%;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.results-page .container {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .results-header {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 64px;
+  animation: fadeInDown 0.6s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .results-header h1 {
-  font-size: 42px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: #FFFFFF;
+  font-size: 56px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #FFC107 0%, #FF6F00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
 }
 
 .results-header p {
-  color: #B0B0B0;
-  font-size: 18px;
-  margin-bottom: 24px;
+  color: #E0E0E0;
+  font-size: 20px;
+  margin-bottom: 32px;
+  font-weight: 300;
+  letter-spacing: 0.5px;
 }
 
 .header-actions {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   justify-content: center;
   flex-wrap: wrap;
+  margin-top: 24px;
+  animation: fadeIn 0.6s ease-out 0.3s backwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.header-actions .button {
+  padding: 16px 40px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.header-actions .button-primary {
+  background: linear-gradient(135deg, #FFC107 0%, #FF6F00 100%);
+  color: #0A0A0A;
+  border: none;
+}
+
+.header-actions .button-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(255, 193, 7, 0.5);
+}
+
+.header-actions .button-secondary {
+  background: transparent;
+  color: #FFC107;
+  border: 2px solid #FFC107;
+}
+
+.header-actions .button-secondary:hover {
+  background: rgba(255, 193, 7, 0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(255, 193, 7, 0.3);
 }
 
 .results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 32px;
+  margin-bottom: 64px;
+  animation: fadeIn 0.6s ease-out 0.4s backwards;
 }
 
 .result-card {
-  background: #1A1A1A;
-  border-radius: 8px;
+  background: linear-gradient(145deg, #1F1F1F 0%, #1A1A1A 100%);
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: transform 0.3s, box-shadow 0.3s;
-  border: 1px solid #2A2A2A;
+  box-shadow: 
+    0 10px 40px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid #2A2A2A;
 }
 
 .result-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(255, 193, 7, 0.2);
+  transform: translateY(-8px);
+  box-shadow: 
+    0 20px 60px rgba(255, 193, 7, 0.3),
+    inset 0 1px 0 rgba(255, 193, 7, 0.1);
   border-color: #FFC107;
 }
 
@@ -64,34 +140,68 @@
 }
 
 .card-info {
-  padding: 16px;
+  padding: 24px;
 }
 
 .card-info h3 {
-  font-size: 16px;
-  margin-bottom: 12px;
+  font-size: 15px;
+  margin-bottom: 16px;
   color: #FFFFFF;
   word-break: break-all;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  font-weight: 700;
 }
 
 .download-btn {
   width: 100%;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, #FFC107 0%, #FF6F00 100%);
+  color: #0A0A0A;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255, 193, 7, 0.3);
+}
+
+.download-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 193, 7, 0.5);
 }
 
 @media (max-width: 768px) {
+  .results-page {
+    padding: 20px 16px;
+  }
+  
+  .results-header h1 {
+    font-size: 36px;
+    letter-spacing: 2px;
+  }
+  
+  .results-header p {
+    font-size: 16px;
+  }
+  
   .results-grid {
     grid-template-columns: 1fr;
+    gap: 24px;
   }
   
   .header-actions {
     flex-direction: column;
     width: 100%;
+    gap: 12px;
   }
   
   .header-actions .button {
     width: 100%;
+    padding: 14px 24px;
   }
 }
 
