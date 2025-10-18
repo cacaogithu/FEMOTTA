@@ -24,6 +24,9 @@ async function extractPromptFromDOCX(docxBuffer) {
     const textResult = await mammoth.extractRawText({ buffer: docxBuffer });
     const docxText = textResult.value;
     
+    console.log('[DOCX Extraction] Extracted text length:', docxText.length);
+    console.log('[DOCX Extraction] First 500 chars:', docxText.substring(0, 500));
+    
     // Extract images from DOCX
     const extractedImages = [];
     const imagesResult = await mammoth.convertToHtml({ 
@@ -43,9 +46,6 @@ async function extractPromptFromDOCX(docxBuffer) {
     });
     
     console.log('[DOCX Extraction] Found', extractedImages.length, 'embedded images');
-    
-    console.log('[DOCX Extraction] Extracted text length:', docxText.length);
-    console.log('[DOCX Extraction] First 500 chars:', docxText.substring(0, 500));
 
     if (!docxText || docxText.trim().length < 10) {
       throw new Error('Could not extract text from DOCX - file may be empty or corrupted');
