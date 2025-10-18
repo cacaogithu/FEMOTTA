@@ -113,10 +113,24 @@ ${docxText}`
 
     // Clean up response - remove markdown code blocks if present
     let jsonText = responseText;
-    if (jsonText.includes('```json')) {
-      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    
+    // Remove markdown code blocks
+    if (jsonText.includes('```')) {
+      // Extract content between first ``` and last ```
+      const firstBacktick = jsonText.indexOf('```');
+      const lastBacktick = jsonText.lastIndexOf('```');
+      
+      if (firstBacktick !== -1 && lastBacktick !== -1 && firstBacktick !== lastBacktick) {
+        jsonText = jsonText.substring(firstBacktick, lastBacktick);
+        // Remove the opening ```json or ```
+        jsonText = jsonText.replace(/^```(json)?\s*\n?/i, '');
+      }
     }
+    
     jsonText = jsonText.trim();
+    
+    console.log('[DOCX Extraction] Cleaned JSON (first 300 chars):', jsonText.substring(0, 300));
+    console.log('[DOCX Extraction] Cleaned JSON (last 300 chars):', jsonText.substring(jsonText.length - 300));
 
     // Parse the JSON array of image specifications
     const imageSpecs = JSON.parse(jsonText);
@@ -246,10 +260,24 @@ ${pdfText}`
 
     // Clean up response - remove markdown code blocks if present
     let jsonText = responseText;
-    if (jsonText.includes('```json')) {
-      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    
+    // Remove markdown code blocks
+    if (jsonText.includes('```')) {
+      // Extract content between first ``` and last ```
+      const firstBacktick = jsonText.indexOf('```');
+      const lastBacktick = jsonText.lastIndexOf('```');
+      
+      if (firstBacktick !== -1 && lastBacktick !== -1 && firstBacktick !== lastBacktick) {
+        jsonText = jsonText.substring(firstBacktick, lastBacktick);
+        // Remove the opening ```json or ```
+        jsonText = jsonText.replace(/^```(json)?\s*\n?/i, '');
+      }
     }
+    
     jsonText = jsonText.trim();
+    
+    console.log('[PDF Extraction] Cleaned JSON (first 300 chars):', jsonText.substring(0, 300));
+    console.log('[PDF Extraction] Cleaned JSON (last 300 chars):', jsonText.substring(jsonText.length - 300));
 
     // Parse the JSON array of image specifications
     const imageSpecs = JSON.parse(jsonText);
