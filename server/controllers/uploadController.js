@@ -128,17 +128,19 @@ ${docxText}`
     // Clean up response - remove markdown code blocks if present
     let jsonText = responseText;
     
-    // Remove markdown code blocks more aggressively
-    if (jsonText.includes('```')) {
-      console.log('[DOCX Extraction] Removing markdown code fences...');
-      
-      // Find the actual JSON content between code fences
-      const startMarker = jsonText.indexOf('[');
-      const endMarker = jsonText.lastIndexOf(']');
-      
-      if (startMarker !== -1 && endMarker !== -1 && endMarker > startMarker) {
-        jsonText = jsonText.substring(startMarker, endMarker + 1);
-      }
+    // Remove markdown code blocks aggressively
+    console.log('[DOCX Extraction] Cleaning markdown fences...');
+    
+    // Remove all variations of code fence markers
+    jsonText = jsonText.replace(/```json\n?/gi, '');
+    jsonText = jsonText.replace(/```\n?/g, '');
+    
+    // Find the actual JSON array boundaries
+    const startMarker = jsonText.indexOf('[');
+    const endMarker = jsonText.lastIndexOf(']');
+    
+    if (startMarker !== -1 && endMarker !== -1 && endMarker > startMarker) {
+      jsonText = jsonText.substring(startMarker, endMarker + 1);
     }
     
     jsonText = jsonText.trim();
@@ -291,17 +293,19 @@ ${pdfText}`
     // Clean up response - remove markdown code blocks if present
     let jsonText = responseText;
     
-    // Remove markdown code blocks more aggressively
-    if (jsonText.includes('```')) {
-      console.log('[PDF Extraction] Removing markdown code fences...');
-      
-      // Find the actual JSON content between code fences
-      const startMarker = jsonText.indexOf('[');
-      const endMarker = jsonText.lastIndexOf(']');
-      
-      if (startMarker !== -1 && endMarker !== -1 && endMarker > startMarker) {
-        jsonText = jsonText.substring(startMarker, endMarker + 1);
-      }
+    // Remove markdown code blocks aggressively
+    console.log('[PDF Extraction] Cleaning markdown fences...');
+    
+    // Remove all variations of code fence markers
+    jsonText = jsonText.replace(/```json\n?/gi, '');
+    jsonText = jsonText.replace(/```\n?/g, '');
+    
+    // Find the actual JSON array boundaries
+    const startMarker = jsonText.indexOf('[');
+    const endMarker = jsonText.lastIndexOf(']');
+    
+    if (startMarker !== -1 && endMarker !== -1 && endMarker > startMarker) {
+      jsonText = jsonText.substring(startMarker, endMarker + 1);
     }
     
     jsonText = jsonText.trim();
