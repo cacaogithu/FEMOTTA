@@ -102,6 +102,25 @@ Direct API integration (no n8n dependency):
 - Google Drive authentication managed by Replit integration
 
 ## Recent Changes
+- **October 18, 2025**: AI Chat Function Calling + Subtle Image Editing
+  - **Upgraded chat assistant to GPT-4 with function calling**:
+    - AI can now ACTUALLY trigger image re-edits when user asks to "fix", "change", "edit", etc.
+    - Uses OpenAI function calling with `editImages(newPrompt)` tool
+    - Automatically calls `/api/re-edit` endpoint with AI-generated prompts
+    - Returns clear confirmation when edit is triggered
+  - **Added robust error handling**:
+    - Validates job exists before attempting re-edit
+    - Safe JSON parsing with try-catch for tool call arguments
+    - Returns `success: false` with proper status codes on failures
+    - Prevents silent failures and vague error messages
+  - **Refined AI prompt template for subtle edits**:
+    - Changed gradient from 50% coverage to only 20-25% at very top
+    - Reduced opacity from heavy dark overlay to 30-40% subtle blend
+    - Explicitly instructs to preserve ALL original details, colors, textures
+    - Smaller text shadows (1-2px instead of 2-4px)
+    - Emphasizes "minimal professional overlay, not heavy editing"
+    - Results look like simple professional touch-ups, not heavy manipulation
+  
 - **October 18, 2025**: DOCX Image Extraction Fix + JSON Parsing Fix
   - **Fixed critical DOCX embedded image extraction**:
     - Corrected mammoth.js API usage with proper `convertImage` option placement
