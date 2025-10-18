@@ -15,8 +15,19 @@ const openai = new OpenAI({
 
 async function extractPromptFromPDF(pdfBuffer) {
   try {
-    // Convert PDF buffer to base64 for OpenAI
-    const base64Pdf = pdfBuffer.toString('base64');
+    console.log('[PDF Extraction] Starting PDF text extraction...');
+    
+    // First, extract text from PDF using pdf-parse
+    const pdfParse = (await import('pdf-parse')).default;
+    const pdfData = await pdfParse(pdfBuffer);
+    const pdfText = pdfData.text;
+    
+    console.log('[PDF Extraction] Extracted text length:', pdfText.length);
+    console.log('[PDF Extraction] First 500 chars:', pdfText.substring(0, 500));
+
+    if (!pdfText || pdfText.trim().length < 10) {
+      throw new Error('Could not extract text from PDF - file may be image-based or encrypted');
+    }
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -25,7 +36,7 @@ async function extractPromptFromPDF(pdfBuffer) {
           role: 'system',
           content: `You are an AI creative assistant specialized in extracting marketing image specifications from briefs.
 
-Your task is to read the provided PDF brief and create a detailed AI image editing prompt.
+Your task is to read the provided PDF brief text and create a detailed AI image editing prompt.
 
 Extract the following information:
 - HEADLINE/TITLE text (should be in uppercase)
@@ -43,7 +54,8 @@ Return ONLY the generated prompt text, nothing else.`
           role: 'user',
           content: `Extract the headline and copy from this PDF brief and generate a detailed AI editing prompt following the template.
 
-PDF base64: ${base64Pdf.substring(0, 50000)}`
+PDF Content:
+${pdfText}`
         }
       ],
       temperature: 0.3,
@@ -51,6 +63,8 @@ PDF base64: ${base64Pdf.substring(0, 50000)}`
     });
 
     const promptText = completion.choices[0].message.content.trim();
+    
+    console.log('[PDF Extraction] Generated prompt:', promptText);
 
     if (!promptText || promptText.length < 10) {
       throw new Error('Could not extract valid prompt from PDF');
@@ -58,7 +72,7 @@ PDF base64: ${base64Pdf.substring(0, 50000)}`
 
     return promptText;
   } catch (error) {
-    console.error('PDF extraction error:', error);
+    console.error('[PDF Extraction] Error:', error);
     throw error;
   }
 }
