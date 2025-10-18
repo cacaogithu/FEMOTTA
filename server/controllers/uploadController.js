@@ -130,6 +130,11 @@ ${docxText}`
     
     console.log('[DOCX Extraction] Extracting JSON from response...');
     
+    // Remove markdown code fences if present
+    jsonText = jsonText.replace(/^```json\s*/i, '');
+    jsonText = jsonText.replace(/\s*```$/, '');
+    jsonText = jsonText.trim();
+    
     // Find the first [ and last ] to extract just the JSON array
     const startMarker = jsonText.indexOf('[');
     const endMarker = jsonText.lastIndexOf(']');
@@ -290,6 +295,11 @@ ${pdfText}`
     let jsonText = responseText.trim();
     
     console.log('[PDF Extraction] Extracting JSON from response...');
+    
+    // Remove markdown code fences if present
+    jsonText = jsonText.replace(/^```json\s*/i, '');
+    jsonText = jsonText.replace(/\s*```$/, '');
+    jsonText = jsonText.trim();
     
     // Find the first [ and last ] to extract just the JSON array
     const startMarker = jsonText.indexOf('[');
