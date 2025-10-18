@@ -5,6 +5,7 @@ import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
+import pdfParse from 'pdf-parse';
 
 const PDF_FOLDER_ID = '1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697';
 const IMAGES_FOLDER_ID = '1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS';
@@ -18,7 +19,6 @@ async function extractPromptFromPDF(pdfBuffer) {
     console.log('[PDF Extraction] Starting PDF text extraction...');
     
     // First, extract text from PDF using pdf-parse
-    const pdfParse = (await import('pdf-parse')).default;
     const pdfData = await pdfParse(pdfBuffer);
     const pdfText = pdfData.text;
     
