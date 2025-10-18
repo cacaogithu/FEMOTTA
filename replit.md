@@ -33,9 +33,10 @@ A professional full-stack web application for AI-powered marketing image editing
 
 ## Features
 1. **File Upload Interface**
-   - **Dual input modes**: PDF brief upload OR text prompt
-   - Toggle between PDF (max 50MB) and text prompt input
-   - Multiple product image upload (JPG, PNG, max 20MB each)
+   - **Triple input modes**: PDF brief upload, DOCX brief upload, OR text prompt
+   - Toggle between PDF/DOCX (max 50MB) and text prompt input
+   - **DOCX Support**: Upload DOCX files with embedded images - system extracts both text and images automatically
+   - Multiple product image upload (JPG, PNG, max 20MB each) - optional for DOCX
    - Client-side validation and error handling
 
 2. **Parallel Processing Flow**
