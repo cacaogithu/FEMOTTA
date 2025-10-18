@@ -125,25 +125,21 @@ ${docxText}`
     console.log('[DOCX Extraction] AI response received, parsing JSON...');
     console.log('[DOCX Extraction] Response (first 300 chars):', responseText.substring(0, 300));
 
-    // Clean up response - remove markdown code blocks if present
-    let jsonText = responseText;
+    // Clean up response - extract just the JSON array
+    let jsonText = responseText.trim();
     
-    // Remove markdown code blocks aggressively
-    console.log('[DOCX Extraction] Cleaning markdown fences...');
+    console.log('[DOCX Extraction] Extracting JSON from response...');
     
-    // Remove all variations of code fence markers
-    jsonText = jsonText.replace(/```json\n?/gi, '');
-    jsonText = jsonText.replace(/```\n?/g, '');
-    
-    // Find the actual JSON array boundaries
+    // Find the first [ and last ] to extract just the JSON array
     const startMarker = jsonText.indexOf('[');
     const endMarker = jsonText.lastIndexOf(']');
     
-    if (startMarker !== -1 && endMarker !== -1 && endMarker > startMarker) {
-      jsonText = jsonText.substring(startMarker, endMarker + 1);
+    if (startMarker === -1 || endMarker === -1 || endMarker <= startMarker) {
+      throw new Error('No valid JSON array found in AI response');
     }
     
-    jsonText = jsonText.trim();
+    // Extract only the JSON array content
+    jsonText = jsonText.substring(startMarker, endMarker + 1);
     
     console.log('[DOCX Extraction] Cleaned JSON (first 500 chars):', jsonText.substring(0, 500));
     console.log('[DOCX Extraction] Cleaned JSON (last 500 chars):', jsonText.substring(Math.max(0, jsonText.length - 500)));
@@ -290,25 +286,21 @@ ${pdfText}`
     console.log('[PDF Extraction] AI response received, parsing JSON...');
     console.log('[PDF Extraction] Response (first 300 chars):', responseText.substring(0, 300));
 
-    // Clean up response - remove markdown code blocks if present
-    let jsonText = responseText;
+    // Clean up response - extract just the JSON array
+    let jsonText = responseText.trim();
     
-    // Remove markdown code blocks aggressively
-    console.log('[PDF Extraction] Cleaning markdown fences...');
+    console.log('[PDF Extraction] Extracting JSON from response...');
     
-    // Remove all variations of code fence markers
-    jsonText = jsonText.replace(/```json\n?/gi, '');
-    jsonText = jsonText.replace(/```\n?/g, '');
-    
-    // Find the actual JSON array boundaries
+    // Find the first [ and last ] to extract just the JSON array
     const startMarker = jsonText.indexOf('[');
     const endMarker = jsonText.lastIndexOf(']');
     
-    if (startMarker !== -1 && endMarker !== -1 && endMarker > startMarker) {
-      jsonText = jsonText.substring(startMarker, endMarker + 1);
+    if (startMarker === -1 || endMarker === -1 || endMarker <= startMarker) {
+      throw new Error('No valid JSON array found in AI response');
     }
     
-    jsonText = jsonText.trim();
+    // Extract only the JSON array content
+    jsonText = jsonText.substring(startMarker, endMarker + 1);
     
     console.log('[PDF Extraction] Cleaned JSON (first 500 chars):', jsonText.substring(0, 500));
     console.log('[PDF Extraction] Cleaned JSON (last 500 chars):', jsonText.substring(Math.max(0, jsonText.length - 500)));
