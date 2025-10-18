@@ -101,6 +101,15 @@ Direct API integration (no n8n dependency):
 - Google Drive authentication managed by Replit integration
 
 ## Recent Changes
+- **October 18, 2025**: PDF Upload Fix + Parallel Processing, Workflow Visualization & ML Feedback System
+  - **Fixed critical PDF upload issue**:
+    - Converted Buffer to Uint8Array for pdfjs-dist compatibility
+    - Added comprehensive error handling for corrupted/empty/encrypted PDFs
+    - Enhanced text extraction with better spacing and filtering
+    - Added detailed logging at every step for debugging
+    - Improved user-friendly error messages
+    - PDF workflow now production-ready for deployment
+    
 - **October 18, 2025**: Parallel Processing, Workflow Visualization & ML Feedback System
   - **Implemented parallel batch processing** (5 images at a time) with real-time progress callbacks
   - **Created comprehensive workflow step tracking** showing:
