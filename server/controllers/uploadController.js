@@ -19,19 +19,19 @@ async function extractPromptFromDOCX(docxBuffer) {
   try {
     console.log('[DOCX Extraction] Starting DOCX text extraction...');
     console.log('[DOCX Extraction] Buffer size:', docxBuffer.length, 'bytes');
-    
+
     // Extract text from DOCX
     const textResult = await mammoth.extractRawText({ buffer: docxBuffer });
     const docxText = textResult.value;
-    
+
     console.log('[DOCX Extraction] Extracted text length:', docxText.length);
     console.log('[DOCX Extraction] First 500 chars:', docxText.substring(0, 500));
-    
+
     // Extract images from DOCX using mammoth's convertImage callback
     const extractedImages = [];
-    
+
     console.log('[DOCX Extraction] Converting DOCX to HTML to extract images...');
-    
+
     // Convert DOCX to HTML with custom image handler to capture embedded images
     const result = await mammoth.convertToHtml({
       buffer: docxBuffer
@@ -41,15 +41,15 @@ async function extractPromptFromDOCX(docxBuffer) {
         return image.read("base64").then(function(imageBuffer) {
           // Convert base64 string to Buffer
           const buffer = Buffer.from(imageBuffer, 'base64');
-          
+
           console.log('[DOCX Extraction] Found embedded image:', buffer.length, 'bytes, type:', image.contentType);
-          
+
           // Store the image for later upload to Drive
           extractedImages.push({
             buffer: buffer,
             contentType: image.contentType
           });
-          
+
           // Return the image as a data URI for the HTML output
           return {
             src: "data:" + image.contentType + ";base64," + imageBuffer
@@ -57,7 +57,7 @@ async function extractPromptFromDOCX(docxBuffer) {
         });
       })
     });
-    
+
     console.log('[DOCX Extraction] HTML conversion complete');
     console.log('[DOCX Extraction] Found', extractedImages.length, 'embedded images');
 
@@ -66,7 +66,7 @@ async function extractPromptFromDOCX(docxBuffer) {
     }
 
     console.log('[DOCX Extraction] Sending to OpenAI to extract image specifications...');
-    
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -140,39 +140,35 @@ ${docxText}`
     });
 
     const responseText = completion.choices[0].message.content.trim();
-    
+
     console.log('[DOCX Extraction] AI response received, parsing JSON...');
     console.log('[DOCX Extraction] Response (first 300 chars):', responseText.substring(0, 300));
 
     // Clean up response - extract just the JSON array
     let jsonText = responseText.trim();
-    
+
     console.log('[DOCX Extraction] Extracting JSON from response...');
-    console.log('[DOCX Extraction] Original response length:', jsonText.length);
-    
-    // Remove markdown code fences if present
-    jsonText = jsonText.replace(/^```json\s*/i, '');
-    jsonText = jsonText.replace(/^```\s*/i, ''); // Also try without json
-    jsonText = jsonText.replace(/\s*```$/gm, '');
+    jsonText = jsonText.replace(/^```json\s*/im, '');
+    jsonText = jsonText.replace(/\s*```\s*$/m, '');
     jsonText = jsonText.trim();
-    
+
     console.log('[DOCX Extraction] After markdown removal, length:', jsonText.length);
     console.log('[DOCX Extraction] After markdown removal (first 200 chars):', jsonText.substring(0, 200));
-    
+
     // Find the first [ and last ] to extract just the JSON array
     const startMarker = jsonText.indexOf('[');
     const endMarker = jsonText.lastIndexOf(']');
-    
+
     console.log('[DOCX Extraction] Array markers - start:', startMarker, 'end:', endMarker);
-    
+
     if (startMarker === -1 || endMarker === -1 || endMarker <= startMarker) {
       console.error('[DOCX Extraction] Full response text:', responseText);
       throw new Error('No valid JSON array found in AI response');
     }
-    
+
     // Extract only the JSON array content
     jsonText = jsonText.substring(startMarker, endMarker + 1);
-    
+
     console.log('[DOCX Extraction] Cleaned JSON length:', jsonText.length);
     console.log('[DOCX Extraction] Cleaned JSON (first 500 chars):', jsonText.substring(0, 500));
     console.log('[DOCX Extraction] Cleaned JSON (last 500 chars):', jsonText.substring(Math.max(0, jsonText.length - 500)));
@@ -184,7 +180,7 @@ ${docxText}`
     } catch (parseError) {
       console.error('[DOCX Extraction] JSON parse error:', parseError.message);
       console.error('[DOCX Extraction] Problematic JSON around position', parseError.message.match(/\d+/)?.[0] || 'unknown');
-      
+
       // Log the area around the error for debugging
       const errorPos = parseInt(parseError.message.match(/\d+/)?.[0] || '0');
       if (errorPos > 0) {
@@ -192,29 +188,29 @@ ${docxText}`
         const end = Math.min(jsonText.length, errorPos + 100);
         console.error('[DOCX Extraction] Context around error:', jsonText.substring(start, end));
       }
-      
+
       throw new Error('Failed to parse AI response - the response may contain invalid characters');
     }
-    
+
     if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
       throw new Error('Invalid image specifications - expected array with at least one image');
     }
 
     console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
     console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
-    
+
     return {
       imageSpecs,
       extractedImages
     };
-    
+
   } catch (error) {
     console.error('[DOCX Extraction] Error:', error.message);
-    
+
     if (error.message.includes('OpenAI') || error.message.includes('API')) {
       throw new Error('AI service temporarily unavailable - please try again');
     }
-    
+
     throw new Error(`DOCX processing failed: ${error.message}`);
   }
 }
@@ -223,35 +219,35 @@ async function extractPromptFromPDF(pdfBuffer) {
   try {
     console.log('[PDF Extraction] Starting PDF text extraction...');
     console.log('[PDF Extraction] Buffer size:', pdfBuffer.length, 'bytes');
-    
+
     // Convert Buffer to Uint8Array for pdfjs-dist compatibility
     const uint8Array = new Uint8Array(pdfBuffer);
     console.log('[PDF Extraction] Converted to Uint8Array, length:', uint8Array.length);
-    
+
     // Extract text from PDF using pdfjs-dist
     const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
     const pdfDocument = await loadingTask.promise;
-    
+
     console.log('[PDF Extraction] PDF loaded successfully, pages:', pdfDocument.numPages);
-    
+
     let pdfText = '';
     for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
       console.log(`[PDF Extraction] Processing page ${pageNum}/${pdfDocument.numPages}`);
       const page = await pdfDocument.getPage(pageNum);
       const textContent = await page.getTextContent();
-      
+
       // Improved text extraction with better spacing
       const pageText = textContent.items
         .map(item => item.str)
         .filter(str => str.trim().length > 0)
         .join(' ');
-      
+
       pdfText += pageText + '\n\n';
     }
-    
+
     // Clean up extra whitespace
     pdfText = pdfText.replace(/\s+/g, ' ').trim();
-    
+
     console.log('[PDF Extraction] Extracted text length:', pdfText.length);
     console.log('[PDF Extraction] First 500 chars:', pdfText.substring(0, 500));
 
@@ -260,7 +256,7 @@ async function extractPromptFromPDF(pdfBuffer) {
     }
 
     console.log('[PDF Extraction] Sending to OpenAI to extract image specifications...');
-    
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -315,31 +311,29 @@ ${pdfText}`
     });
 
     const responseText = completion.choices[0].message.content.trim();
-    
+
     console.log('[PDF Extraction] AI response received, parsing JSON...');
     console.log('[PDF Extraction] Response (first 300 chars):', responseText.substring(0, 300));
 
     // Clean up response - extract just the JSON array
     let jsonText = responseText.trim();
-    
+
     console.log('[PDF Extraction] Extracting JSON from response...');
-    
-    // Remove markdown code fences if present
-    jsonText = jsonText.replace(/^```json\s*/i, '');
-    jsonText = jsonText.replace(/\s*```$/, '');
+    jsonText = jsonText.replace(/^```json\s*/im, '');
+    jsonText = jsonText.replace(/\s*```\s*$/m, '');
     jsonText = jsonText.trim();
-    
+
     // Find the first [ and last ] to extract just the JSON array
     const startMarker = jsonText.indexOf('[');
     const endMarker = jsonText.lastIndexOf(']');
-    
+
     if (startMarker === -1 || endMarker === -1 || endMarker <= startMarker) {
       throw new Error('No valid JSON array found in AI response');
     }
-    
+
     // Extract only the JSON array content
     jsonText = jsonText.substring(startMarker, endMarker + 1);
-    
+
     console.log('[PDF Extraction] Cleaned JSON (first 500 chars):', jsonText.substring(0, 500));
     console.log('[PDF Extraction] Cleaned JSON (last 500 chars):', jsonText.substring(Math.max(0, jsonText.length - 500)));
 
@@ -350,7 +344,7 @@ ${pdfText}`
     } catch (parseError) {
       console.error('[PDF Extraction] JSON parse error:', parseError.message);
       console.error('[PDF Extraction] Problematic JSON around position', parseError.message.match(/\d+/)?.[0] || 'unknown');
-      
+
       // Log the area around the error for debugging
       const errorPos = parseInt(parseError.message.match(/\d+/)?.[0] || '0');
       if (errorPos > 0) {
@@ -358,22 +352,22 @@ ${pdfText}`
         const end = Math.min(jsonText.length, errorPos + 100);
         console.error('[PDF Extraction] Context around error:', jsonText.substring(start, end));
       }
-      
+
       throw new Error('Failed to parse AI response - the response may contain invalid characters');
     }
-    
+
     if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
       throw new Error('Invalid image specifications - expected array with at least one image');
     }
 
     console.log('[PDF Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
-    
+
     // Return the array of image specifications
     return imageSpecs;
-    
+
   } catch (error) {
     console.error('[PDF Extraction] Error:', error.message);
-    
+
     // Provide user-friendly error messages
     if (error.message.includes('Uint8Array')) {
       throw new Error('PDF format error - please ensure the file is a valid PDF');
@@ -384,7 +378,7 @@ ${pdfText}`
     } else if (error.code === 'ENOENT' || error.code === 'EACCES') {
       throw new Error('File access error - please try uploading again');
     }
-    
+
     throw new Error(`PDF processing failed: ${error.message}`);
   }
 }
@@ -392,7 +386,7 @@ ${pdfText}`
 export async function uploadPDF(req, res) {
   try {
     console.log('[Upload Brief] Request received');
-    
+
     if (!req.file) {
       console.log('[Upload Brief] No file in request');
       return res.status(400).json({ error: 'No brief file uploaded' });
@@ -409,7 +403,7 @@ export async function uploadPDF(req, res) {
       console.log('[Upload Brief] Invalid file type:', req.file.mimetype, 'for file:', req.file.originalname);
       return res.status(400).json({ error: 'File must be a PDF or DOCX' });
     }
-    
+
     console.log(`[Upload Brief] File type detected: ${isPDF ? 'PDF' : 'DOCX'} (MIME: ${req.file.mimetype}, Name: ${req.file.originalname})`);
 
     const fileType = isPDF ? 'pdf' : 'docx';
@@ -429,7 +423,7 @@ export async function uploadPDF(req, res) {
 
     console.log(`[Upload Brief] Extracting image specifications from ${fileType.toUpperCase()}...`);
     let imageSpecs, extractedImages;
-    
+
     if (isPDF) {
       imageSpecs = await extractPromptFromPDF(req.file.buffer);
       extractedImages = [];
@@ -438,7 +432,7 @@ export async function uploadPDF(req, res) {
       imageSpecs = docxResult.imageSpecs;
       extractedImages = docxResult.extractedImages;
     }
-    
+
     console.log('[Upload Brief] Extracted', imageSpecs.length, 'image specifications');
     console.log('[Upload Brief] Extracted', extractedImages.length, 'embedded images');
 
@@ -446,22 +440,22 @@ export async function uploadPDF(req, res) {
     const uploadedImages = [];
     if (extractedImages.length > 0) {
       console.log('[Upload Brief] Uploading', extractedImages.length, 'embedded images to Drive...');
-      
+
       for (let i = 0; i < extractedImages.length; i++) {
         const img = extractedImages[i];
         const fileName = `docx_image_${i + 1}.${img.contentType.split('/')[1]}`;
-        
+
         const uploadResult = await uploadFileToDrive(
           img.buffer,
           fileName,
           img.contentType,
           IMAGES_FOLDER_ID
         );
-        
+
         console.log(`Uploaded ${fileName} to Drive, making public...`);
         await makeFilePublic(uploadResult.id);
         const publicUrl = getPublicImageUrl(uploadResult.id);
-        
+
         uploadedImages.push({
           id: uploadResult.id,
           name: fileName,
@@ -470,7 +464,7 @@ export async function uploadPDF(req, res) {
           publicUrl: publicUrl
         });
       }
-      
+
       console.log('[Upload Brief] All embedded images uploaded and made public');
     }
 
@@ -489,7 +483,7 @@ export async function uploadPDF(req, res) {
     // If we have images from DOCX, start processing immediately
     if (uploadedImages.length > 0) {
       console.log('[Upload Brief] Starting automatic processing with embedded images...');
-      
+
       res.json({ 
         success: true, 
         jobId,
@@ -499,7 +493,7 @@ export async function uploadPDF(req, res) {
         embeddedImageCount: uploadedImages.length,
         message: `Brief uploaded with ${uploadedImages.length} embedded images. Processing started automatically.` 
       });
-      
+
       // Start processing in the background
       processImagesWithNanoBanana(jobId).catch(err => {
         console.error('Background processing error:', err);
@@ -518,10 +512,10 @@ export async function uploadPDF(req, res) {
         message: `Brief uploaded and ${imageSpecs.length} image specifications extracted successfully` 
       });
     }
-    
+
   } catch (error) {
     console.error('[Upload Brief] Error:', error.message);
-    
+
     // Return user-friendly error messages
     const statusCode = error.message.includes('No brief') ? 400 : 500;
     res.status(statusCode).json({ 
@@ -637,7 +631,7 @@ async function processImagesWithNanoBanana(jobId) {
     console.log(`Image ${idx + 1}: ${img.originalName} -> "${spec?.title || 'FALLBACK'}" (spec ${specIndex + 1}/${job.imageSpecs.length})`);
     return spec?.ai_prompt || job.imageSpecs[0].ai_prompt;
   });
-  
+
   console.log(`[Matching Strategy] ${job.images.length} images mapped to ${job.imageSpecs.length} specifications using ${job.images.length > job.imageSpecs.length ? 'cyclic' : 'direct'} matching`);
 
   addWorkflowStep(jobId, {
@@ -711,19 +705,19 @@ async function processImagesWithNanoBanana(jobId) {
   });
 
   console.log('Calling Nano Banana API with individual prompts per image...');
-  
+
   // Process images with their individual prompts
   const results = [];
   const batchSize = 5;
-  
+
   for (let i = 0; i < imageUrls.length; i += batchSize) {
     const batchUrls = imageUrls.slice(i, i + batchSize);
     const batchPrompts = imagePrompts.slice(i, i + batchSize);
     const batchNumber = Math.floor(i / batchSize) + 1;
     const totalBatches = Math.ceil(imageUrls.length / batchSize);
-    
+
     console.log(`Processing batch ${batchNumber}/${totalBatches} (${batchUrls.length} images)`);
-    
+
     addWorkflowStep(jobId, {
       name: `Batch ${batchNumber}/${totalBatches}`,
       status: 'in_progress',
@@ -742,14 +736,14 @@ async function processImagesWithNanoBanana(jobId) {
         })
       }
     });
-    
+
     const batchPromises = batchUrls.map((url, idx) => {
       const imageIndex = i + idx;
       const specIndex = imageIndex % job.imageSpecs.length;
       const prompt = batchPrompts[idx];
       const specTitle = job.imageSpecs[specIndex]?.title || 'N/A';
       console.log(`  Image ${imageIndex + 1}: Using prompt for "${specTitle}"`);
-      
+
       return editImageWithNanoBanana(url, prompt, {
         enableSyncMode: true,
         outputFormat: 'jpeg',
@@ -763,10 +757,10 @@ async function processImagesWithNanoBanana(jobId) {
         return result;
       });
     });
-    
+
     const batchResults = await Promise.all(batchPromises);
     results.push(...batchResults);
-    
+
     addWorkflowStep(jobId, {
       name: `Batch ${batchNumber} Complete`,
       status: 'completed',
@@ -777,9 +771,9 @@ async function processImagesWithNanoBanana(jobId) {
       }
     });
   }
-  
+
   console.log(`Received ${results.length} results from API`);
-  
+
   // Continue with existing result processing (remove old editMultipleImages call)
   const unusedProgressCallback = (progressInfo) => {
       // This callback is no longer used
