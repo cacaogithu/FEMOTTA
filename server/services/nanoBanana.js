@@ -50,11 +50,24 @@ export async function editImageWithNanoBanana(imageUrl, prompt, options = {}) {
 
 export async function editMultipleImages(imageUrls, prompt, options = {}) {
   try {
-    const editPromises = imageUrls.map(imageUrl => 
-      editImageWithNanoBanana(imageUrl, prompt, options)
-    );
+    const batchSize = options.batchSize || 5; // Process 5 images at a time
+    const results = [];
+    
+    // Process in batches to avoid overwhelming the API
+    for (let i = 0; i < imageUrls.length; i += batchSize) {
+      const batch = imageUrls.slice(i, i + batchSize);
+      console.log(`Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(imageUrls.length / batchSize)} (${batch.length} images)`);
+      
+      const batchPromises = batch.map(imageUrl => 
+        editImageWithNanoBanana(imageUrl, prompt, options)
+      );
+      
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+      
+      console.log(`Batch ${Math.floor(i / batchSize) + 1} completed`);
+    }
 
-    const results = await Promise.all(editPromises);
     return results;
   } catch (error) {
     console.error('Batch edit error:', error);

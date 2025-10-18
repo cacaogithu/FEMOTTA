@@ -28,6 +28,12 @@ function ProcessingPage({ jobId, onComplete }) {
           setProgress(100);
           setCurrentStep(4);
           setTimeout(() => onComplete(data), 500);
+        } else if (data.status === 'processing') {
+          // Update progress from job data
+          if (data.progress !== undefined) {
+            setProgress(data.progress);
+          }
+          setCurrentStep(3); // Editing images step
         } else if (data.step) {
           setCurrentStep(data.step - 1);
         }
@@ -75,6 +81,10 @@ function ProcessingPage({ jobId, onComplete }) {
               </div>
             ))}
           </div>
+
+          {progress > 0 && progress < 100 && (
+            <p className="progress-text">{progress}% complete</p>
+          )}
 
           <p className="estimate">Estimated time: 2-3 minutes</p>
         </div>

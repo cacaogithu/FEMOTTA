@@ -87,6 +87,14 @@
 
 .step.active .step-number {
   background: #FFC107;
+
+.progress-text {
+  font-size: 18px;
+  color: #FFC107;
+  font-weight: 600;
+  margin: 16px 0;
+}
+
   color: #0A0A0A;
 }
 

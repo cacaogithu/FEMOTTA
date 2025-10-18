@@ -207,7 +207,8 @@ async function processImagesWithNanoBanana(jobId) {
   const results = await editMultipleImages(imageUrls, job.promptText, {
     enableSyncMode: true,
     outputFormat: 'jpeg',
-    numImages: 1
+    numImages: 1,
+    batchSize: 5
   });
   console.log(`Received ${results.length} results from API`);
 
@@ -220,10 +221,11 @@ async function processImagesWithNanoBanana(jobId) {
     const result = results[i];
     const originalImage = job.images[i];
     
-    console.log(`Processing result ${i + 1}:`, result);
+    console.log(`Processing result ${i + 1}/${results.length}:`, result);
     
-    if (result.images && result.images.length > 0) {
-      const editedImageUrl = result.images[0].url;
+    // Fix: API returns data.outputs, not images
+    if (result.data && result.data.outputs && result.data.outputs.length > 0) {
+      const editedImageUrl = result.data.outputs[0];
       console.log(`Downloading edited image from: ${editedImageUrl}`);
       
       const imageResponse = await fetch(editedImageUrl);
@@ -250,9 +252,15 @@ async function processImagesWithNanoBanana(jobId) {
         originalName: originalImage.originalName,
         url: getPublicImageUrl(uploadedFile.id)
       });
-      console.log(`Saved edited image: ${editedFileName}`);
+      console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
+      
+      // Update progress
+      updateJob(jobId, {
+        processingStep: `Processed ${i + 1} of ${results.length} images`,
+        progress: Math.round(((i + 1) / results.length) * 100)
+      });
     } else {
-      console.error(`No edited image in result ${i + 1}`);
+      console.error(`No edited image in result ${i + 1} - Missing data.outputs`);
     }
   }
 
