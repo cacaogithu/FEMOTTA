@@ -23,20 +23,31 @@ async function extractPromptFromPDF(pdfBuffer) {
       messages: [
         {
           role: 'system',
-          content: 'You are a PDF analysis assistant. Extract image editing specifications and return only the ai_prompt field as plain text.'
+          content: `You are an AI creative assistant specialized in extracting marketing image specifications from briefs.
+
+Your task is to read the provided PDF brief and create a detailed AI image editing prompt.
+
+Extract the following information:
+- HEADLINE/TITLE text (should be in uppercase)
+- COPY/SUBTITLE text (keep as written)
+
+Then generate a detailed, plain text instruction (no markdown, no line breaks) using this template:
+
+"Add a dark gradient overlay to the top portion of this image, fading from black at the top to transparent around the middle. The gradient should be subtle and natural looking. Overlay the following text at the top center of the image: [TITLE] in large bold white text (Montserrat Extra Bold font, approximately 48-60px, all caps), and below it [SUBTITLE] in smaller regular white text (Montserrat Regular font, approximately 18-22px). Add a subtle shadow behind the text for readability. Keep the product and background unchanged. Output as a high-resolution image suitable for web marketing."
+
+Replace [TITLE] and [SUBTITLE] with the actual extracted values from the PDF.
+
+Return ONLY the generated prompt text, nothing else.`
         },
         {
           role: 'user',
-          content: `Extract the image editing instructions from this PDF and return ONLY the ai_prompt text (the description of how to edit the image). Do not include JSON, just the raw prompt text.
-
-Example output format:
-Add dark gradient from top (black) to middle (transparent). Overlay 'TITLE' in white Montserrat Extra Bold 48-60px, 'Subtitle text' below in Regular 18-22px. Add text shadow. Keep product unchanged.
+          content: `Extract the headline and copy from this PDF brief and generate a detailed AI editing prompt following the template.
 
 PDF base64: ${base64Pdf.substring(0, 50000)}`
         }
       ],
       temperature: 0.3,
-      max_tokens: 500
+      max_tokens: 800
     });
 
     const promptText = completion.choices[0].message.content.trim();
