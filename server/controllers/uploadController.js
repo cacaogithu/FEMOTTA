@@ -27,48 +27,38 @@ async function extractPromptFromDOCX(docxBuffer) {
     console.log('[DOCX Extraction] Extracted text length:', docxText.length);
     console.log('[DOCX Extraction] First 500 chars:', docxText.substring(0, 500));
     
-    // Extract images from DOCX by converting to HTML with data URIs
+    // Extract images from DOCX using mammoth's convertImage callback
     const extractedImages = [];
     
-    try {
-      console.log('[DOCX Extraction] Converting DOCX to HTML to extract images...');
-      
-      // Convert to HTML with images as data URIs
-      const result = await mammoth.convertToHtml({
-        buffer: docxBuffer,
-        convertImage: mammoth.images.dataUri
-      });
-      
-      console.log('[DOCX Extraction] HTML conversion complete, parsing for images...');
-      
-      // Parse the HTML to find all embedded images (data URIs)
-      const imageMatches = result.value.match(/<img[^>]+src="data:([^"]+)"/g);
-      
-      if (imageMatches) {
-        console.log('[DOCX Extraction] Found', imageMatches.length, 'image tags in HTML');
-        
-        for (const match of imageMatches) {
-          const srcMatch = match.match(/src="data:([^;]+);base64,([^"]+)"/);
-          if (srcMatch) {
-            const contentType = srcMatch[1];
-            const base64Data = srcMatch[2];
-            const buffer = Buffer.from(base64Data, 'base64');
-            
-            console.log('[DOCX Extraction] Extracted image:', buffer.length, 'bytes, type:', contentType);
-            
-            extractedImages.push({
-              buffer: buffer,
-              contentType: contentType
-            });
-          }
-        }
-      } else {
-        console.log('[DOCX Extraction] No image tags found in HTML');
-      }
-    } catch (imgError) {
-      console.log('[DOCX Extraction] Image extraction error (non-fatal):', imgError.message);
-    }
+    console.log('[DOCX Extraction] Converting DOCX to HTML to extract images...');
     
+    // Convert DOCX to HTML with custom image handler to capture embedded images
+    const result = await mammoth.convertToHtml({
+      buffer: docxBuffer
+    }, {
+      convertImage: mammoth.images.imgElement(function(image) {
+        // image.read() returns a Promise that resolves to the image buffer
+        return image.read("base64").then(function(imageBuffer) {
+          // Convert base64 string to Buffer
+          const buffer = Buffer.from(imageBuffer, 'base64');
+          
+          console.log('[DOCX Extraction] Found embedded image:', buffer.length, 'bytes, type:', image.contentType);
+          
+          // Store the image for later upload to Drive
+          extractedImages.push({
+            buffer: buffer,
+            contentType: image.contentType
+          });
+          
+          // Return the image as a data URI for the HTML output
+          return {
+            src: "data:" + image.contentType + ";base64," + imageBuffer
+          };
+        });
+      })
+    });
+    
+    console.log('[DOCX Extraction] HTML conversion complete');
     console.log('[DOCX Extraction] Found', extractedImages.length, 'embedded images');
 
     if (!docxText || docxText.trim().length < 10) {
