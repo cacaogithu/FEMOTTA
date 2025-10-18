@@ -136,7 +136,7 @@ ${docxText}`
         }
       ],
       temperature: 0.3,
-      max_tokens: 4000
+      max_tokens: 8000
     });
 
     const responseText = completion.choices[0].message.content.trim();
