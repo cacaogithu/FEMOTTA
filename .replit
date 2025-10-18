@@ -57,3 +57,7 @@ externalPort = 80
 [[ports]]
 localPort = 35625
 externalPort = 3001
+
+[deployment]
+run = ["sh", "-c", "cd server && node index.js"]
+build = ["sh", "-c", "cd client && npm install && npm run build && cd ../server && npm install"]
