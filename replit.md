@@ -56,9 +56,12 @@ A professional full-stack web application for AI-powered marketing image editing
 
 4. **AI Chat Assistant**
    - Floating chat widget on results page
-   - OpenAI-powered image editing assistance
+   - **GPT-4 with function calling** for intelligent image editing
+   - **Selective image editing**: Edit individual images or all images
+   - Understands natural language: "fix image 3", "edit the first one", "change all images"
+   - AI extracts image IDs from numbered list and triggers actual re-edits
    - Context-aware responses based on original prompt/brief
-   - Trigger actual image re-editing via `/api/re-edit` endpoint
+   - Trigger actual image re-editing via `/api/re-edit` endpoint with optional `imageIds` parameter
 
 5. **ML Feedback System**
    - **5-star rating system** for result quality
@@ -102,6 +105,25 @@ Direct API integration (no n8n dependency):
 - Google Drive authentication managed by Replit integration
 
 ## Recent Changes
+- **October 18, 2025**: Selective Image Editing via AI Chat
+  - **Enhanced AI chat to support individual image editing**:
+    - AI can now edit SPECIFIC images: "fix image 3", "edit the first one"
+    - AI can edit MULTIPLE images: "change images 1, 3, and 5"
+    - AI can still edit ALL images: "fix all images", "change everything"
+    - System provides numbered image list with IDs to AI for context
+  - **Backend validation and error handling**:
+    - Validates imageIds and reports invalid ones with debugging info
+    - Logs "Editing X of Y requested images" for transparency
+    - Returns detailed errors with available IDs when no matches found
+  - **Fixed critical duplicate images bug**:
+    - When editing all images: replaces entire array (prevents duplicates)
+    - When editing specific images: preserves unchanged images, replaces only edited ones
+    - Proper conditional logic based on imageIds presence
+  - **Production-ready selective editing**:
+    - Full architect review and approval
+    - Prevents regressions with clear branching logic
+    - Ready for automated test coverage
+
 - **October 18, 2025**: AI Chat Function Calling + Subtle Image Editing
   - **Upgraded chat assistant to GPT-4 with function calling**:
     - AI can now ACTUALLY trigger image re-edits when user asks to "fix", "change", "edit", etc.
