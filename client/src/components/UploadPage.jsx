@@ -26,13 +26,18 @@ function UploadPage({ onComplete }) {
   const validatePdf = (file) => {
     if (!file) return;
     
-    if (file.type !== 'application/pdf') {
-      setError('Please upload a PDF file');
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a PDF or DOCX file');
       return;
     }
     
     if (file.size > 50 * 1024 * 1024) {
-      setError('PDF must be less than 50MB');
+      setError('File must be less than 50MB');
       return;
     }
     
@@ -157,7 +162,7 @@ function UploadPage({ onComplete }) {
             className={`toggle-btn ${briefType === 'pdf' ? 'active' : ''}`}
             onClick={() => setBriefType('pdf')}
           >
-            📄 PDF Brief
+            📄 Document Brief
           </button>
           <button 
             className={`toggle-btn ${briefType === 'text' ? 'active' : ''}`}
@@ -178,7 +183,7 @@ function UploadPage({ onComplete }) {
               <input
                 ref={pdfInputRef}
                 type="file"
-                accept=".pdf"
+                accept=".pdf,.docx"
                 onChange={handlePdfSelect}
                 style={{ display: 'none' }}
               />
@@ -200,9 +205,9 @@ function UploadPage({ onComplete }) {
                   </>
                 ) : (
                   <>
-                    <h3>Upload PDF Brief</h3>
+                    <h3>Upload Brief (PDF or DOCX)</h3>
                     <p>Drag & drop or click to browse</p>
-                    <span className="hint">Max 50MB</span>
+                    <span className="hint">PDF or DOCX - Max 50MB</span>
                   </>
                 )}
               </div>

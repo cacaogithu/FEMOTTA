@@ -6,6 +6,7 @@ import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import mammoth from 'mammoth';
 
 const PDF_FOLDER_ID = '1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697';
 const IMAGES_FOLDER_ID = '1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS';
@@ -13,6 +14,111 @@ const IMAGES_FOLDER_ID = '1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS';
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
+
+async function extractPromptFromDOCX(docxBuffer) {
+  try {
+    console.log('[DOCX Extraction] Starting DOCX text extraction...');
+    console.log('[DOCX Extraction] Buffer size:', docxBuffer.length, 'bytes');
+    
+    // Extract text and images from DOCX
+    const result = await mammoth.extractRawText({ buffer: docxBuffer });
+    const docxText = result.value;
+    
+    console.log('[DOCX Extraction] Extracted text length:', docxText.length);
+    console.log('[DOCX Extraction] First 500 chars:', docxText.substring(0, 500));
+
+    if (!docxText || docxText.trim().length < 10) {
+      throw new Error('Could not extract text from DOCX - file may be empty or corrupted');
+    }
+
+    console.log('[DOCX Extraction] Sending to OpenAI to extract image specifications...');
+    
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an AI creative assistant specialized in extracting marketing image specifications from briefs.
+
+Your task is to read the provided document brief and extract ALL image specifications into structured JSON format.
+
+Extract ALL images mentioned in the brief (IMAGE 1, IMAGE 2, IMAGE 3, etc.). For each image, extract:
+- image_number: The sequential number
+- title: The HEADLINE text (convert to uppercase)
+- subtitle: The COPY text (keep as written)
+- asset: The ASSET filename (if mentioned)
+
+For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this template:
+
+"Add a dark gradient overlay to the image, fading from black/dark gray at the top to transparent by the middle section. The gradient intensity and positioning should adapt to the image's brightness and composition - use darker gradients (black) for lighter images, and lighter gradients (dark gray) for darker images. Position the gradient to complement the product without obscuring key features. Overlay the following text at the top center: {title} in white Montserrat Extra Bold font (all caps, approximately 48-60px, adjust size based on image dimensions and text length to ensure readability). Below the title, add {subtitle} in white Montserrat Regular font (approximately 18-24px, adjust based on text length). Apply a subtle drop shadow to both text elements (2-4px offset, 30-50% opacity black) to ensure readability against varying backgrounds. Maintain consistent branding while adapting shadow strength to image brightness. Keep the product and background unchanged. Output as a high-resolution image suitable for web marketing."
+
+Replace {title} and {subtitle} with the actual extracted values for EACH image.
+
+Return ONLY a valid JSON array with ALL image specifications, no additional text.
+
+Example output format:
+[
+  {
+    "image_number": 1,
+    "title": "PRODUCT NAME",
+    "subtitle": "Product description text",
+    "asset": "filename.jpg",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 2,
+    "title": "ANOTHER PRODUCT",
+    "subtitle": "Different description",
+    "asset": "another_file.jpg",
+    "ai_prompt": "Add a dark gradient overlay..."
+  }
+]`
+        },
+        {
+          role: 'user',
+          content: `Extract ALL image specifications from this document brief and generate individual prompts for each image.
+
+Document Content:
+${docxText}`
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 4000
+    });
+
+    const responseText = completion.choices[0].message.content.trim();
+    
+    console.log('[DOCX Extraction] AI response received, parsing JSON...');
+    console.log('[DOCX Extraction] Response (first 300 chars):', responseText.substring(0, 300));
+
+    // Clean up response - remove markdown code blocks if present
+    let jsonText = responseText;
+    if (jsonText.includes('```json')) {
+      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    }
+    jsonText = jsonText.trim();
+
+    // Parse the JSON array of image specifications
+    const imageSpecs = JSON.parse(jsonText);
+    
+    if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
+      throw new Error('Invalid image specifications - expected array with at least one image');
+    }
+
+    console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
+    
+    return imageSpecs;
+    
+  } catch (error) {
+    console.error('[DOCX Extraction] Error:', error.message);
+    
+    if (error.message.includes('OpenAI') || error.message.includes('API')) {
+      throw new Error('AI service temporarily unavailable - please try again');
+    }
+    
+    throw new Error(`DOCX processing failed: ${error.message}`);
+  }
+}
 
 async function extractPromptFromPDF(pdfBuffer) {
   try {
@@ -153,35 +259,41 @@ ${pdfText}`
 
 export async function uploadPDF(req, res) {
   try {
-    console.log('[Upload PDF] Request received');
+    console.log('[Upload Brief] Request received');
     
     if (!req.file) {
-      console.log('[Upload PDF] No file in request');
-      return res.status(400).json({ error: 'No PDF file uploaded' });
+      console.log('[Upload Brief] No file in request');
+      return res.status(400).json({ error: 'No brief file uploaded' });
     }
 
-    if (req.file.mimetype !== 'application/pdf') {
-      console.log('[Upload PDF] Invalid file type:', req.file.mimetype);
-      return res.status(400).json({ error: 'File must be a PDF' });
+    const isPDF = req.file.mimetype === 'application/pdf';
+    const isDOCX = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+    if (!isPDF && !isDOCX) {
+      console.log('[Upload Brief] Invalid file type:', req.file.mimetype);
+      return res.status(400).json({ error: 'File must be a PDF or DOCX' });
     }
 
-    console.log('[Upload PDF] File received:', req.file.originalname, 'Size:', req.file.size, 'bytes');
+    const fileType = isPDF ? 'pdf' : 'docx';
+    console.log(`[Upload Brief] ${fileType.toUpperCase()} file received:`, req.file.originalname, 'Size:', req.file.size, 'bytes');
 
     const jobId = `job_${Date.now()}`;
-    const fileName = `brief-${Date.now()}.pdf`;
+    const fileName = `brief-${Date.now()}.${fileType}`;
 
-    console.log('[Upload PDF] Uploading to Google Drive...');
+    console.log('[Upload Brief] Uploading to Google Drive...');
     const result = await uploadFileToDrive(
       req.file.buffer,
       fileName,
-      'application/pdf',
+      req.file.mimetype,
       PDF_FOLDER_ID
     );
-    console.log('[Upload PDF] Uploaded to Drive, ID:', result.id);
+    console.log('[Upload Brief] Uploaded to Drive, ID:', result.id);
 
-    console.log('[Upload PDF] Extracting image specifications from PDF...');
-    const imageSpecs = await extractPromptFromPDF(req.file.buffer);
-    console.log('[Upload PDF] Extracted', imageSpecs.length, 'image specifications');
+    console.log(`[Upload Brief] Extracting image specifications from ${fileType.toUpperCase()}...`);
+    const imageSpecs = isPDF 
+      ? await extractPromptFromPDF(req.file.buffer)
+      : await extractPromptFromDOCX(req.file.buffer);
+    console.log('[Upload Brief] Extracted', imageSpecs.length, 'image specifications');
 
     createJob({
       id: jobId,
@@ -201,16 +313,16 @@ export async function uploadPDF(req, res) {
       fileId: result.id,
       fileName: result.name,
       imageCount: imageSpecs.length,
-      message: `PDF uploaded and ${imageSpecs.length} image specifications extracted successfully` 
+      message: `Brief uploaded and ${imageSpecs.length} image specifications extracted successfully` 
     });
     
   } catch (error) {
-    console.error('[Upload PDF] Error:', error.message);
+    console.error('[Upload Brief] Error:', error.message);
     
     // Return user-friendly error messages
-    const statusCode = error.message.includes('No PDF') ? 400 : 500;
+    const statusCode = error.message.includes('No brief') ? 400 : 500;
     res.status(statusCode).json({ 
-      error: 'PDF upload failed', 
+      error: 'Brief upload failed', 
       details: error.message 
     });
   }
