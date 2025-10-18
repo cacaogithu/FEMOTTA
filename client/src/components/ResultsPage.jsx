@@ -5,6 +5,58 @@ import FeedbackWidget from './FeedbackWidget';
 import WorkflowViewer from './WorkflowViewer';
 import './ResultsPage.css';
 
+function TimeMetricsPanel({ jobId }) {
+  const [jobData, setJobData] = useState(null);
+
+  useEffect(() => {
+    fetch(`/api/upload/job/${jobId}`)
+      .then(res => res.json())
+      .then(data => setJobData(data.job))
+      .catch(err => console.error('Job data error:', err));
+  }, [jobId]);
+
+  if (!jobData || !jobData.timeSavedMinutes) return null;
+
+  return (
+    <div className="time-metrics-panel">
+      <h3>⏱️ Time & Efficiency Metrics</h3>
+      <div className="metrics-grid">
+        <div className="metric metric-primary">
+          <span className="metric-icon">⚡</span>
+          <div className="metric-content">
+            <span className="metric-value">{jobData.timeSavedMinutes.toFixed(1)} min</span>
+            <span className="metric-label">Time Saved</span>
+          </div>
+        </div>
+        <div className="metric">
+          <span className="metric-icon">🎯</span>
+          <div className="metric-content">
+            <span className="metric-value">{jobData.timeSavedPercent}%</span>
+            <span className="metric-label">Efficiency Gain</span>
+          </div>
+        </div>
+        <div className="metric">
+          <span className="metric-icon">🚀</span>
+          <div className="metric-content">
+            <span className="metric-value">{jobData.processingTimeMinutes.toFixed(1)} min</span>
+            <span className="metric-label">Processing Time</span>
+          </div>
+        </div>
+        <div className="metric">
+          <span className="metric-icon">📊</span>
+          <div className="metric-content">
+            <span className="metric-value">{jobData.estimatedManualTimeMinutes} min</span>
+            <span className="metric-label">Manual Time Estimate</span>
+          </div>
+        </div>
+      </div>
+      <p className="metrics-note">
+        Automated AI processing saved approximately {jobData.timeSavedMinutes.toFixed(1)} minutes compared to manual editing
+      </p>
+    </div>
+  );
+}
+
 function MLStatsPanel() {
   const [stats, setStats] = useState(null);
 
@@ -81,6 +133,7 @@ function ResultsPage({ results, onReset, jobId }) {
         <header className="results-header">
           <h1>⚡ Your Images Are Ready!</h1>
           <p>{results.images?.length || 0} images processed successfully</p>
+          <TimeMetricsPanel jobId={jobId} />
           <MLStatsPanel />
           <div className="header-actions">
             <button className="button button-primary" onClick={handleDownloadAll}>
