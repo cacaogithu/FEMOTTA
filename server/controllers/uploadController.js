@@ -16,7 +16,7 @@ async function extractPromptFromPDF(pdfBuffer) {
   try {
     // Convert PDF buffer to base64 for OpenAI
     const base64Pdf = pdfBuffer.toString('base64');
-    
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -39,11 +39,11 @@ PDF base64: ${base64Pdf.substring(0, 50000)}`
     });
 
     const promptText = completion.choices[0].message.content.trim();
-    
+
     if (!promptText || promptText.length < 10) {
       throw new Error('Could not extract valid prompt from PDF');
     }
-    
+
     return promptText;
   } catch (error) {
     console.error('PDF extraction error:', error);
@@ -106,7 +106,7 @@ export async function uploadImages(req, res) {
     }
 
     const { jobId } = req.body;
-    
+
     const job = getJob(jobId);
     if (!jobId || !job) {
       return res.status(400).json({ error: 'Invalid job ID' });
@@ -172,7 +172,7 @@ export async function uploadImages(req, res) {
 
 async function processImagesWithNanoBanana(jobId) {
   const job = getJob(jobId);
-  
+
   if (!job) {
     throw new Error('Job not found');
   }
@@ -202,7 +202,7 @@ async function processImagesWithNanoBanana(jobId) {
 
   const imageUrls = job.images.map(img => img.publicUrl);
   console.log('Image URLs to process:', imageUrls);
-  
+
   console.log('Calling Nano Banana API...');
   const results = await editMultipleImages(imageUrls, job.promptText, {
     enableSyncMode: true,
@@ -214,26 +214,26 @@ async function processImagesWithNanoBanana(jobId) {
 
   const editedImages = [];
   const EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
-  
+
   console.log(`Saving ${results.length} edited images to Drive...`);
-  
+
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     const originalImage = job.images[i];
-    
+
     console.log(`Processing result ${i + 1}/${results.length}:`, result);
-    
+
     // Fix: API returns data.outputs, not images
     if (result.data && result.data.outputs && result.data.outputs.length > 0) {
       const editedImageUrl = result.data.outputs[0];
       console.log(`Downloading edited image from: ${editedImageUrl}`);
-      
+
       const imageResponse = await fetch(editedImageUrl);
       const imageBuffer = await imageResponse.arrayBuffer();
-      
+
       const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
       const editedFileName = `${originalNameWithoutExt}_edited.jpg`;
-      
+
       console.log(`Uploading ${editedFileName} to Drive...`);
       const uploadedFile = await uploadFileToDrive(
         Buffer.from(imageBuffer),
@@ -253,7 +253,7 @@ async function processImagesWithNanoBanana(jobId) {
         url: getPublicImageUrl(uploadedFile.id)
       });
       console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
-      
+
       // Update progress
       updateJob(jobId, {
         processingStep: `Processed ${i + 1} of ${results.length} images`,
@@ -275,7 +275,7 @@ async function processImagesWithNanoBanana(jobId) {
 export async function uploadTextPrompt(req, res) {
   try {
     const { prompt } = req.body;
-    
+
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
@@ -284,7 +284,7 @@ export async function uploadTextPrompt(req, res) {
     const fileName = `prompt-${Date.now()}.txt`;
 
     const promptBuffer = Buffer.from(prompt, 'utf-8');
-    
+
     const result = await uploadFileToDrive(
       promptBuffer,
       fileName,
@@ -317,10 +317,10 @@ export async function uploadTextPrompt(req, res) {
 export function getJobInfo(req, res) {
   const { jobId } = req.params;
   const job = getJob(jobId);
-  
+
   if (!job) {
     return res.status(404).json({ error: 'Job not found' });
   }
-  
+
   res.json(job);
 }

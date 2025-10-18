@@ -44,6 +44,12 @@ export async function editImageWithNanoBanana(imageUrl, prompt, options = {}) {
     }
   } catch (error) {
     console.error('Nano Banana edit error:', error);
+    
+    // Check for specific error messages
+    if (error.message.includes('Insufficient credits')) {
+      throw new Error('INSUFFICIENT_CREDITS: The Wavespeed API account needs to be topped up with credits.');
+    }
+    
     throw error;
   }
 }
