@@ -91,6 +91,7 @@ function UploadPage({ onComplete }) {
 
     try {
       let jobId;
+      let pdfData, textData;
       
       if (briefType === 'pdf') {
         const pdfFormData = new FormData();
@@ -106,7 +107,7 @@ function UploadPage({ onComplete }) {
           throw new Error(errorData.error || errorData.details || 'PDF upload failed');
         }
         
-        const pdfData = await pdfResponse.json();
+        pdfData = await pdfResponse.json();
         jobId = pdfData.jobId;
       } else {
         const textResponse = await fetch('/api/upload/text-prompt', {
@@ -120,13 +121,13 @@ function UploadPage({ onComplete }) {
           throw new Error(errorData.error || errorData.details || 'Prompt upload failed');
         }
         
-        const textData = await textResponse.json();
+        textData = await textResponse.json();
         jobId = textData.jobId;
       }
 
       // Check if this was a DOCX with embedded images
       const responseData = briefType === 'pdf' ? pdfData : textData;
-      const hasEmbeddedImages = responseData.embeddedImageCount > 0;
+      const hasEmbeddedImages = responseData?.embeddedImageCount > 0;
       
       // Only upload separate images if we have them and didn't get embedded ones
       if (images.length > 0 && !hasEmbeddedImages) {
