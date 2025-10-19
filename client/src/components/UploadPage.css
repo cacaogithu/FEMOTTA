@@ -15,7 +15,7 @@
 
 .header {
   text-align: center;
-  margin-bottom: 64px;
+  margin-bottom: 80px;
   animation: fadeInDown 0.6s ease-out;
 }
 
@@ -31,24 +31,13 @@
 }
 
 .logo-container {
-  margin-bottom: 24px;
+  margin-bottom: 40px;
   animation: fadeInDown 0.6s ease-out;
 }
 
 .corsair-logo {
   width: 400px;
   height: auto;
-  filter: drop-shadow(0 0 30px rgba(255, 193, 7, 0.5));
-  animation: pulse 3s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    filter: drop-shadow(0 0 30px rgba(255, 193, 7, 0.5));
-  }
-  50% {
-    filter: drop-shadow(0 0 50px rgba(255, 193, 7, 0.8));
-  }
 }
 
 .header h1 {
@@ -72,9 +61,9 @@
 
 .brief-type-toggle {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   justify-content: center;
-  margin-bottom: 48px;
+  margin-bottom: 64px;
   animation: fadeIn 0.6s ease-out 0.2s backwards;
 }
 
@@ -136,9 +125,9 @@
 
 .upload-panels {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-  gap: 40px;
-  margin-bottom: 48px;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 48px;
+  margin-bottom: 64px;
   animation: fadeIn 0.6s ease-out 0.4s backwards;
 }
 
@@ -147,10 +136,10 @@
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 16px;
-  padding: 56px 32px;
+  padding: 64px 40px;
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 350px;
+  min-height: 380px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -317,11 +306,11 @@
 
 .submit-button {
   width: 100%;
-  max-width: 500px;
-  margin: 0 auto;
+  max-width: 600px;
+  margin: 32px auto 0;
   display: block;
-  font-size: 20px;
-  padding: 20px 48px;
+  font-size: 22px;
+  padding: 24px 56px;
   font-weight: 800;
   letter-spacing: 2px;
   text-transform: uppercase;
