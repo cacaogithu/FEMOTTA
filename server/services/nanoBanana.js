@@ -56,7 +56,7 @@ export async function editImageWithNanoBanana(imageUrl, prompt, options = {}) {
 
 export async function editMultipleImages(imageUrls, prompt, options = {}) {
   try {
-    const batchSize = options.batchSize || 5; // Process 5 images at a time
+    const batchSize = options.batchSize || 10; // Process 10 images at a time
     const progressCallback = options.onProgress || (() => {});
     const results = [];
     

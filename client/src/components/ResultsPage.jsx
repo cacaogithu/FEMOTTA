@@ -57,40 +57,6 @@ function TimeMetricsPanel({ jobId }) {
   );
 }
 
-function MLStatsPanel() {
-  const [stats, setStats] = useState(null);
-
-  useEffect(() => {
-    fetch('/api/ml/stats')
-      .then(res => res.json())
-      .then(setStats)
-      .catch(err => console.error('ML stats error:', err));
-  }, []);
-
-  if (!stats) return null;
-
-  return (
-    <div className="ml-stats-panel">
-      <h3>🧠 Active Learning Progress</h3>
-      <div className="stats-grid">
-        <div className="stat">
-          <span className="stat-value">{stats.totalExamples}</span>
-          <span className="stat-label">High-Quality Examples Stored</span>
-        </div>
-        <div className="stat">
-          <span className="stat-value">{stats.avgExampleScore}/10</span>
-          <span className="stat-label">Average Quality Score</span>
-        </div>
-        <div className="stat">
-          <span className="stat-value">{stats.totalImprovements}</span>
-          <span className="stat-label">AI Prompt Improvements</span>
-        </div>
-      </div>
-      <p className="ml-note">System automatically analyzes every result for spelling errors, design issues, and quality</p>
-    </div>
-  );
-}
-
 function ResultsPage({ results, onReset, jobId }) {
   const handleDownloadAll = async () => {
     try {
@@ -131,10 +97,9 @@ function ResultsPage({ results, onReset, jobId }) {
       <ChatWidget jobId={jobId} />
       <div className="container">
         <header className="results-header">
-          <h1>⚡ Your Images Are Ready!</h1>
+          <h1>Your Images Are Ready!</h1>
           <p>{results.images?.length || 0} images processed successfully</p>
           <TimeMetricsPanel jobId={jobId} />
-          <MLStatsPanel />
           <div className="header-actions">
             <button className="button button-primary" onClick={handleDownloadAll}>
               Download All as ZIP

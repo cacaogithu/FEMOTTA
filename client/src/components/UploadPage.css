@@ -30,8 +30,29 @@
   }
 }
 
+.logo-container {
+  margin-bottom: 24px;
+  animation: fadeInDown 0.6s ease-out;
+}
+
+.corsair-logo {
+  width: 280px;
+  height: 70px;
+  filter: drop-shadow(0 0 30px rgba(255, 193, 7, 0.5));
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 30px rgba(255, 193, 7, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 50px rgba(255, 193, 7, 0.8));
+  }
+}
+
 .header h1 {
-  font-size: 56px;
+  font-size: 42px;
   font-weight: 800;
   margin-bottom: 16px;
   background: linear-gradient(135deg, #FFC107 0%, #FF6F00 100%);
@@ -40,7 +61,6 @@
   background-clip: text;
   text-transform: uppercase;
   letter-spacing: 3px;
-  text-shadow: 0 0 30px rgba(255, 193, 7, 0.3);
 }
 
 .header p {

@@ -8,12 +8,12 @@ function FeedbackWidget({ jobId, onSubmit }) {
   const [submitting, setSubmitting] = useState(false);
 
   const getRatingLabel = (score) => {
-    if (score < 20) return { emoji: '😞', text: 'Poor', color: '#f44336' };
-    if (score < 40) return { emoji: '😕', text: 'Below Average', color: '#ff9800' };
-    if (score < 60) return { emoji: '😐', text: 'Average', color: '#ffc107' };
-    if (score < 80) return { emoji: '😊', text: 'Good', color: '#8bc34a' };
-    if (score < 90) return { emoji: '🙂', text: 'Very Good', color: '#4caf50' };
-    return { emoji: '🤩', text: 'Excellent', color: '#00e676' };
+    if (score < 20) return { text: 'Poor', color: '#f44336' };
+    if (score < 40) return { text: 'Below Average', color: '#ff9800' };
+    if (score < 60) return { text: 'Average', color: '#ffc107' };
+    if (score < 80) return { text: 'Good', color: '#8bc34a' };
+    if (score < 90) return { text: 'Very Good', color: '#4caf50' };
+    return { text: 'Excellent', color: '#00e676' };
   };
 
   const handleSubmit = async (e) => {
@@ -56,7 +56,7 @@ function FeedbackWidget({ jobId, onSubmit }) {
           <h3>Thank you for your feedback!</h3>
           <p>Our AI is learning from your input to improve future results.</p>
           <p className="ml-note">
-            🤖 Machine learning in progress... Your feedback helps us optimize prompts and enhance quality.
+            Machine learning in progress... Your feedback helps us optimize prompts and enhance quality.
           </p>
         </div>
       </div>
@@ -65,7 +65,7 @@ function FeedbackWidget({ jobId, onSubmit }) {
 
   return (
     <div className="feedback-widget">
-      <h3>📊 Rate Your Results</h3>
+      <h3>Rate Your Results</h3>
       <p className="feedback-subtitle">Help us improve with AI-powered learning</p>
       
       <form onSubmit={handleSubmit}>
@@ -84,7 +84,6 @@ function FeedbackWidget({ jobId, onSubmit }) {
               }}
             />
             <div className="rating-display">
-              <span className="rating-emoji">{getRatingLabel(rating).emoji}</span>
               <span className="rating-score">{rating}/100</span>
               <span className="rating-text" style={{ color: getRatingLabel(rating).color }}>
                 {getRatingLabel(rating).text}
@@ -107,7 +106,7 @@ function FeedbackWidget({ jobId, onSubmit }) {
         </div>
 
         <div className="ml-info">
-          <div className="ml-icon">🧠</div>
+          <div className="ml-icon">AI</div>
           <div className="ml-text">
             <strong>AI Self-Improvement</strong>
             <p>Your feedback trains our machine learning model to automatically improve prompts and code for better results.</p>

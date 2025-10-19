@@ -26,7 +26,7 @@ The application is built with a React.js frontend (Vite) and a Node.js/Express b
 
 ### Technical Implementations
 - **Triple Input Modes**: Supports PDF, DOCX, or text prompts for briefs. DOCX includes automatic extraction of text and images, with intelligent filtering to skip logos.
-- **Parallel Processing**: Images are processed in parallel batches of 5 using `Promise.all` for efficiency, with real-time progress updates.
+- **Parallel Processing**: Images are processed in parallel batches of 10 using `Promise.all` for efficiency, with real-time progress updates.
 - **AI Chat with Function Calling**: Utilizes GPT-4 with function calling to enable the AI to trigger image re-edits based on natural language queries, allowing for selective editing of individual or multiple images.
 - **ML Feedback System**: A 5-star rating and text feedback mechanism, powered by GPT-4 for prompt analysis and improvement, creating a continuous learning loop.
 - **Job-based Architecture**: Supports concurrent users by isolating each job with a unique ID and dedicated storage, ensuring no shared state.
@@ -49,3 +49,25 @@ The application is built with a React.js frontend (Vite) and a Node.js/Express b
 - **OpenAI API (GPT-4)**: Powers the AI Chat Assistant for intelligent image editing, function calling, and the ML feedback system for prompt analysis and improvement.
 - **Mammoth.js**: Used for extracting text and embedded images from DOCX files.
 - **pdfjs-dist**: Used for processing PDF files and extracting text.
+## Recent Changes
+- **October 18, 2025**: Premium UI Polish & Performance Improvements
+  - **Increased parallel processing to 10 images** - Doubled batch size from 5 to 10 for faster processing
+  - **Added CORSAIR logo branding**:
+    - Animated SVG logo at top of upload page with gold gradient
+    - Pulsing glow effect for premium feel
+    - Clear brand identity from first interaction
+  - **Enhanced loading animations**:
+    - Dual-ring spinner with counter-rotating layers
+    - Shimmer effect on processing title
+    - Pulsing active step indicators
+    - Glowing shadows on all animated elements
+  - **Removed clutter for cleaner UX**:
+    - Removed ML stats panel from results page
+    - Removed emojis from feedback widget for professional appearance
+    - Removed lightning emoji from "Your Images Are Ready" title
+    - Streamlined interface focuses on core functionality
+  - **Professional polish**:
+    - Cleaner, more business-appropriate aesthetic
+    - Consistent branding throughout
+    - Enhanced visual feedback during processing
+    - Executive-ready presentation quality
