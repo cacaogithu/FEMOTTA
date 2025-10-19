@@ -169,18 +169,11 @@ function UploadPage({ onComplete }) {
       <div className="container">
         <header className="header">
           <div className="logo-container">
-            <svg className="corsair-logo" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" style={{ stopColor: '#FFC107', stopOpacity: 1 }} />
-                  <stop offset="100%" style={{ stopColor: '#FF6F00', stopOpacity: 1 }} />
-                </linearGradient>
-              </defs>
-              <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" 
-                    fill="url(#logoGradient)" fontSize="32" fontWeight="900" letterSpacing="4">
-                CORSAIR
-              </text>
-            </svg>
+            <img 
+              src="/assets/corsair-logo.png" 
+              alt="CORSAIR" 
+              className="corsair-logo"
+            />
           </div>
           <h1>AI Image Editor</h1>
           <p>Upload your creative brief and product images to get started</p>

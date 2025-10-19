@@ -8,7 +8,7 @@
 }
 
 .processing-page .container {
-  max-width: 800px;
+  max-width: 1200px;
   width: 100%;
   margin: 0 auto;
 }
@@ -79,14 +79,14 @@
 }
 
 .processing-content h1 {
-  font-size: 48px;
+  font-size: 56px;
   margin-bottom: 48px;
   background: linear-gradient(135deg, #FFC107 0%, #FF6F00 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-transform: uppercase;
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   font-weight: 800;
   animation: shimmer 3s ease-in-out infinite;
 }

@@ -28,20 +28,20 @@
 }
 
 .results-header h1 {
-  font-size: 56px;
+  font-size: 64px;
   font-weight: 800;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   background: linear-gradient(135deg, #FFC107 0%, #FF6F00 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-transform: uppercase;
-  letter-spacing: 3px;
+  letter-spacing: 4px;
 }
 
 .results-header p {
   color: #E0E0E0;
-  font-size: 20px;
+  font-size: 24px;
   margin-bottom: 32px;
   font-weight: 300;
   letter-spacing: 0.5px;
@@ -66,8 +66,8 @@
 }
 
 .header-actions .button {
-  padding: 16px 40px;
-  font-size: 16px;
+  padding: 18px 48px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
