@@ -391,44 +391,44 @@
   .upload-page {
     padding: 20px 16px;
   }
-  
+
   .header h1 {
     font-size: 36px;
     letter-spacing: 2px;
   }
-  
+
   .header p {
     font-size: 16px;
   }
-  
+
   .brief-type-toggle {
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .toggle-btn {
     width: 100%;
     padding: 14px 24px;
   }
-  
+
   .upload-panels {
     grid-template-columns: 1fr;
     gap: 24px;
   }
-  
+
   .upload-panel {
     padding: 40px 24px;
     min-height: 280px;
   }
-  
+
   .icon {
     font-size: 56px;
   }
-  
+
   .panel-content h3 {
     font-size: 18px;
   }
-  
+
   .submit-button {
     font-size: 16px;
     padding: 16px 32px;
