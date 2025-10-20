@@ -166,7 +166,7 @@ function UploadPage({ onComplete }) {
 
   return (
     <div className="upload-page">
-      <div className="container">
+      <div className="upload-container">
         <header className="header">
           <div className="logo-container">
             <img 

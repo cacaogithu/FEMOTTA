@@ -4,13 +4,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 60px 80px;
 }
 
-.upload-page .container {
-  max-width: 1400px;
-  width: 100%;
-  margin: 0 auto;
+.upload-container {
+  max-width: 1600px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
 }
 
 .header {
@@ -125,21 +125,27 @@
 
 .upload-panels {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-  gap: 48px;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
   margin-bottom: 64px;
   animation: fadeIn 0.6s ease-out 0.4s backwards;
+}
+
+@media (max-width: 1200px) {
+  .upload-panels {
+    grid-template-columns: 1fr;
+  }
 }
 
 .upload-panel {
   background: linear-gradient(145deg, #1F1F1F 0%, #1A1A1A 100%);
   border: 2px solid transparent;
   background-clip: padding-box;
-  border-radius: 16px;
-  padding: 64px 40px;
+  border-radius: 20px;
+  padding: 72px 48px;
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 380px;
+  min-height: 420px;
   display: flex;
   align-items: center;
   justify-content: center;
