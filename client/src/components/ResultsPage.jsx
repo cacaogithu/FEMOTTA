@@ -92,6 +92,27 @@ function ResultsPage({ results, onReset, jobId }) {
     }
   };
 
+  const handleDownloadPsd = async (imageIndex, originalName) => {
+    try {
+      const response = await fetch(`/api/psd/${jobId}/${imageIndex}`);
+      if (!response.ok) {
+        throw new Error('Failed to download PSD');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${originalName.replace(/\.[^/.]+$/, '')}.psd`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('PSD download error:', error);
+      alert('Failed to download PSD file');
+    }
+  };
+
   return (
     <div className="results-page">
       <ChatWidget jobId={jobId} />
@@ -130,12 +151,20 @@ function ResultsPage({ results, onReset, jobId }) {
               )}
               <div className="card-info">
                 <h3>{image.name}</h3>
-                <button 
-                  className="button button-primary download-btn"
-                  onClick={() => handleDownloadImage(image.editedImageId || image.id, image.name)}
-                >
-                  Download
-                </button>
+                <div className="download-buttons">
+                  <button 
+                    className="button button-primary download-btn"
+                    onClick={() => handleDownloadImage(image.editedImageId || image.id, image.name)}
+                  >
+                    Download JPG
+                  </button>
+                  <button 
+                    className="button button-secondary download-btn"
+                    onClick={() => handleDownloadPsd(idx, image.originalName)}
+                  >
+                    Download PSD
+                  </button>
+                </div>
               </div>
             </div>
           ))}

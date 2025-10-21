@@ -10,6 +10,7 @@ import chatRoutes from './routes/chat.js';
 import reEditRoutes from './routes/reEdit.js';
 import feedbackRoutes from './routes/feedback.js';
 import mlStatsRoutes from './routes/mlStats.js';
+import psdRoutes from './routes/psd.js';
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/re-edit', reEditRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/ml', mlStatsRoutes);
+app.use('/api/psd', psdRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });

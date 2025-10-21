@@ -5,6 +5,7 @@ integrations = ["google-drive:1.0.0"]
 
 [nix]
 channel = "stable-25_05"
+packages = ["libuuid"]
 
 [workflows]
 runButton = "Project"
@@ -61,6 +62,10 @@ externalPort = 3003
 [[ports]]
 localPort = 35625
 externalPort = 3001
+
+[[ports]]
+localPort = 41979
+externalPort = 4200
 
 [[ports]]
 localPort = 42777
