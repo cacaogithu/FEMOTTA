@@ -35,7 +35,8 @@ The application is built with a React.js frontend (Vite) and a Node.js/Express b
 
 ### Feature Specifications
 - **File Upload Interface**: Client-side validation, multi-image upload, and support for large files (up to 50MB for briefs, 20MB for images).
-- **Results Gallery**: Individual image download, bulk ZIP download, and a workflow step viewer.
+- **Results Gallery**: Individual image download, bulk ZIP download, PSD download with layered files, and a workflow step viewer.
+- **PSD Download**: Each image can be downloaded as a layered PSD file with two layers (Original Image + AI Edited), enabling further editing in Photoshop or other design tools. Uses ag-psd and node-canvas for PSD generation.
 - **AI Chat Capabilities**: Context-aware responses, selective image editing, and automatic re-editing via the `/api/re-edit` endpoint.
 - **ML Feedback System**: User rating, optional text feedback, AI-powered prompt improvement, and feedback aggregation.
 - **Time Tracking**: Comprehensive backend time tracking for `startTime`, `endTime`, `processingTimeSeconds`, `processingTimeMinutes`, `estimatedManualTimeMinutes`, `timeSavedMinutes`, and `timeSavedPercent`.
@@ -49,7 +50,21 @@ The application is built with a React.js frontend (Vite) and a Node.js/Express b
 - **OpenAI API (GPT-4)**: Powers the AI Chat Assistant for intelligent image editing, function calling, and the ML feedback system for prompt analysis and improvement.
 - **Mammoth.js**: Used for extracting text and embedded images from DOCX files.
 - **pdfjs-dist**: Used for processing PDF files and extracting text.
+- **ag-psd**: Used for creating layered PSD files with original and edited image layers.
+- **node-canvas**: Provides canvas implementation for PSD generation with proper image rendering.
 ## Recent Changes
+- **October 21, 2025**: PSD Download Feature & Desktop Layout Improvements
+  - **PSD Download Capability**:
+    - Added `/api/psd/:jobId/:imageIndex` endpoint for generating layered PSD files
+    - Each image downloadable as PSD with 2 layers: "Original Image" (bottom) and "AI Edited" (top)
+    - Uses ag-psd + node-canvas for production-ready Photoshop-compatible file generation
+    - Enables further editing and refinement in Photoshop or other design tools
+    - Download PSD button added to each image card in results gallery
+  - **Desktop-First Layout Optimization**:
+    - Fixed horizontal centering issues for true viewport symmetry
+    - Adjusted container max-width to 90% for better screen utilization
+    - Removed conflicting padding from App wrapper
+    - Professional desktop layout fills screen properly without wasted space
 - **October 18, 2025**: Premium UI Polish & Performance Improvements
   - **Increased parallel processing to 10 images** - Doubled batch size from 5 to 10 for faster processing
   - **Added CORSAIR logo branding**:
