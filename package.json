@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "ag-psd": "^28.4.1",
     "mammoth": "^1.11.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.3",
