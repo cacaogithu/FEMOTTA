@@ -1,8 +1,7 @@
 import { getJob } from '../utils/jobStore.js';
 import { downloadFileFromDrive } from '../utils/googleDrive.js';
 import { writePsdBuffer } from 'ag-psd';
-import sharp from 'sharp';
-import { createCanvas, loadImage } from 'canvas';
+import { createCanvas, Image } from 'canvas';
 
 export async function downloadPsd(req, res) {
   try {
@@ -45,18 +44,38 @@ export async function downloadPsd(req, res) {
     
     console.log('[PSD Download] Images downloaded, processing...');
     
-    // Get image dimensions from the original image
-    const originalMetadata = await sharp(Buffer.from(originalBuffer)).metadata();
-    const width = originalMetadata.width;
-    const height = originalMetadata.height;
+    // Load both images using node-canvas Image
+    const originalImg = new Image();
+    const editedImg = new Image();
+    
+    // Load images from buffers (synchronous in node-canvas)
+    originalImg.src = Buffer.from(originalBuffer);
+    editedImg.src = Buffer.from(editedBuffer);
+    
+    const width = originalImg.width;
+    const height = originalImg.height;
     
     console.log('[PSD Download] Image dimensions:', width, 'x', height);
     
-    // Create proper canvas objects for both images using node-canvas
-    const [originalCanvas, editedCanvas] = await Promise.all([
-      createCanvasFromBuffer(Buffer.from(originalBuffer), width, height),
-      createCanvasFromBuffer(Buffer.from(editedBuffer), width, height)
-    ]);
+    // Create canvases and draw images
+    const originalCanvas = createCanvas(width, height);
+    const originalCtx = originalCanvas.getContext('2d');
+    originalCtx.drawImage(originalImg, 0, 0);
+    
+    const editedCanvas = createCanvas(width, height);
+    const editedCtx = editedCanvas.getContext('2d');
+    editedCtx.drawImage(editedImg, 0, 0);
+    
+    console.log('[PSD Download] Canvases created, extracting pixel data...');
+    
+    // Extract image data to verify it's not black
+    const originalImageData = originalCtx.getImageData(0, 0, width, height);
+    const editedImageData = editedCtx.getImageData(0, 0, width, height);
+    
+    console.log('[PSD Download] Original pixel sample (first 10 pixels RGB):', 
+      Array.from(originalImageData.data.slice(0, 30)));
+    console.log('[PSD Download] Edited pixel sample (first 10 pixels RGB):', 
+      Array.from(editedImageData.data.slice(0, 30)));
     
     console.log('[PSD Download] Creating PSD with 2 layers...');
     
@@ -64,21 +83,14 @@ export async function downloadPsd(req, res) {
     const psd = {
       width,
       height,
-      channels: 4, // RGBA
-      bitsPerChannel: 8,
-      colorMode: 3, // RGB
       children: [
         {
           name: 'Original Image',
-          canvas: originalCanvas,
-          opacity: 255,
-          blendMode: 'normal'
+          canvas: originalCanvas
         },
         {
           name: 'AI Edited',
-          canvas: editedCanvas,
-          opacity: 255,
-          blendMode: 'normal'
+          canvas: editedCanvas
         }
       ]
     };
@@ -109,17 +121,3 @@ export async function downloadPsd(req, res) {
   }
 }
 
-// Helper function to create a proper canvas from image buffer using node-canvas
-async function createCanvasFromBuffer(imageBuffer, width, height) {
-  // Create a canvas with the specified dimensions
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext('2d');
-  
-  // Load the image from buffer
-  const img = await loadImage(imageBuffer);
-  
-  // Draw the image onto the canvas
-  ctx.drawImage(img, 0, 0, width, height);
-  
-  return canvas;
-}
