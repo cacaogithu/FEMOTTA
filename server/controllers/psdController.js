@@ -75,20 +75,24 @@ export async function downloadPsd(req, res) {
     
     console.log('[PSD Download] Canvases created successfully');
     
-    console.log('[PSD Download] Creating PSD with 2 layers...');
+    // Extract raw pixel data from canvases
+    const originalImageData = originalCtx.getImageData(0, 0, width, height);
+    const editedImageData = editedCtx.getImageData(0, 0, width, height);
     
-    // Create PSD document with 2 layers (bottom to top)
+    console.log('[PSD Download] Creating PSD with 2 layers using raw pixel data...');
+    
+    // Create PSD document with 2 layers (bottom to top) using imageData
     const psd = {
       width,
       height,
       children: [
         {
           name: 'Original Image',
-          canvas: originalCanvas
+          imageData: originalImageData
         },
         {
           name: 'AI Edited',
-          canvas: editedCanvas
+          imageData: editedImageData
         }
       ]
     };
