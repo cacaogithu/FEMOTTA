@@ -26,7 +26,7 @@ The application is built with a React.js frontend (Vite) and a Node.js/Express b
 
 ### Technical Implementations
 - **Triple Input Modes**: Supports PDF, DOCX, or text prompts for briefs. DOCX includes automatic extraction of text and images, with intelligent filtering to skip logos.
-- **Parallel Processing**: Images are processed in parallel batches of 10 using `Promise.all` for efficiency, with real-time progress updates.
+- **Parallel Processing**: Images are processed in parallel batches of 15 using `Promise.all` for efficiency, with real-time progress updates.
 - **AI Chat with Function Calling**: Utilizes GPT-4 with function calling to enable the AI to trigger image re-edits based on natural language queries, allowing for selective editing of individual or multiple images.
 - **ML Feedback System**: A 5-star rating and text feedback mechanism, powered by GPT-4 for prompt analysis and improvement, creating a continuous learning loop.
 - **Job-based Architecture**: Supports concurrent users by isolating each job with a unique ID and dedicated storage, ensuring no shared state.
@@ -65,8 +65,10 @@ The application is built with a React.js frontend (Vite) and a Node.js/Express b
     - Adjusted container max-width to 90% for better screen utilization
     - Removed conflicting padding from App wrapper
     - Professional desktop layout fills screen properly without wasted space
+- **October 23, 2025**: Performance & PSD Generation Improvements
+  - **Increased parallel processing to 15 images** - Tripled batch size from 5 to 15 for significantly faster processing
+  - **Fixed PSD generation** - Added critical `'ag-psd/initialize-canvas.js'` import for proper node-canvas compatibility, resolving black PSD layer issue
 - **October 18, 2025**: Premium UI Polish & Performance Improvements
-  - **Increased parallel processing to 10 images** - Doubled batch size from 5 to 10 for faster processing
   - **Added CORSAIR logo branding**:
     - Animated SVG logo at top of upload page with gold gradient
     - Pulsing glow effect for premium feel

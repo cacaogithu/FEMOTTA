@@ -703,7 +703,7 @@ async function processImagesWithNanoBanana(jobId) {
         enable_sync_mode: true,
         output_format: 'jpeg',
         num_images: 1,
-        batch_size: 5
+        batch_size: 15
       }
     }
   });
@@ -722,9 +722,9 @@ async function processImagesWithNanoBanana(jobId) {
     description: `Processing ${imageUrls.length} images with unique prompts`,
     details: {
       totalImages: imageUrls.length,
-      batchSize: 5,
+      batchSize: 15,
       uniquePrompts: true,
-      code: `// Each image processed with its own prompt\nconst batchSize = 5;\nfor (let i = 0; i < images.length; i += batchSize) {\n  const batch = images.slice(i, i + batchSize);\n  const results = await Promise.all(\n    batch.map((img, idx) => editWithAI(img, prompts[i + idx]))\n  );\n}`
+      code: `// Each image processed with its own prompt\nconst batchSize = 15;\nfor (let i = 0; i < images.length; i += batchSize) {\n  const batch = images.slice(i, i + batchSize);\n  const results = await Promise.all(\n    batch.map((img, idx) => editWithAI(img, prompts[i + idx]))\n  );\n}`
     }
   });
 
@@ -732,7 +732,7 @@ async function processImagesWithNanoBanana(jobId) {
 
   // Process images with their individual prompts
   const results = [];
-  const batchSize = 5;
+  const batchSize = 15;
 
   for (let i = 0; i < imageUrls.length; i += batchSize) {
     const batchUrls = imageUrls.slice(i, i + batchSize);
