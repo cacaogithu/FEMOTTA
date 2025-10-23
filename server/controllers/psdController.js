@@ -1,5 +1,6 @@
 import { getJob } from '../utils/jobStore.js';
 import { downloadFileFromDrive } from '../utils/googleDrive.js';
+import 'ag-psd/initialize-canvas.js'; // Required for Node.js
 import { writePsdBuffer } from 'ag-psd';
 import { createCanvas, Image } from 'canvas';
 
@@ -74,25 +75,35 @@ export async function downloadPsd(req, res) {
     editedCtx.drawImage(editedImg, 0, 0);
     
     console.log('[PSD Download] Canvases created successfully');
+    console.log('[PSD Download] Creating PSD with 2 layers...');
     
-    // Extract raw pixel data from canvases
-    const originalImageData = originalCtx.getImageData(0, 0, width, height);
-    const editedImageData = editedCtx.getImageData(0, 0, width, height);
-    
-    console.log('[PSD Download] Creating PSD with 2 layers using raw pixel data...');
-    
-    // Create PSD document with 2 layers (bottom to top) using imageData
+    // Create PSD document with 2 layers (bottom to top)
     const psd = {
       width,
       height,
+      channels: 3, // RGB
+      bitsPerChannel: 8,
+      colorMode: 3, // RGB mode
       children: [
         {
           name: 'Original Image',
-          imageData: originalImageData
+          top: 0,
+          left: 0,
+          bottom: height,
+          right: width,
+          blendMode: 'normal',
+          opacity: 1,
+          canvas: originalCanvas
         },
         {
           name: 'AI Edited',
-          imageData: editedImageData
+          top: 0,
+          left: 0,
+          bottom: height,
+          right: width,
+          blendMode: 'normal',
+          opacity: 1,
+          canvas: editedCanvas
         }
       ]
     };
