@@ -44,13 +44,20 @@ export async function downloadPsd(req, res) {
     
     console.log('[PSD Download] Images downloaded, processing...');
     
-    // Load both images using node-canvas Image
-    const originalImg = new Image();
-    const editedImg = new Image();
+    // Load both images properly with promises to ensure they're fully loaded
+    const loadImage = (buffer) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = buffer;
+      });
+    };
     
-    // Load images from buffers (synchronous in node-canvas)
-    originalImg.src = Buffer.from(originalBuffer);
-    editedImg.src = Buffer.from(editedBuffer);
+    const [originalImg, editedImg] = await Promise.all([
+      loadImage(Buffer.from(originalBuffer)),
+      loadImage(Buffer.from(editedBuffer))
+    ]);
     
     const width = originalImg.width;
     const height = originalImg.height;
@@ -66,16 +73,7 @@ export async function downloadPsd(req, res) {
     const editedCtx = editedCanvas.getContext('2d');
     editedCtx.drawImage(editedImg, 0, 0);
     
-    console.log('[PSD Download] Canvases created, extracting pixel data...');
-    
-    // Extract image data to verify it's not black
-    const originalImageData = originalCtx.getImageData(0, 0, width, height);
-    const editedImageData = editedCtx.getImageData(0, 0, width, height);
-    
-    console.log('[PSD Download] Original pixel sample (first 10 pixels RGB):', 
-      Array.from(originalImageData.data.slice(0, 30)));
-    console.log('[PSD Download] Edited pixel sample (first 10 pixels RGB):', 
-      Array.from(editedImageData.data.slice(0, 30)));
+    console.log('[PSD Download] Canvases created successfully');
     
     console.log('[PSD Download] Creating PSD with 2 layers...');
     
