@@ -78,6 +78,27 @@ class BrandService {
     // Update page title
     document.title = `${brand.displayName} AI Image Editor`;
   }
+
+  // Add brand header to fetch requests
+  getBrandHeaders() {
+    const brandSlug = this.getCurrentBrandSlug();
+    return {
+      'X-Brand-Slug': brandSlug
+    };
+  }
+
+  // Utility function to make brand-aware API calls
+  async brandFetch(url, options = {}) {
+    const headers = {
+      ...this.getBrandHeaders(),
+      ...(options.headers || {})
+    };
+    
+    return fetch(url, {
+      ...options,
+      headers
+    });
+  }
 }
 
 export const brandService = new BrandService();

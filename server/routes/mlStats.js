@@ -1,8 +1,11 @@
-
 import express from 'express';
 import { getLearningStats, getSuccessfulExamples } from '../services/mlLearning.js';
+import { brandContextMiddleware } from '../middleware/brandContext.js';
 
 const router = express.Router();
+
+// Apply brand context to all ML stats routes
+router.use(brandContextMiddleware);
 
 router.get('/stats', (req, res) => {
   try {

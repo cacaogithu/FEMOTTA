@@ -1,8 +1,12 @@
 import express from 'express';
 import multer from 'multer';
 import { uploadPDF, uploadImages, uploadTextPrompt, getJobInfo } from '../controllers/uploadController.js';
+import { brandContextMiddleware } from '../middleware/brandContext.js';
 
 const router = express.Router();
+
+// Apply brand context to all upload routes
+router.use(brandContextMiddleware);
 
 const upload = multer({
   storage: multer.memoryStorage(),

@@ -28,21 +28,37 @@ router.get('/list', async (req, res) => {
   }
 });
 
-// Admin endpoints (TODO: Add authentication)
-router.post('/admin/create', async (req, res) => {
+// Admin endpoints - SECURED (requires admin auth header)
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'change-this-in-production';
+
+function adminAuthMiddleware(req, res, next) {
+  const adminKey = req.headers['x-admin-key'];
+  if (adminKey !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized - admin access required' });
+  }
+  next();
+}
+
+router.post('/admin/create', adminAuthMiddleware, async (req, res) => {
   try {
     const brand = await brandService.createBrand(req.body);
-    res.json(brand);
+    
+    // Remove sensitive data from response
+    const { wavespeedApiKey, openaiApiKey, ...safeBrand } = brand;
+    res.json(safeBrand);
   } catch (error) {
     console.error('Error creating brand:', error);
     res.status(500).json({ error: 'Failed to create brand' });
   }
 });
 
-router.put('/admin/:id', async (req, res) => {
+router.put('/admin/:id', adminAuthMiddleware, async (req, res) => {
   try {
     const brand = await brandService.updateBrand(parseInt(req.params.id), req.body);
-    res.json(brand);
+    
+    // Remove sensitive data from response
+    const { wavespeedApiKey, openaiApiKey, ...safeBrand } = brand;
+    res.json(safeBrand);
   } catch (error) {
     console.error('Error updating brand:', error);
     res.status(500).json({ error: 'Failed to update brand' });
