@@ -7,6 +7,7 @@ import BrandSelector from './components/BrandSelector';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import BrandForm from './pages/admin/BrandForm';
+import BrandLogin from './pages/BrandLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import { brandService } from './services/brandService';
 import './App.css';
@@ -72,6 +73,9 @@ function App() {
     <Routes>
       {/* Main application routes */}
       <Route path="/" element={<MainApp />} />
+      
+      {/* Brand-specific login routes */}
+      <Route path="/:brandSlug/login" element={<BrandLogin />} />
       
       {/* Admin routes */}
       <Route path="/admin/login" element={<AdminLogin />} />
