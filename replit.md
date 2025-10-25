@@ -19,8 +19,10 @@ The application is built as a multi-tenant SaaS platform with a React.js fronten
 ### Multi-Tenant Architecture
 - **Brand Isolation**: Each brand (Corsair, future clients) has isolated Google Drive folders, branding assets, and AI configurations
 - **Database Schema**: PostgreSQL with tables for brands, users, jobs, and images
-- **Brand Context**: Middleware system that loads brand configuration per request
+- **Brand Context**: Middleware system that loads brand configuration per request via `brandContextMiddleware`
+- **Secure Credential Loading**: `brandLoader` utility fetches API keys per-request without exposing them in job state
 - **Dynamic Theming**: Frontend loads brand-specific logos, colors, and prompts from database
+- **Admin Security**: Brand creation/updates protected by X-Admin-Key header authentication
 
 ### UI/UX Decisions
 - **Dark Gaming Aesthetic**: A sleek, dark theme with CORSAIR branding.
@@ -77,13 +79,22 @@ For each new brand, configure:
 4. Default prompt template and AI settings (batch size, manual time estimate)
 
 ## Recent Changes
-- **October 25, 2025**: Multi-Brand Platform Architecture
+- **October 25, 2025**: Multi-Brand Platform Architecture & Security Hardening
   - **Database Migration**: Added PostgreSQL with Drizzle ORM for multi-tenant data management
   - **Brand System**: Created brands, users, jobs, and images tables with full isolation
   - **Brand API**: `/api/brand/list` and `/api/brand/config` endpoints for brand discovery and configuration
-  - **Frontend Integration**: Brand selector component with dynamic theming support
-  - **Corsair Seeded**: CORSAIR configured as first tenant (brand ID: 1)
-  - **Backwards Compatible**: Defaults to 'corsair' brand for existing functionality
+  - **Frontend Integration**: Brand selector component with dynamic theming support (appears when 2+ brands exist)
+  - **Security Fix - API Key Protection**: 
+    - Removed API keys from job storage to prevent exposure via API responses
+    - Created `brandLoader` utility to securely load brand credentials per-request
+    - All controllers now fetch API keys on-demand without persisting them in job state
+    - Job objects returned to clients no longer contain sensitive credentials
+  - **Brand-Specific Processing**: 
+    - All image processing uses brand-specific Wavespeed API keys
+    - All AI chat uses brand-specific OpenAI API keys
+    - All uploads use brand-specific Google Drive folders
+  - **Test Brands**: CORSAIR (ID: 1) and ACME Gaming (ID: 2) configured for testing
+  - **Backwards Compatible**: Defaults to 'corsair' brand for legacy jobs without brandId
 - **October 21, 2025**: PSD Download Feature & Desktop Layout Improvements
   - **PSD Download Capability**:
     - Added `/api/psd/:jobId/:imageIndex` endpoint for generating layered PSD files
