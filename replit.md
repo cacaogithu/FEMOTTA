@@ -22,6 +22,16 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 - **Secure Credential Management**: API keys are loaded securely per-request using a `brandLoader` utility without exposing them in job states.
 - **Admin Security**: Brand management is protected by `X-Admin-Key` header authentication.
 
+### Authentication & Authorization System
+- **Brand-Specific Authentication**: Each brand/sub-account has its own login credentials with bcrypt-hashed passwords stored securely.
+- **JWT Token-Based Auth**: Brand logins generate JWT tokens (role: 'brand') that include brandId, brandSlug, and brandName.
+- **Automatic Token Inclusion**: Frontend uses `authenticatedFetch`, `postJSON`, and `postFormData` utilities that automatically attach brand tokens from localStorage to all API requests.
+- **Middleware Enforcement**: `brandContextMiddleware` verifies JWT tokens and enforces brand data isolation - users can only access their own brand's jobs, images, and results.
+- **Blob URL Strategy**: Image previews (BeforeAfterSlider, ImagePreview) load images via authenticatedFetch and convert to blob URLs, ensuring all image access is authenticated.
+- **Parent-Child Brands**: Supports sub-accounts (e.g., LifeTrek Medical under Corsair) with isolated authentication and data.
+- **Login Routes**: Brand-specific login pages available at `/:brandSlug/login` (e.g., `/lifetrek-medical/login`).
+- **Backward Compatibility**: Unauthenticated requests default to 'corsair' brand for legacy support.
+
 ### UI/UX Decisions
 - **Aesthetic**: Features a sleek, dark gaming aesthetic with brand-specific theming.
 - **Interactive Elements**: Includes before/after comparison sliders for edited images and a floating AI chat assistant widget.
