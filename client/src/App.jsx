@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import UploadPage from './components/UploadPage';
 import ProcessingPage from './components/ProcessingPage';
 import ResultsPage from './components/ResultsPage';
-import BrandSelector from './components/BrandSelector';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import BrandForm from './pages/admin/BrandForm';
@@ -54,7 +53,6 @@ function MainApp() {
 
   return (
     <div className="app">
-      <BrandSelector />
       {page === 'upload' && (
         <UploadPage onComplete={handleUploadComplete} />
       )}

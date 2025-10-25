@@ -40,6 +40,43 @@ function AdminDashboard() {
     navigate('/admin/brands/new');
   };
 
+  const handleDelete = async (brandId, brandName) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${brandName}"?\n\n` +
+      `This will permanently delete:\n` +
+      `- The brand configuration\n` +
+      `- All jobs and images\n` +
+      `- All feedback and data\n\n` +
+      `This action CANNOT be undone!`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      const response = await fetch(`/api/admin/brands/${brandId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Admin-Key': adminToken
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete brand');
+      }
+
+      const data = await response.json();
+      alert(data.message);
+      
+      // Reload brands list
+      loadBrands();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+      console.error('Delete error:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="admin-dashboard loading">
@@ -103,12 +140,20 @@ function AdminDashboard() {
                   </div>
                 </td>
                 <td>
-                  <button
-                    onClick={() => handleEdit(brand.id)}
-                    className="btn-edit"
-                  >
-                    Edit
-                  </button>
+                  <div className="action-buttons">
+                    <button
+                      onClick={() => handleEdit(brand.id)}
+                      className="btn-edit"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(brand.id, brand.name)}
+                      className="btn-delete"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

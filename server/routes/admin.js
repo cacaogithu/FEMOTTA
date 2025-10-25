@@ -188,4 +188,54 @@ router.post('/upload-brandbook', verifyAdminToken, upload.single('brandbook'), a
   }
 });
 
+// Delete brand endpoint
+router.delete('/brands/:id', verifyAdminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const brandId = parseInt(id);
+
+    if (isNaN(brandId)) {
+      return res.status(400).json({ error: 'Invalid brand ID' });
+    }
+
+    // Import db and schema
+    const { db } = await import('../storage.js');
+    const { brands, jobs, images, editedImages, feedback } = await import('../../shared/schema.js');
+    const { eq } = await import('drizzle-orm');
+
+    // Check if brand exists
+    const brand = await db.select().from(brands).where(eq(brands.id, brandId));
+    
+    if (!brand || brand.length === 0) {
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+
+    // Delete all related data in correct order
+    // 1. Get all job IDs for this brand first
+    const brandJobs = await db.select({ id: jobs.id }).from(jobs).where(eq(jobs.brandId, brandId));
+    const jobIds = brandJobs.map(j => j.id);
+    
+    // 2. Delete all related data for each job
+    for (const jobId of jobIds) {
+      await db.delete(feedback).where(eq(feedback.jobId, jobId));
+      await db.delete(editedImages).where(eq(editedImages.jobId, jobId));
+      await db.delete(images).where(eq(images.jobId, jobId));
+    }
+    
+    // 3. Delete jobs
+    await db.delete(jobs).where(eq(jobs.brandId, brandId));
+    
+    // 4. Finally delete the brand
+    await db.delete(brands).where(eq(brands.id, brandId));
+
+    res.json({ 
+      success: true, 
+      message: `Brand ${brand[0].name} and all related data deleted successfully` 
+    });
+  } catch (error) {
+    console.error('Delete brand error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

@@ -131,6 +131,11 @@
   display: inline-block;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .btn-edit {
   padding: 8px 16px;
   background: rgba(255, 215, 0, 0.2);
@@ -146,6 +151,23 @@
 .btn-edit:hover {
   background: rgba(255, 215, 0, 0.3);
   border-color: #ffd700;
+}
+
+.btn-delete {
+  padding: 8px 16px;
+  background: rgba(255, 0, 0, 0.2);
+  border: 1px solid rgba(255, 0, 0, 0.4);
+  border-radius: 4px;
+  color: #ff6b6b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-delete:hover {
+  background: rgba(255, 0, 0, 0.3);
+  border-color: #ff6b6b;
 }
 
 .no-brands {
