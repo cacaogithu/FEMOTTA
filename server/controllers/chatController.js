@@ -1,10 +1,7 @@
 import OpenAI from 'openai';
 import { getJob } from '../utils/jobStore.js';
+import { getBrandApiKeys } from '../utils/brandLoader.js';
 import fetch from 'node-fetch';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 export async function handleChat(req, res) {
   try {
@@ -15,6 +12,16 @@ export async function handleChat(req, res) {
     }
 
     const job = getJob(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Load brand-specific API keys securely
+    const brandConfig = await getBrandApiKeys(job);
+    const openai = new OpenAI({
+      apiKey: brandConfig.openaiApiKey
+    });
+
     let context = '';
     let imageList = '';
     

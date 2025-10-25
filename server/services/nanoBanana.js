@@ -9,7 +9,8 @@ export async function editImageWithNanoBanana(imageUrl, prompt, options = {}) {
       enableSyncMode = true,
       outputFormat = 'jpeg',
       enableBase64Output = false,
-      numImages = 1
+      numImages = 1,
+      wavespeedApiKey = process.env.WAVESPEED_API_KEY
     } = options;
 
     const payload = {
@@ -25,7 +26,7 @@ export async function editImageWithNanoBanana(imageUrl, prompt, options = {}) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.WAVESPEED_API_KEY}`
+        'Authorization': `Bearer ${wavespeedApiKey}`
       },
       body: JSON.stringify(payload)
     });
@@ -58,6 +59,7 @@ export async function editMultipleImages(imageUrls, prompt, options = {}) {
   try {
     const batchSize = options.batchSize || 10; // Process 10 images at a time
     const progressCallback = options.onProgress || (() => {});
+    const wavespeedApiKey = options.wavespeedApiKey || process.env.WAVESPEED_API_KEY;
     const results = [];
     
     const totalImages = imageUrls.length;
@@ -80,7 +82,7 @@ export async function editMultipleImages(imageUrls, prompt, options = {}) {
       });
       
       const batchPromises = batch.map((imageUrl, idx) => 
-        editImageWithNanoBanana(imageUrl, prompt, options).then(result => {
+        editImageWithNanoBanana(imageUrl, prompt, { ...options, wavespeedApiKey }).then(result => {
           const imageIndex = i + idx;
           progressCallback({
             type: 'image_complete',

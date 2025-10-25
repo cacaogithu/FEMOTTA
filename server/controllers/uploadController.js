@@ -2,20 +2,22 @@ import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/g
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { editMultipleImages, editImageWithNanoBanana } from '../services/nanoBanana.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
+import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
 
-const PDF_FOLDER_ID = '1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697';
-const IMAGES_FOLDER_ID = '1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS';
+// Helper to get brand-specific OpenAI client
+function getBrandOpenAI(brand) {
+  return new OpenAI({
+    apiKey: brand.openaiApiKey || process.env.OPENAI_API_KEY
+  });
+}
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-async function extractPromptFromDOCX(docxBuffer) {
+async function extractPromptFromDOCX(docxBuffer, brand) {
+  const openai = getBrandOpenAI(brand);
   try {
     console.log('[DOCX Extraction] Starting DOCX text extraction...');
     console.log('[DOCX Extraction] Buffer size:', docxBuffer.length, 'bytes');
@@ -236,7 +238,8 @@ ${docxText}`
   }
 }
 
-async function extractPromptFromPDF(pdfBuffer) {
+async function extractPromptFromPDF(pdfBuffer, brand) {
+  const openai = getBrandOpenAI(brand);
   try {
     console.log('[PDF Extraction] Starting PDF text extraction...');
     console.log('[PDF Extraction] Buffer size:', pdfBuffer.length, 'bytes');
@@ -438,7 +441,7 @@ export async function uploadPDF(req, res) {
       req.file.buffer,
       fileName,
       req.file.mimetype,
-      PDF_FOLDER_ID
+      req.brand.briefFolderId
     );
     console.log('[Upload Brief] Uploaded to Drive, ID:', result.id);
 
@@ -446,10 +449,10 @@ export async function uploadPDF(req, res) {
     let imageSpecs, extractedImages;
 
     if (isPDF) {
-      imageSpecs = await extractPromptFromPDF(req.file.buffer);
+      imageSpecs = await extractPromptFromPDF(req.file.buffer, req.brand);
       extractedImages = [];
     } else {
-      const docxResult = await extractPromptFromDOCX(req.file.buffer);
+      const docxResult = await extractPromptFromDOCX(req.file.buffer, req.brand);
       imageSpecs = docxResult.imageSpecs;
       extractedImages = docxResult.extractedImages;
     }
@@ -470,7 +473,7 @@ export async function uploadPDF(req, res) {
           img.buffer,
           fileName,
           img.contentType,
-          IMAGES_FOLDER_ID
+          req.brand.productImagesFolderId
         );
 
         console.log(`Uploaded ${fileName} to Drive, making public...`);
@@ -492,6 +495,8 @@ export async function uploadPDF(req, res) {
     const startTime = new Date();
     createJob({
       id: jobId,
+      brandId: req.brand.id,
+      brandSlug: req.brand.slug,
       pdfId: result.id,
       pdfName: result.name,
       imageSpecs: imageSpecs,
@@ -574,7 +579,7 @@ export async function uploadImages(req, res) {
         file.buffer,
         file.originalname,
         file.mimetype,
-        IMAGES_FOLDER_ID
+        req.brand.productImagesFolderId
       );
 
       console.log(`Uploaded ${file.originalname} to Drive, making public...`);
@@ -626,6 +631,9 @@ async function processImagesWithNanoBanana(jobId) {
   if (!job) {
     throw new Error('Job not found');
   }
+
+  // Load brand-specific configuration (API keys, folders)
+  const brandConfig = await getBrandApiKeys(job);
 
   console.log(`Processing job ${jobId} - Images count: ${job.images?.length || 0}`);
 
@@ -771,7 +779,8 @@ async function processImagesWithNanoBanana(jobId) {
       return editImageWithNanoBanana(url, prompt, {
         enableSyncMode: true,
         outputFormat: 'jpeg',
-        numImages: 1
+        numImages: 1,
+        wavespeedApiKey: brandConfig.wavespeedApiKey
       }).then(result => {
         updateJob(jobId, {
           processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
@@ -814,9 +823,9 @@ async function processImagesWithNanoBanana(jobId) {
   });
 
   const editedImages = [];
-  const EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
+  const EDITED_IMAGES_FOLDER = brandConfig.editedResultsFolderId;
 
-  console.log(`Saving ${results.length} edited images to Drive...`);
+  console.log(`Saving ${results.length} edited images to Drive (brand: ${job.brandSlug})...`);
 
   updateJob(jobId, { 
     processingStep: 'Saving edited images to cloud storage'
@@ -926,12 +935,14 @@ export async function uploadTextPrompt(req, res) {
       promptBuffer,
       fileName,
       'text/plain',
-      PDF_FOLDER_ID
+      req.brand.briefFolderId
     );
 
     const startTime = new Date();
     createJob({
       id: jobId,
+      brandId: req.brand.id,
+      brandSlug: req.brand.slug,
       promptId: result.id,
       promptText: prompt,
       images: [],

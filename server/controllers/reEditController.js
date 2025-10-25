@@ -1,6 +1,7 @@
 import { reEditImage } from '../services/nanoBanana.js';
 import { getJob, updateJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
+import { getBrandApiKeys } from '../utils/brandLoader.js';
 import fetch from 'node-fetch';
 
 export async function reEditImages(req, res) {
@@ -15,6 +16,9 @@ export async function reEditImages(req, res) {
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
+
+    // Load brand-specific configuration
+    const brandConfig = await getBrandApiKeys(job);
 
     if (!job.editedImages || job.editedImages.length === 0) {
       return res.status(400).json({ error: 'No edited images found for this job' });
@@ -55,7 +59,8 @@ export async function reEditImages(req, res) {
 
       const result = await reEditImage(imageUrl, null, newPrompt, {
         enableSyncMode: true,
-        outputFormat: 'jpeg'
+        outputFormat: 'jpeg',
+        wavespeedApiKey: brandConfig.wavespeedApiKey
       });
 
       if (result.images && result.images.length > 0) {
@@ -71,7 +76,7 @@ export async function reEditImages(req, res) {
           Buffer.from(imageBuffer),
           reEditedFileName,
           'image/jpeg',
-          '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB'
+          brandConfig.editedResultsFolderId
         );
 
         await makeFilePublic(uploadedFile.id);
