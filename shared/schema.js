@@ -8,8 +8,14 @@ export const brands = pgTable('brands', {
   displayName: text('display_name').notNull(),
   slug: text('slug').notNull().unique(),
   
+  // Parent brand for sub-accounts (e.g., LifeTrek Medical under Corsair)
+  parentBrandId: integer('parent_brand_id').references(() => brands.id),
+  brandType: text('brand_type').default('primary'), // 'primary' or 'sub_account'
+  
   // Branding assets
   logoUrl: text('logo_url'),
+  brandbookUrl: text('brandbook_url'), // URL to uploaded brandbook PDF
+  websiteUrl: text('website_url'), // Original website for reference
   primaryColor: text('primary_color').default('#FFC107'),
   secondaryColor: text('secondary_color').default('#FF6F00'),
   
@@ -25,6 +31,9 @@ export const brands = pgTable('brands', {
   // API keys (encrypted in production)
   wavespeedApiKey: text('wavespeed_api_key'),
   openaiApiKey: text('openai_api_key'),
+  
+  // Brand-specific authentication (separate from admin)
+  authPassword: text('auth_password'), // Hashed password for brand login
   
   active: boolean('active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
@@ -96,10 +105,18 @@ export const images = pgTable('images', {
 });
 
 // Relations
-export const brandsRelations = relations(brands, ({ many }) => ({
+export const brandsRelations = relations(brands, ({ one, many }) => ({
   users: many(users),
   jobs: many(jobs),
-  images: many(images)
+  images: many(images),
+  parentBrand: one(brands, {
+    fields: [brands.parentBrandId],
+    references: [brands.id],
+    relationName: 'subBrands'
+  }),
+  subBrands: many(brands, {
+    relationName: 'subBrands'
+  })
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
