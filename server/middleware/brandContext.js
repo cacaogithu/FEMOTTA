@@ -1,11 +1,46 @@
+import jwt from 'jsonwebtoken';
 import { brandService } from '../services/brandService.js';
 
+const JWT_SECRET = process.env.JWT_SECRET || 'jwt-secret-change-in-production';
+
 // Middleware to load brand context from subdomain, path, or header
+// Also enforces brand authentication when JWT token is present
 export async function brandContextMiddleware(req, res, next) {
   try {
     let brandSlug = null;
+    let brandIdFromToken = null;
 
-    // Strategy 1: Check for brand in header (for API calls)
+    // Check for brand authentication token (JWT)
+    const brandToken = req.headers['authorization']?.replace('Bearer ', '') || 
+                       req.headers['x-brand-token'];
+    
+    if (brandToken) {
+      try {
+        const decoded = jwt.verify(brandToken, JWT_SECRET);
+        if (decoded.role === 'brand') {
+          brandIdFromToken = decoded.brandId;
+          brandSlug = decoded.brandSlug;
+          req.brandAuth = {
+            brandId: decoded.brandId,
+            brandSlug: decoded.brandSlug,
+            brandName: decoded.brandName
+          };
+          req.isAuthenticated = true;
+        }
+      } catch (error) {
+        // Token invalid or expired
+        if (error.name === 'TokenExpiredError') {
+          return res.status(401).json({ error: 'Brand token expired', expired: true });
+        }
+        // Invalid token, continue without auth
+      }
+    }
+
+    // Strategy 1: Use brand from authenticated token (highest priority)
+    if (brandSlug) {
+      // Already set from token above
+    }
+    // Strategy 2: Check for brand in header (for API calls)
     if (req.headers['x-brand-slug']) {
       brandSlug = req.headers['x-brand-slug'];
     }
@@ -39,6 +74,15 @@ export async function brandContextMiddleware(req, res, next) {
       return res.status(403).json({ 
         error: 'Brand is not active',
         slug: brandSlug 
+      });
+    }
+
+    // SECURITY: If user is authenticated with a brand token, enforce they can only access their own brand
+    if (brandIdFromToken && brandIdFromToken !== brand.id) {
+      return res.status(403).json({
+        error: 'Access denied - you can only access your own brand data',
+        authenticatedBrand: req.brandAuth.brandSlug,
+        requestedBrand: brandSlug
       });
     }
 
