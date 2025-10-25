@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { authenticatedFetch } from '../utils/api';
 import WorkflowViewer from './WorkflowViewer';
 import './ProcessingPage.css';
 
@@ -21,7 +22,7 @@ function ProcessingPage({ jobId, onComplete }) {
 
     const poll = async () => {
       try {
-        const response = await fetch(`/api/results/poll/${jobId}`);
+        const response = await authenticatedFetch(`/api/results/poll/${jobId}`);
         const data = await response.json();
 
         if (data.status === 'completed') {

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { authenticatedFetch } from '../utils/api';
 import BeforeAfterSlider from './BeforeAfterSlider';
+import ImagePreview from './ImagePreview';
 import ChatWidget from './ChatWidget';
 import FeedbackWidget from './FeedbackWidget';
 import WorkflowViewer from './WorkflowViewer';
@@ -9,7 +11,7 @@ function TimeMetricsPanel({ jobId }) {
   const [jobData, setJobData] = useState(null);
 
   useEffect(() => {
-    fetch(`/api/upload/job/${jobId}`)
+    authenticatedFetch(`/api/upload/job/${jobId}`)
       .then(res => res.json())
       .then(data => setJobData(data.job))
       .catch(err => console.error('Job data error:', err));
@@ -60,7 +62,7 @@ function TimeMetricsPanel({ jobId }) {
 function ResultsPage({ results, onReset, jobId }) {
   const handleDownloadAll = async () => {
     try {
-      const response = await fetch(`/api/results/download/${jobId}`);
+      const response = await authenticatedFetch(`/api/results/download/${jobId}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -77,7 +79,7 @@ function ResultsPage({ results, onReset, jobId }) {
 
   const handleDownloadImage = async (editedImageId, name) => {
     try {
-      const response = await fetch(`/api/images/${editedImageId}`);
+      const response = await authenticatedFetch(`/api/images/${editedImageId}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -94,7 +96,7 @@ function ResultsPage({ results, onReset, jobId }) {
 
   const handleDownloadPsd = async (imageIndex, originalName) => {
     try {
-      const response = await fetch(`/api/psd/${jobId}/${imageIndex}`);
+      const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
       if (!response.ok) {
         throw new Error('Failed to download PSD');
       }
@@ -142,8 +144,8 @@ function ResultsPage({ results, onReset, jobId }) {
                 />
               ) : (
                 <div className="image-container">
-                  <img 
-                    src={`/api/images/${image.editedImageId || image.id}`}
+                  <ImagePreview 
+                    imageId={image.editedImageId || image.id}
                     alt={image.name}
                     className="result-image"
                   />

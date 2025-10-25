@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { postJSON } from '../utils/api';
 import './ChatWidget.css';
 
 function ChatWidget({ jobId }) {
@@ -27,13 +28,9 @@ function ChatWidget({ jobId }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-          jobId
-        })
+      const response = await postJSON('/api/chat', {
+        messages: [...messages, userMessage],
+        jobId
       });
 
       if (!response.ok) throw new Error('Chat request failed');

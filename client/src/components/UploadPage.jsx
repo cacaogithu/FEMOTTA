@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { authenticatedFetch, postFormData, postJSON } from '../utils/api';
 import './UploadPage.css';
 
 function UploadPage({ onComplete }) {
@@ -97,10 +98,7 @@ function UploadPage({ onComplete }) {
         const pdfFormData = new FormData();
         pdfFormData.append('pdf', pdfFile);
         
-        const pdfResponse = await fetch('/api/upload/pdf', {
-          method: 'POST',
-          body: pdfFormData
-        });
+        const pdfResponse = await postFormData('/api/upload/pdf', pdfFormData);
         
         if (!pdfResponse.ok) {
           const errorData = await pdfResponse.json();
@@ -110,11 +108,7 @@ function UploadPage({ onComplete }) {
         pdfData = await pdfResponse.json();
         jobId = pdfData.jobId;
       } else {
-        const textResponse = await fetch('/api/upload/text-prompt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: textPrompt })
-        });
+        const textResponse = await postJSON('/api/upload/text-prompt', { prompt: textPrompt });
         
         if (!textResponse.ok) {
           const errorData = await textResponse.json();
@@ -137,10 +131,7 @@ function UploadPage({ onComplete }) {
         });
         imagesFormData.append('jobId', jobId);
         
-        const imagesResponse = await fetch('/api/upload/images', {
-          method: 'POST',
-          body: imagesFormData
-        });
+        const imagesResponse = await postFormData('/api/upload/images', imagesFormData);
         
         if (!imagesResponse.ok) {
           const errorData = await imagesResponse.json();

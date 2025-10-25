@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { postJSON } from '../utils/api';
 import './FeedbackWidget.css';
 
 function FeedbackWidget({ jobId, onSubmit }) {
@@ -22,16 +23,10 @@ function FeedbackWidget({ jobId, onSubmit }) {
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/feedback', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          jobId,
-          rating,
-          comments
-        })
+      const response = await postJSON('/api/feedback', {
+        jobId,
+        rating,
+        comments
       });
 
       if (response.ok) {
