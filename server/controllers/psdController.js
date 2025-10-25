@@ -65,25 +65,31 @@ export async function downloadPsd(req, res) {
     
     console.log('[PSD Download] Image dimensions:', width, 'x', height);
     
-    // Create canvases and draw images
+    // Create canvases with white background and draw images in RGB mode
     const originalCanvas = createCanvas(width, height);
-    const originalCtx = originalCanvas.getContext('2d');
+    const originalCtx = originalCanvas.getContext('2d', { pixelFormat: 'RGB24' });
+    // Fill with white background first
+    originalCtx.fillStyle = 'white';
+    originalCtx.fillRect(0, 0, width, height);
     originalCtx.drawImage(originalImg, 0, 0);
     
     const editedCanvas = createCanvas(width, height);
-    const editedCtx = editedCanvas.getContext('2d');
+    const editedCtx = editedCanvas.getContext('2d', { pixelFormat: 'RGB24' });
+    // Fill with white background first
+    editedCtx.fillStyle = 'white';
+    editedCtx.fillRect(0, 0, width, height);
     editedCtx.drawImage(editedImg, 0, 0);
     
     console.log('[PSD Download] Canvases created successfully');
     console.log('[PSD Download] Creating PSD with 2 layers...');
     
-    // Create PSD document with 2 layers (bottom to top)
+    // Create PSD document with 2 layers (bottom to top) in RGB mode
     const psd = {
       width,
       height,
-      channels: 3, // RGB
+      channels: 3, // RGB channels
       bitsPerChannel: 8,
-      colorMode: 3, // RGB mode
+      colorMode: 3, // 3 = RGB mode (not grayscale or bitmap)
       children: [
         {
           name: 'Original Image',
@@ -92,8 +98,13 @@ export async function downloadPsd(req, res) {
           bottom: height,
           right: width,
           blendMode: 'normal',
-          opacity: 1,
-          canvas: originalCanvas
+          opacity: 255, // 0-255 scale
+          canvas: originalCanvas,
+          channels: [
+            { channelId: 0 }, // Red
+            { channelId: 1 }, // Green
+            { channelId: 2 }  // Blue
+          ]
         },
         {
           name: 'AI Edited',
@@ -102,8 +113,13 @@ export async function downloadPsd(req, res) {
           bottom: height,
           right: width,
           blendMode: 'normal',
-          opacity: 1,
-          canvas: editedCanvas
+          opacity: 255, // 0-255 scale
+          canvas: editedCanvas,
+          channels: [
+            { channelId: 0 }, // Red
+            { channelId: 1 }, // Green
+            { channelId: 2 }  // Blue
+          ]
         }
       ]
     };
