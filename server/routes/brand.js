@@ -14,15 +14,27 @@ router.get('/list', async (req, res) => {
     const brands = await brandService.getAllActiveBrands();
     
     // Return only public information
-    res.json(brands.map(brand => ({
-      id: brand.id,
-      name: brand.name,
-      displayName: brand.displayName,
-      slug: brand.slug,
-      logoUrl: brand.logoUrl,
-      primaryColor: brand.primaryColor,
-      secondaryColor: brand.secondaryColor
-    })));
+    res.json({
+      brands: brands.map(brand => ({
+        id: brand.id,
+        name: brand.name,
+        displayName: brand.displayName,
+        slug: brand.slug,
+        logoUrl: brand.logoUrl,
+        websiteUrl: brand.websiteUrl,
+        brandbookUrl: brand.brandbookUrl,
+        primaryColor: brand.primaryColor,
+        secondaryColor: brand.secondaryColor,
+        parentBrandId: brand.parentBrandId,
+        brandType: brand.brandType,
+        googleDriveBriefFolderId: brand.briefFolderId,
+        googleDriveProductImagesFolderId: brand.productImagesFolderId,
+        googleDriveEditedResultsFolderId: brand.editedResultsFolderId,
+        defaultPrompt: brand.defaultPromptTemplate,
+        batchSize: brand.batchSize || 15,
+        estimatedManualTimePerImageMinutes: brand.estimatedManualTimePerImageMinutes || 5
+      }))
+    });
   } catch (error) {
     console.error('Error listing brands:', error);
     res.status(500).json({ error: 'Failed to list brands' });

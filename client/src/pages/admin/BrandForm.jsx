@@ -10,6 +10,20 @@ function BrandForm() {
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  
+  const [scrapeUrl, setScrapeUrl] = useState('');
+  const [scraping, setScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState('');
+  
+  const [logoFile, setLogoFile] = useState(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPreview, setLogoPreview] = useState('');
+  
+  const [brandbookFile, setBrandbookFile] = useState(null);
+  const [uploadingBrandbook, setUploadingBrandbook] = useState(false);
+  const [brandbookAnalysis, setBrandbookAnalysis] = useState(null);
+  
+  const [availableBrands, setAvailableBrands] = useState([]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -18,6 +32,11 @@ function BrandForm() {
     primaryColor: '#ffd700',
     secondaryColor: '#ffed4e',
     logoUrl: '',
+    websiteUrl: '',
+    brandbookUrl: '',
+    parentBrandId: null,
+    brandType: 'primary',
+    authPassword: '',
     googleDriveBriefFolderId: '',
     googleDriveProductImagesFolderId: '',
     googleDriveEditedResultsFolderId: '',
@@ -29,14 +48,28 @@ function BrandForm() {
   });
 
   useEffect(() => {
+    loadAvailableBrands();
     if (isEditing) {
       loadBrand();
     }
   }, [id]);
 
+  const loadAvailableBrands = async () => {
+    try {
+      const response = await fetch('/api/brand/list');
+      if (!response.ok) {
+        throw new Error('Failed to load brands');
+      }
+      const result = await response.json();
+      const primaryBrands = result.brands.filter(b => b.brandType === 'primary' || !b.brandType);
+      setAvailableBrands(primaryBrands);
+    } catch (err) {
+      console.error('Error loading brands:', err);
+    }
+  };
+
   const loadBrand = async () => {
     try {
-      // Fetch all brands and find the one with matching ID
       const response = await fetch('/api/brand/list');
       if (!response.ok) {
         throw new Error('Failed to load brands');
@@ -48,7 +81,6 @@ function BrandForm() {
         throw new Error('Brand not found');
       }
       
-      // Note: API keys are not loaded for security - only allow setting new ones
       setFormData({
         name: data.name || '',
         slug: data.slug || '',
@@ -56,15 +88,24 @@ function BrandForm() {
         primaryColor: data.primaryColor || '#ffd700',
         secondaryColor: data.secondaryColor || '#ffed4e',
         logoUrl: data.logoUrl || '',
+        websiteUrl: data.websiteUrl || '',
+        brandbookUrl: data.brandbookUrl || '',
+        parentBrandId: data.parentBrandId || null,
+        brandType: data.brandType || 'primary',
+        authPassword: '',
         googleDriveBriefFolderId: data.googleDriveBriefFolderId || '',
         googleDriveProductImagesFolderId: data.googleDriveProductImagesFolderId || '',
         googleDriveEditedResultsFolderId: data.googleDriveEditedResultsFolderId || '',
-        wavespeedApiKey: '', // Never display existing keys for security
-        openaiApiKey: '', // Never display existing keys for security
+        wavespeedApiKey: '',
+        openaiApiKey: '',
         defaultPrompt: data.defaultPrompt || '',
         batchSize: data.batchSize || 15,
         estimatedManualTimePerImageMinutes: data.estimatedManualTimePerImageMinutes || 5,
       });
+      
+      if (data.logoUrl) {
+        setLogoPreview(data.logoUrl);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -74,10 +115,204 @@ function BrandForm() {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
+    let finalValue = value;
+    
+    if (type === 'number') {
+      finalValue = parseInt(value) || 0;
+    } else if (name === 'parentBrandId') {
+      finalValue = value ? parseInt(value) : null;
+    }
+    
     setFormData({
       ...formData,
-      [name]: type === 'number' ? parseInt(value) || 0 : value,
+      [name]: finalValue,
+      ...(name === 'parentBrandId' && {
+        brandType: finalValue ? 'sub_account' : 'primary'
+      })
     });
+  };
+
+  const handleScrapeWebsite = async () => {
+    if (!scrapeUrl) {
+      setScrapeError('Please enter a website URL');
+      return;
+    }
+    
+    setScraping(true);
+    setScrapeError('');
+    
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('Not authenticated');
+      }
+      
+      const response = await fetch('/api/admin/scrape-website', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Key': adminToken,
+        },
+        body: JSON.stringify({ websiteUrl: scrapeUrl }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to scrape website');
+      }
+      
+      setFormData({
+        ...formData,
+        name: data.name || formData.name,
+        displayName: data.displayName || formData.displayName,
+        slug: data.slug || formData.slug,
+        primaryColor: data.primaryColor || formData.primaryColor,
+        secondaryColor: data.secondaryColor || formData.secondaryColor,
+        logoUrl: data.logoUrl || formData.logoUrl,
+        websiteUrl: data.websiteUrl || scrapeUrl,
+      });
+      
+      if (data.logoUrl) {
+        setLogoPreview(data.logoUrl);
+      }
+      
+      setScrapeUrl('');
+    } catch (err) {
+      setScrapeError(err.message);
+    } finally {
+      setScraping(false);
+    }
+  };
+
+  const handleLogoFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadLogo = async () => {
+    if (!logoFile) {
+      setError('Please select a logo file');
+      return;
+    }
+    
+    setUploadingLogo(true);
+    setError('');
+    
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('Not authenticated');
+      }
+      
+      const formDataUpload = new FormData();
+      formDataUpload.append('logo', logoFile);
+      
+      const response = await fetch('/api/admin/upload-logo', {
+        method: 'POST',
+        headers: {
+          'X-Admin-Key': adminToken,
+        },
+        body: formDataUpload,
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload logo');
+      }
+      
+      setFormData({
+        ...formData,
+        logoUrl: data.publicUrl,
+      });
+      
+      setLogoFile(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleBrandbookFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        setError('Please select a PDF file for the brandbook');
+        return;
+      }
+      setBrandbookFile(file);
+    }
+  };
+
+  const handleUploadBrandbook = async () => {
+    if (!brandbookFile) {
+      setError('Please select a brandbook PDF file');
+      return;
+    }
+    
+    setUploadingBrandbook(true);
+    setError('');
+    setBrandbookAnalysis(null);
+    
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('Not authenticated');
+      }
+      
+      const formDataUpload = new FormData();
+      formDataUpload.append('brandbook', brandbookFile);
+      
+      const response = await fetch('/api/admin/upload-brandbook', {
+        method: 'POST',
+        headers: {
+          'X-Admin-Key': adminToken,
+        },
+        body: formDataUpload,
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload brandbook');
+      }
+      
+      const updates = {
+        brandbookUrl: data.publicUrl,
+      };
+      
+      if (data.analyzed && data.guidelines) {
+        const g = data.guidelines;
+        if (g.primaryColor) updates.primaryColor = g.primaryColor;
+        if (g.secondaryColor) updates.secondaryColor = g.secondaryColor;
+        if (g.defaultPromptTemplate) updates.defaultPrompt = g.defaultPromptTemplate;
+        if (g.estimatedManualTimePerImageMinutes) {
+          updates.estimatedManualTimePerImageMinutes = g.estimatedManualTimePerImageMinutes;
+        }
+        
+        setBrandbookAnalysis(g);
+      }
+      
+      setFormData({
+        ...formData,
+        ...updates,
+      });
+      
+      setBrandbookFile(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploadingBrandbook(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -97,11 +332,29 @@ function BrandForm() {
       
       const method = isEditing ? 'PUT' : 'POST';
 
-      // When editing, only send API keys if they've been changed (non-empty)
       const payload = { ...formData };
+      
       if (isEditing) {
         if (!payload.wavespeedApiKey) delete payload.wavespeedApiKey;
         if (!payload.openaiApiKey) delete payload.openaiApiKey;
+        if (!payload.authPassword) delete payload.authPassword;
+      }
+      
+      if (payload.googleDriveBriefFolderId) {
+        payload.briefFolderId = payload.googleDriveBriefFolderId;
+        delete payload.googleDriveBriefFolderId;
+      }
+      if (payload.googleDriveProductImagesFolderId) {
+        payload.productImagesFolderId = payload.googleDriveProductImagesFolderId;
+        delete payload.googleDriveProductImagesFolderId;
+      }
+      if (payload.googleDriveEditedResultsFolderId) {
+        payload.editedResultsFolderId = payload.googleDriveEditedResultsFolderId;
+        delete payload.googleDriveEditedResultsFolderId;
+      }
+      if (payload.defaultPrompt) {
+        payload.defaultPromptTemplate = payload.defaultPrompt;
+        delete payload.defaultPrompt;
       }
 
       const response = await fetch(url, {
@@ -152,6 +405,98 @@ function BrandForm() {
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
+          {!isEditing && (
+            <div className="form-section automated-setup">
+              <h2>🚀 Automated Setup</h2>
+              <p className="section-help">Use these tools to automatically extract brand information and save time</p>
+              
+              <div className="automation-card">
+                <h3>Website Scraper</h3>
+                <p className="help-text">Enter a website URL to automatically extract brand name, colors, and logo</p>
+                <div className="automation-controls">
+                  <input
+                    type="url"
+                    value={scrapeUrl}
+                    onChange={(e) => setScrapeUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    className="automation-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleScrapeWebsite}
+                    disabled={scraping || !scrapeUrl}
+                    className="btn-action"
+                  >
+                    {scraping ? 'Scraping...' : 'Scrape Website'}
+                  </button>
+                </div>
+                {scrapeError && <div className="inline-error">{scrapeError}</div>}
+              </div>
+
+              <div className="automation-card">
+                <h3>Logo Upload</h3>
+                <p className="help-text">Upload your brand logo (PNG, JPG, or SVG)</p>
+                <div className="automation-controls">
+                  <input
+                    type="file"
+                    onChange={handleLogoFileChange}
+                    accept=".png,.jpg,.jpeg,.svg"
+                    className="file-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUploadLogo}
+                    disabled={uploadingLogo || !logoFile}
+                    className="btn-action"
+                  >
+                    {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
+                  </button>
+                </div>
+                {logoPreview && (
+                  <div className="logo-preview">
+                    <img src={logoPreview} alt="Logo preview" />
+                  </div>
+                )}
+              </div>
+
+              <div className="automation-card">
+                <h3>Brandbook Analysis (Optional)</h3>
+                <p className="help-text">Upload a brand guideline PDF to automatically extract colors and style preferences</p>
+                <div className="automation-controls">
+                  <input
+                    type="file"
+                    onChange={handleBrandbookFileChange}
+                    accept=".pdf"
+                    className="file-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUploadBrandbook}
+                    disabled={uploadingBrandbook || !brandbookFile}
+                    className="btn-action"
+                  >
+                    {uploadingBrandbook ? 'Analyzing...' : 'Upload & Analyze'}
+                  </button>
+                </div>
+                {brandbookAnalysis && (
+                  <div className="analysis-results">
+                    <h4>Analysis Results:</h4>
+                    <ul>
+                      <li><strong>Visual Style:</strong> {brandbookAnalysis.visualStyle}</li>
+                      {brandbookAnalysis.brandValues && (
+                        <li><strong>Brand Values:</strong> {brandbookAnalysis.brandValues.join(', ')}</li>
+                      )}
+                      <li><strong>Colors:</strong> {brandbookAnalysis.primaryColor}, {brandbookAnalysis.secondaryColor}</li>
+                      {brandbookAnalysis.imageStyleGuidelines && (
+                        <li><strong>Image Guidelines:</strong> {brandbookAnalysis.imageStyleGuidelines}</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="form-section">
             <h2>Basic Information</h2>
             <div className="form-row">
@@ -194,6 +539,64 @@ function BrandForm() {
                 required
                 placeholder="e.g., CORSAIR Gaming"
               />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="websiteUrl">Website URL</label>
+              <input
+                type="url"
+                id="websiteUrl"
+                name="websiteUrl"
+                value={formData.websiteUrl}
+                onChange={handleChange}
+                placeholder="https://www.example.com"
+              />
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h2>Brand Hierarchy</h2>
+            <p className="section-help">Create sub-accounts under a parent brand (e.g., LifeTrek Medical under CORSAIR)</p>
+            <div className="form-group">
+              <label htmlFor="parentBrandId">Parent Brand (Optional)</label>
+              <select
+                id="parentBrandId"
+                name="parentBrandId"
+                value={formData.parentBrandId || ''}
+                onChange={handleChange}
+              >
+                <option value="">None - This is a primary brand</option>
+                {availableBrands.map(brand => (
+                  <option key={brand.id} value={brand.id}>
+                    {brand.displayName}
+                  </option>
+                ))}
+              </select>
+              <p className="field-help">
+                {formData.parentBrandId 
+                  ? `This will be a sub-account under ${availableBrands.find(b => b.id === formData.parentBrandId)?.displayName}`
+                  : 'This is a primary brand account'}
+              </p>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h2>Brand Authentication</h2>
+            <p className="section-help">Set a password for brand-specific access (separate from admin login)</p>
+            <div className="form-group">
+              <label htmlFor="authPassword">Brand Password {!isEditing && '(Optional)'}</label>
+              <input
+                type="password"
+                id="authPassword"
+                name="authPassword"
+                value={formData.authPassword}
+                onChange={handleChange}
+                placeholder={isEditing ? "Leave empty to keep current password" : "Set a password for this brand"}
+                autoComplete="new-password"
+              />
+              <p className="field-help">
+                This password allows brand users to access their specific brand portal without admin privileges
+              </p>
             </div>
           </div>
 
@@ -250,6 +653,21 @@ function BrandForm() {
                 onChange={handleChange}
                 placeholder="https://example.com/logo.svg"
               />
+              <p className="field-help">Auto-populated from uploads or website scraping</p>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="brandbookUrl">Brandbook URL</label>
+              <input
+                type="url"
+                id="brandbookUrl"
+                name="brandbookUrl"
+                value={formData.brandbookUrl}
+                onChange={handleChange}
+                placeholder="https://drive.google.com/..."
+                readOnly
+              />
+              <p className="field-help">Auto-populated from brandbook upload</p>
             </div>
           </div>
 
@@ -340,6 +758,7 @@ function BrandForm() {
                 rows="4"
                 placeholder="Enter default AI prompt template for image editing..."
               />
+              <p className="field-help">Auto-populated from brandbook analysis</p>
             </div>
             <div className="form-row">
               <div className="form-group">
