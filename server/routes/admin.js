@@ -163,8 +163,8 @@ router.post('/upload-brandbook', verifyAdminToken, upload.single('brandbook'), a
     if (!openaiApiKey) {
       return res.json({
         success: true,
-        fileId: uploadResult.fileId,
-        publicUrl: uploadResult.publicUrl,
+        fileId: uploadResult.id,
+        publicUrl: publicUrl,
         fileName: req.file.originalname,
         analyzed: false,
         message: 'Uploaded but not analyzed - OpenAI key not configured'
