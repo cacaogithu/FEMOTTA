@@ -1,6 +1,7 @@
 import { db } from '../db.js';
 import { brands, users, jobs, images } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
+import bcrypt from 'bcrypt';
 
 export class BrandService {
   async getBrandBySlug(slug) {
@@ -18,6 +19,12 @@ export class BrandService {
   }
 
   async createBrand(brandData) {
+    // Hash auth password if provided
+    if (brandData.authPassword) {
+      const saltRounds = 10;
+      brandData.authPassword = await bcrypt.hash(brandData.authPassword, saltRounds);
+    }
+
     const [brand] = await db.insert(brands).values({
       ...brandData,
       createdAt: new Date(),
@@ -27,6 +34,12 @@ export class BrandService {
   }
 
   async updateBrand(id, updates) {
+    // Hash auth password if provided and changed
+    if (updates.authPassword) {
+      const saltRounds = 10;
+      updates.authPassword = await bcrypt.hash(updates.authPassword, saltRounds);
+    }
+
     const [brand] = await db.update(brands)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(brands.id, id))
