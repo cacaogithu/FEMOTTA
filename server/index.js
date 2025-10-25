@@ -12,6 +12,7 @@ import feedbackRoutes from './routes/feedback.js';
 import mlStatsRoutes from './routes/mlStats.js';
 import psdRoutes from './routes/psd.js';
 import brandRoutes from './routes/brand.js';
+import adminRoutes from './routes/admin.js';
 
 dotenv.config();
 
@@ -27,6 +28,9 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Brand routes (no auth required for config/list)
 app.use('/api/brand', brandRoutes);
+
+// Admin routes
+app.use('/api/admin', adminRoutes);
 
 app.use('/api/upload', uploadRoutes);
 app.use('/api/results', resultsRoutes);

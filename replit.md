@@ -69,7 +69,25 @@ The application is built as a multi-tenant SaaS platform with a React.js fronten
 - **Dynamic Theming**: CSS custom properties updated per brand (`--brand-primary`, `--brand-secondary`)
 - **Isolated Storage**: Each brand has dedicated Google Drive folders for briefs, images, and results
 - **Custom Prompts**: Brands can define default prompt templates for AI image editing
-- **Admin Capabilities**: Brand creation and management endpoints (authentication to be added)
+- **Admin Dashboard**: Secure admin panel at `/admin` with JWT-based authentication for managing brands
+
+## Admin Access
+To access the admin dashboard:
+1. Navigate to `/admin/login`
+2. Enter the admin password (set via `ADMIN_SECRET` environment variable, defaults to "change-this-in-production")
+3. Upon successful login, you'll receive a JWT token valid for 24 hours
+4. Access the admin dashboard at `/admin` to:
+   - View all brands in a table
+   - Create new brands with full configuration
+   - Edit existing brands (name, colors, logo, Google Drive folders, AI settings)
+   - Update API keys securely (keys are never displayed, only replaceable)
+
+**Security Features**:
+- JWT-based authentication with 24-hour token expiry
+- Server-side token verification on all admin routes
+- API keys are never sent to the client after initial storage
+- When editing brands, API key fields are optional - leave empty to keep existing keys
+- Protected routes automatically verify token validity and redirect to login if expired
 
 ## Deployment Configuration
 For each new brand, configure:
@@ -79,6 +97,22 @@ For each new brand, configure:
 4. Default prompt template and AI settings (batch size, manual time estimate)
 
 ## Recent Changes
+- **October 25, 2025**: Admin Dashboard & Secure Brand Management
+  - **Admin Interface**: Complete admin dashboard with login, brand list, create/edit forms
+  - **JWT Authentication**: Secure token-based authentication replacing raw secret exposure
+  - **API Key Security**: API keys never displayed after storage, only replaceable when editing
+  - **React Router Integration**: Full SPA routing with protected admin routes
+  - **Token Verification**: Server-side validation on every admin request with auto-expiry
+  - **Admin Routes**: 
+    - `/admin/login` - Admin authentication page
+    - `/admin` - Brand management dashboard (protected)
+    - `/admin/brands/new` - Create new brand form (protected)
+    - `/admin/brands/:id/edit` - Edit existing brand (protected)
+  - **UX Features**: 
+    - CORSAIR-branded admin UI matching main app aesthetic
+    - Color picker with hex input for brand customization
+    - Comprehensive form validation
+    - Clear security messaging for API key handling
 - **October 25, 2025**: Multi-Brand Platform Architecture & Security Hardening
   - **Database Migration**: Added PostgreSQL with Drizzle ORM for multi-tenant data management
   - **Brand System**: Created brands, users, jobs, and images tables with full isolation

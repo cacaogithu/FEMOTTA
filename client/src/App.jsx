@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import UploadPage from './components/UploadPage';
 import ProcessingPage from './components/ProcessingPage';
 import ResultsPage from './components/ResultsPage';
 import BrandSelector from './components/BrandSelector';
+import AdminLogin from './pages/admin/AdminLogin';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import BrandForm from './pages/admin/BrandForm';
+import ProtectedRoute from './components/ProtectedRoute';
 import { brandService } from './services/brandService';
 import './App.css';
 
-function App() {
+function MainApp() {
   const [page, setPage] = useState('upload');
   const [jobId, setJobId] = useState(null);
   const [results, setResults] = useState(null);
@@ -59,6 +64,45 @@ function App() {
         <ResultsPage results={results} onReset={handleReset} jobId={jobId} />
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      {/* Main application routes */}
+      <Route path="/" element={<MainApp />} />
+      
+      {/* Admin routes */}
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/brands/new"
+        element={
+          <ProtectedRoute>
+            <BrandForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/brands/:id/edit"
+        element={
+          <ProtectedRoute>
+            <BrandForm />
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Catch all - redirect to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

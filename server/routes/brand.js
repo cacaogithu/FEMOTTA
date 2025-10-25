@@ -1,6 +1,7 @@
 import express from 'express';
 import { brandService } from '../services/brandService.js';
 import { getBrandConfig, brandContextMiddleware } from '../middleware/brandContext.js';
+import { verifyAdminToken } from './admin.js';
 
 const router = express.Router();
 
@@ -28,18 +29,8 @@ router.get('/list', async (req, res) => {
   }
 });
 
-// Admin endpoints - SECURED (requires admin auth header)
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'change-this-in-production';
-
-function adminAuthMiddleware(req, res, next) {
-  const adminKey = req.headers['x-admin-key'];
-  if (adminKey !== ADMIN_SECRET) {
-    return res.status(403).json({ error: 'Unauthorized - admin access required' });
-  }
-  next();
-}
-
-router.post('/admin/create', adminAuthMiddleware, async (req, res) => {
+// Admin endpoints - SECURED (requires JWT token)
+router.post('/admin/create', verifyAdminToken, async (req, res) => {
   try {
     const brand = await brandService.createBrand(req.body);
     
@@ -52,7 +43,7 @@ router.post('/admin/create', adminAuthMiddleware, async (req, res) => {
   }
 });
 
-router.put('/admin/:id', adminAuthMiddleware, async (req, res) => {
+router.put('/admin/:id', verifyAdminToken, async (req, res) => {
   try {
     const brand = await brandService.updateBrand(parseInt(req.params.id), req.body);
     
