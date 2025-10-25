@@ -1,7 +1,7 @@
 modules = ["nodejs-20", "python-3.11"]
 [agent]
 expertMode = true
-integrations = ["google-drive:1.0.0"]
+integrations = ["google-drive:1.0.0", "javascript_database:1.0.0"]
 
 [nix]
 channel = "stable-25_05"
