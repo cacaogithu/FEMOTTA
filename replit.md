@@ -1,7 +1,7 @@
-# CORSAIR AI Marketing Image Editor
+# Multi-Brand AI Marketing Image Editor
 
 ## Overview
-A professional full-stack web application for AI-powered marketing image editing with CORSAIR branding. Users upload marketing briefs (PDF, DOCX, or text prompt) and product images. The system processes these inputs via the Wavespeed Nano Banana API for instant AI-powered image editing. Key features include a dark gaming aesthetic, before/after comparison sliders, and an AI chat assistant capable of triggering real-time image re-editing. The project aims to provide a tool that significantly saves time in marketing image creation, offering a clear ROI through efficiency gains for executive presentations.
+A professional, multi-tenant SaaS platform for AI-powered marketing image editing. Originally built for CORSAIR, the system now supports multiple brands with isolated configurations, branding, and storage. Users upload marketing briefs (PDF, DOCX, or text prompt) and product images. The system processes these inputs via the Wavespeed Nano Banana API for instant AI-powered image editing. Key features include brand-specific theming, before/after comparison sliders, AI chat assistant for selective re-editing, and PSD download capability. The platform offers clear ROI through efficiency gains and time savings in marketing image production.
 
 ## User Preferences
 - I prefer clear and concise explanations.
@@ -14,7 +14,13 @@ A professional full-stack web application for AI-powered marketing image editing
 - The system should prevent the processing of embedded logos from DOCX files and focus only on relevant product images.
 
 ## System Architecture
-The application is built with a React.js frontend (Vite) and a Node.js/Express backend. It leverages Google Drive for file storage and directly integrates with the Wavespeed Nano Banana API for image processing, eliminating the need for n8n.
+The application is built as a multi-tenant SaaS platform with a React.js frontend (Vite), Node.js/Express backend, and PostgreSQL database (Neon). It leverages Google Drive for file storage and directly integrates with the Wavespeed Nano Banana API for image processing.
+
+### Multi-Tenant Architecture
+- **Brand Isolation**: Each brand (Corsair, future clients) has isolated Google Drive folders, branding assets, and AI configurations
+- **Database Schema**: PostgreSQL with tables for brands, users, jobs, and images
+- **Brand Context**: Middleware system that loads brand configuration per request
+- **Dynamic Theming**: Frontend loads brand-specific logos, colors, and prompts from database
 
 ### UI/UX Decisions
 - **Dark Gaming Aesthetic**: A sleek, dark theme with CORSAIR branding.
@@ -42,17 +48,42 @@ The application is built with a React.js frontend (Vite) and a Node.js/Express b
 - **Time Tracking**: Comprehensive backend time tracking for `startTime`, `endTime`, `processingTimeSeconds`, `processingTimeMinutes`, `estimatedManualTimeMinutes`, `timeSavedMinutes`, and `timeSavedPercent`.
 
 ## External Dependencies
-- **Google Drive API**: Used for storing PDF briefs, product images, and edited results. All uploaded images are made publicly accessible for the Nano Banana API.
-  - PDF Briefs/Prompts: `1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697` (Instructions2 folder)
-  - Product Images: `1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS` (Product Images folder)
-  - Edited Results: `17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB` (Corsair folder)
+- **PostgreSQL Database (Neon)**: Stores brands, users, jobs, and images with full multi-tenant isolation
+- **Google Drive API**: Used for storing PDF briefs, product images, and edited results. Each brand has isolated folder configuration.
+  - Corsair Brief Folder: `1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697`
+  - Corsair Product Images: `1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS`
+  - Corsair Edited Results: `17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB`
 - **Wavespeed Nano Banana API**: Direct integration for AI-powered image editing.
 - **OpenAI API (GPT-4)**: Powers the AI Chat Assistant for intelligent image editing, function calling, and the ML feedback system for prompt analysis and improvement.
 - **Mammoth.js**: Used for extracting text and embedded images from DOCX files.
 - **pdfjs-dist**: Used for processing PDF files and extracting text.
 - **ag-psd**: Used for creating layered PSD files with original and edited image layers.
 - **node-canvas**: Provides canvas implementation for PSD generation with proper image rendering.
+- **Drizzle ORM**: Database ORM for PostgreSQL schema management and queries.
+
+## Multi-Brand Features
+- **Brand Management API**: `/api/brand/list` and `/api/brand/config` endpoints for brand discovery
+- **Brand Selector UI**: Dropdown component for switching between brands (shows only when multiple brands exist)
+- **Dynamic Theming**: CSS custom properties updated per brand (`--brand-primary`, `--brand-secondary`)
+- **Isolated Storage**: Each brand has dedicated Google Drive folders for briefs, images, and results
+- **Custom Prompts**: Brands can define default prompt templates for AI image editing
+- **Admin Capabilities**: Brand creation and management endpoints (authentication to be added)
+
+## Deployment Configuration
+For each new brand, configure:
+1. Brand record in database (name, display name, slug, colors, logo)
+2. Google Drive folder IDs (brief, product images, edited results)
+3. API keys (Wavespeed, OpenAI) - can be brand-specific or shared
+4. Default prompt template and AI settings (batch size, manual time estimate)
+
 ## Recent Changes
+- **October 25, 2025**: Multi-Brand Platform Architecture
+  - **Database Migration**: Added PostgreSQL with Drizzle ORM for multi-tenant data management
+  - **Brand System**: Created brands, users, jobs, and images tables with full isolation
+  - **Brand API**: `/api/brand/list` and `/api/brand/config` endpoints for brand discovery and configuration
+  - **Frontend Integration**: Brand selector component with dynamic theming support
+  - **Corsair Seeded**: CORSAIR configured as first tenant (brand ID: 1)
+  - **Backwards Compatible**: Defaults to 'corsair' brand for existing functionality
 - **October 21, 2025**: PSD Download Feature & Desktop Layout Improvements
   - **PSD Download Capability**:
     - Added `/api/psd/:jobId/:imageIndex` endpoint for generating layered PSD files
