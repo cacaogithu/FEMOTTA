@@ -15,6 +15,7 @@ function ProcessingPage({ jobId, onComplete }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const [workflowSteps, setWorkflowSteps] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let pollInterval;
@@ -25,7 +26,11 @@ function ProcessingPage({ jobId, onComplete }) {
         const response = await authenticatedFetch(`/api/results/poll/${jobId}`);
         const data = await response.json();
 
-        if (data.status === 'completed') {
+        if (data.status === 'failed') {
+          clearInterval(pollInterval);
+          clearInterval(stepInterval);
+          setError(data.error || 'Processing failed. Please try again.');
+        } else if (data.status === 'completed') {
           clearInterval(pollInterval);
           clearInterval(stepInterval);
           setProgress(100);
@@ -51,6 +56,9 @@ function ProcessingPage({ jobId, onComplete }) {
         }
       } catch (error) {
         console.error('Polling error:', error);
+        clearInterval(pollInterval);
+        clearInterval(stepInterval);
+        setError('Network error: Unable to check processing status. Please check your connection and try again.');
       }
     };
 
@@ -67,6 +75,55 @@ function ProcessingPage({ jobId, onComplete }) {
       clearInterval(stepInterval);
     };
   }, [jobId, onComplete]);
+
+  const getErrorMessage = (errorText) => {
+    if (errorText?.includes('INSUFFICIENT_CREDITS') || errorText?.toLowerCase().includes('insufficient credits')) {
+      return {
+        title: '⚠️ Insufficient API Credits',
+        message: 'The Wavespeed API account needs to be topped up with credits to continue processing images.',
+        details: 'Please add credits to your Wavespeed account and try again.'
+      };
+    }
+    
+    if (errorText?.includes('Nano Banana')) {
+      return {
+        title: '⚠️ Image Processing Error',
+        message: 'There was an error processing your images with the AI service.',
+        details: errorText
+      };
+    }
+    
+    return {
+      title: '❌ Processing Failed',
+      message: 'Something went wrong while processing your images.',
+      details: errorText || 'Please try again or contact support if the problem persists.'
+    };
+  };
+
+  if (error) {
+    const errorInfo = getErrorMessage(error);
+    
+    return (
+      <div className="processing-page">
+        <div className="container">
+          <div className="processing-content error-state">
+            <div className="error-icon">⚠️</div>
+            <h1>{errorInfo.title}</h1>
+            <p className="error-message">{errorInfo.message}</p>
+            <div className="error-details">
+              <p>{errorInfo.details}</p>
+            </div>
+            <button 
+              className="retry-button"
+              onClick={() => window.location.href = '/'}
+            >
+              Start Over
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="processing-page">
