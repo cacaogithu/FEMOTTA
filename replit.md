@@ -104,12 +104,26 @@ The platform has evolved from simple brand isolation to a comprehensive CRM syst
 **CRM System Implementation:**
 - Transformed brand management into comprehensive subaccount CRM system
 - Added 6 new database tables for CRM features (users, prompts, analytics, feedback)
-- Built SubaccountDetail admin dashboard with 5-tab interface
+- Built SubaccountDetail admin dashboard with 6-tab interface
 - Implemented multi-user management with RBAC and seat limits
 - Created prompt template library with versioning system
 - Integrated usage analytics and output quality tracking
 - Secured all CRM endpoints with admin authentication
 - Updated terminology from "brands" to "subaccounts" in admin UI
+
+**ML Phase 1: Smart Prompt Optimization (NEW!):**
+- Created `MLAnalysisService` using GPT-4 for intelligent feedback analysis
+- Analyzes prompt performance across rating metrics (overall, goal alignment, creativity, technical quality)
+- Generates AI-powered prompt improvement suggestions based on low-rated feedback patterns
+- Identifies what makes high-performing prompts successful
+- Built API endpoints: `/api/ml/analyze/:subaccountId`, `/api/ml/insights/:subaccountId`, `/api/ml/suggest-improvement/:promptId/:versionId`
+- Added **ML Insights** tab (🤖) to SubaccountDetail dashboard with:
+  - One-click analysis button to run GPT-4 prompt optimization
+  - Performance breakdown table showing ratings by prompt version
+  - AI-generated improvement cards with problem analysis, improved prompts, key changes, and expected impact
+  - Success rate tracking and feedback count metrics
+- All ML endpoints secured with admin authentication
+- Zero infrastructure requirements - uses existing OpenAI GPT-4 API integration
 
 **Active Subaccounts:**
 - **Corsair** (Primary): Login at `/corsair/login` (password: corsair2025)

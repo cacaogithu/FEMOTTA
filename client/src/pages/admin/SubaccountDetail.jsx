@@ -12,6 +12,8 @@ function SubaccountDetail() {
   const [prompts, setPrompts] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [settings, setSettings] = useState(null);
+  const [mlInsights, setMlInsights] = useState(null);
+  const [mlLoading, setMlLoading] = useState(false);
   
   const [newUser, setNewUser] = useState({ email: '', username: '', role: 'member', password: '' });
   const [showAddUser, setShowAddUser] = useState(false);
@@ -88,6 +90,28 @@ function SubaccountDetail() {
       setSettings(data);
     } catch (error) {
       console.error('Error loading settings:', error);
+    }
+  };
+
+  const runMLAnalysis = async () => {
+    setMlLoading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`/api/ml/analyze/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Key': token
+        },
+        body: JSON.stringify({ daysBack: 30, minFeedbackCount: 3 })
+      });
+      const data = await response.json();
+      setMlInsights(data);
+    } catch (error) {
+      console.error('Error running ML analysis:', error);
+      alert('Failed to run ML analysis: ' + error.message);
+    } finally {
+      setMlLoading(false);
     }
   };
 
@@ -186,6 +210,12 @@ function SubaccountDetail() {
           onClick={() => setActiveTab('analytics')}
         >
           Analytics
+        </button>
+        <button 
+          className={activeTab === 'ml-insights' ? 'active' : ''} 
+          onClick={() => setActiveTab('ml-insights')}
+        >
+          🤖 ML Insights
         </button>
       </div>
 
@@ -396,6 +426,161 @@ function SubaccountDetail() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'ml-insights' && (
+          <div className="ml-insights-tab">
+            <div className="tab-header">
+              <h2>AI-Powered Prompt Optimization</h2>
+              <button 
+                className="run-analysis-btn" 
+                onClick={runMLAnalysis}
+                disabled={mlLoading}
+              >
+                {mlLoading ? '🔄 Analyzing...' : '▶ Run Analysis'}
+              </button>
+            </div>
+
+            {!mlInsights && !mlLoading && (
+              <div className="ml-placeholder">
+                <div className="ml-icon">🤖</div>
+                <h3>Smart Prompt Optimization</h3>
+                <p>Use GPT-4 to analyze feedback patterns and automatically generate improved prompts.</p>
+                <ul className="ml-features">
+                  <li>✓ Analyze user ratings and feedback</li>
+                  <li>✓ Identify what makes high-performing prompts</li>
+                  <li>✓ Generate AI-improved prompt suggestions</li>
+                  <li>✓ Track prompt version performance over time</li>
+                </ul>
+                <button className="get-started-btn" onClick={runMLAnalysis}>
+                  Get Started
+                </button>
+              </div>
+            )}
+
+            {mlLoading && (
+              <div className="ml-loading">
+                <div className="spinner"></div>
+                <p>Running AI analysis on your prompts and feedback...</p>
+              </div>
+            )}
+
+            {mlInsights && !mlLoading && (
+              <div className="ml-results">
+                <div className="ml-summary">
+                  <h3>Analysis Summary</h3>
+                  <p>{mlInsights.summary}</p>
+                  {mlInsights.overallMetrics && (
+                    <div className="overall-metrics">
+                      <div className="metric">
+                        <span>Prompts Analyzed</span>
+                        <strong>{mlInsights.overallMetrics.totalPromptsAnalyzed}</strong>
+                      </div>
+                      <div className="metric">
+                        <span>Average Rating</span>
+                        <strong>{mlInsights.overallMetrics.averageRating.toFixed(2)}/5</strong>
+                      </div>
+                      <div className="metric">
+                        <span>Total Feedback</span>
+                        <strong>{mlInsights.overallMetrics.totalFeedback}</strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {mlInsights.suggestions && mlInsights.suggestions.length > 0 && (
+                  <div className="ml-suggestions">
+                    <h3>🎯 AI-Generated Improvements</h3>
+                    {mlInsights.suggestions.map((suggestion, idx) => (
+                      <div key={idx} className="suggestion-card">
+                        <div className="suggestion-header">
+                          <h4>{suggestion.promptName}</h4>
+                          <div className="current-perf">
+                            <span className="rating">
+                              ⭐ {suggestion.currentPerformance.averageRating.toFixed(2)}
+                            </span>
+                            <span className="success-rate">
+                              ✓ {(suggestion.currentPerformance.successRate * 100).toFixed(0)}%
+                            </span>
+                            <span className="feedback-count">
+                              💬 {suggestion.currentPerformance.feedbackCount}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="suggestion-content">
+                          <div className="section">
+                            <h5>📊 Problem Analysis</h5>
+                            <p>{suggestion.analysis}</p>
+                          </div>
+
+                          <div className="section improved-prompt">
+                            <h5>✨ Improved Prompt</h5>
+                            <div className="prompt-box">
+                              {suggestion.improvedPrompt}
+                            </div>
+                          </div>
+
+                          <div className="section">
+                            <h5>🔧 Key Changes</h5>
+                            <p>{suggestion.keyChanges}</p>
+                          </div>
+
+                          <div className="section">
+                            <h5>📈 Expected Impact</h5>
+                            <p>{suggestion.expectedImpact}</p>
+                          </div>
+
+                          <div className="suggestion-actions">
+                            <button className="btn-apply">Apply This Prompt</button>
+                            <button className="btn-test">Test on Sample Images</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {mlInsights.promptAnalysis && mlInsights.promptAnalysis.length > 0 && (
+                  <div className="prompt-performance">
+                    <h3>📊 Prompt Performance Breakdown</h3>
+                    <table className="performance-table">
+                      <thead>
+                        <tr>
+                          <th>Prompt</th>
+                          <th>Version</th>
+                          <th>Avg Rating</th>
+                          <th>Success Rate</th>
+                          <th>Feedback Count</th>
+                          <th>Goal Alignment</th>
+                          <th>Creativity</th>
+                          <th>Technical</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mlInsights.promptAnalysis.map((prompt, idx) => (
+                          <tr key={idx}>
+                            <td>{prompt.promptName}</td>
+                            <td>v{prompt.versionNumber}</td>
+                            <td>
+                              <span className={`rating-badge ${prompt.averageRating >= 4 ? 'good' : prompt.averageRating >= 3 ? 'ok' : 'poor'}`}>
+                                {prompt.averageRating.toFixed(2)}
+                              </span>
+                            </td>
+                            <td>{(prompt.successRate * 100).toFixed(0)}%</td>
+                            <td>{prompt.feedbackCount}</td>
+                            <td>{prompt.averageGoalAlignment.toFixed(1)}</td>
+                            <td>{prompt.averageCreativity.toFixed(1)}</td>
+                            <td>{prompt.averageTechnical.toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
