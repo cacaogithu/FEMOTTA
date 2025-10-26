@@ -13,6 +13,7 @@ import mlStatsRoutes from './routes/mlStats.js';
 import psdRoutes from './routes/psd.js';
 import brandRoutes from './routes/brand.js';
 import adminRoutes from './routes/admin.js';
+import subaccountsRoutes from './routes/subaccounts.js';
 
 dotenv.config();
 
@@ -31,6 +32,9 @@ app.use('/api/brand', brandRoutes);
 
 // Admin routes
 app.use('/api/admin', adminRoutes);
+
+// Subaccounts CRM routes
+app.use('/api/subaccounts', subaccountsRoutes);
 
 app.use('/api/upload', uploadRoutes);
 app.use('/api/results', resultsRoutes);

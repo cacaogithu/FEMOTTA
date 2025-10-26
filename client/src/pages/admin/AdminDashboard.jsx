@@ -36,6 +36,10 @@ function AdminDashboard() {
     navigate(`/admin/brands/${brandId}/edit`);
   };
 
+  const handleManage = (brandId) => {
+    navigate(`/admin/subaccounts/${brandId}`);
+  };
+
   const handleCreate = () => {
     navigate('/admin/brands/new');
   };
@@ -88,10 +92,10 @@ function AdminDashboard() {
   return (
     <div className="admin-dashboard">
       <div className="admin-header">
-        <h1>Brand Management</h1>
+        <h1>Subaccount Management</h1>
         <div className="admin-actions">
           <button onClick={handleCreate} className="btn-create">
-            + Create New Brand
+            + Create New Subaccount
           </button>
           <button onClick={handleLogout} className="btn-logout">
             Logout
@@ -141,6 +145,12 @@ function AdminDashboard() {
                 </td>
                 <td>
                   <div className="action-buttons">
+                    <button
+                      onClick={() => handleManage(brand.id)}
+                      className="btn-manage"
+                    >
+                      Manage
+                    </button>
                     <button
                       onClick={() => handleEdit(brand.id)}
                       className="btn-edit"

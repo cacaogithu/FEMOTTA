@@ -6,6 +6,7 @@ import ResultsPage from './components/ResultsPage';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import BrandForm from './pages/admin/BrandForm';
+import SubaccountDetail from './pages/admin/SubaccountDetail';
 import BrandLogin from './pages/BrandLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import { brandService } from './services/brandService';
@@ -98,6 +99,14 @@ function App() {
         element={
           <ProtectedRoute>
             <BrandForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/subaccounts/:id"
+        element={
+          <ProtectedRoute>
+            <SubaccountDetail />
           </ProtectedRoute>
         }
       />

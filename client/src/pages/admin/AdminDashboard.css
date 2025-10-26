@@ -136,6 +136,23 @@
   gap: 8px;
 }
 
+.btn-manage {
+  padding: 8px 16px;
+  background: #FFC107;
+  border: none;
+  border-radius: 4px;
+  color: #1a1a2e;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-manage:hover {
+  background: #FFD54F;
+  transform: translateY(-1px);
+}
+
 .btn-edit {
   padding: 8px 16px;
   background: rgba(255, 215, 0, 0.2);
