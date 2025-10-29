@@ -1,3 +1,5 @@
+import { getApiUrl } from '../config/api.js';
+
 // Brand service for managing brand context in the frontend
 class BrandService {
   constructor() {
@@ -21,16 +23,25 @@ class BrandService {
   async loadBrandConfig() {
     try {
       const brandSlug = this.getCurrentBrandSlug();
-      const response = await fetch(`/api/brand/config?brand=${brandSlug}`);
+      const url = getApiUrl(`/api/brand/config?brand=${brandSlug}`);
+      console.log('[BrandService] Fetching brand config from:', url);
+      const response = await fetch(url);
+      console.log('[BrandService] Response status:', response.status, response.statusText);
       
       if (!response.ok) {
-        throw new Error('Failed to load brand config');
+        throw new Error(`Failed to load brand config: ${response.status} ${response.statusText}`);
       }
       
       this.currentBrand = await response.json();
+      console.log('[BrandService] Successfully loaded brand:', this.currentBrand.name);
       return this.currentBrand;
     } catch (error) {
-      console.error('Error loading brand config:', error);
+      console.error('[BrandService] Error loading brand config:', error.message || error);
+      console.error('[BrandService] Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       // Fallback to Corsair defaults
       this.currentBrand = {
         id: 1,
@@ -49,7 +60,8 @@ class BrandService {
   // Load list of available brands
   async loadAvailableBrands() {
     try {
-      const response = await fetch('/api/brand/list');
+      const url = getApiUrl('/api/brand/list');
+      const response = await fetch(url);
       if (response.ok) {
         this.availableBrands = await response.json();
       }
@@ -94,7 +106,8 @@ class BrandService {
       ...(options.headers || {})
     };
     
-    return fetch(url, {
+    const apiUrl = getApiUrl(url);
+    return fetch(apiUrl, {
       ...options,
       headers
     });

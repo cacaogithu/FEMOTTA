@@ -13,8 +13,21 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true
+        target: 'http://0.0.0.0:3000',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('[Vite Proxy] Error:', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('[Vite Proxy] Forwarding:', req.method, req.url, '-> http://0.0.0.0:3000' + req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('[Vite Proxy] Response:', proxyRes.statusCode, 'from', req.url);
+          });
+        }
       }
     }
   },

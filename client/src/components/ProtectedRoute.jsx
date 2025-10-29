@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { getApiUrl } from '../config/api.js';
 
 function ProtectedRoute({ children }) {
   const [isValid, setIsValid] = useState(null);
@@ -19,7 +20,8 @@ function ProtectedRoute({ children }) {
     }
 
     try {
-      const response = await fetch('/api/admin/verify', {
+      const url = getApiUrl('/api/admin/verify');
+      const response = await fetch(url, {
         headers: {
           'X-Admin-Key': adminToken,
         },

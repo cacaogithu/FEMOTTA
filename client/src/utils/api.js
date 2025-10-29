@@ -3,6 +3,8 @@
  * Automatically includes brand or admin tokens from localStorage
  */
 
+import { getApiUrl } from '../config/api.js';
+
 function getAuthHeaders() {
   const headers = {};
   
@@ -23,7 +25,7 @@ function getAuthHeaders() {
 
 /**
  * Enhanced fetch with automatic authentication
- * @param {string} url - The URL to fetch
+ * @param {string} url - The URL to fetch (will be converted to full API URL)
  * @param {object} options - Fetch options
  * @returns {Promise<Response>}
  */
@@ -39,7 +41,9 @@ export async function authenticatedFetch(url, options = {}) {
     }
   };
   
-  return fetch(url, mergedOptions);
+  // Convert to full API URL
+  const apiUrl = getApiUrl(url);
+  return fetch(apiUrl, mergedOptions);
 }
 
 /**
