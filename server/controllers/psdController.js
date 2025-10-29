@@ -74,10 +74,13 @@ export async function downloadPsd(req, res) {
       loadImage(editedBuffer)
     ]);
     
-    const width = originalImg.width;
-    const height = originalImg.height;
+    // Use the maximum dimensions from both images to prevent cropping
+    const width = Math.max(originalImg.width, editedImg.width);
+    const height = Math.max(originalImg.height, editedImg.height);
     
-    console.log('[PSD Download] Image dimensions:', width, 'x', height);
+    console.log('[PSD Download] Original image dimensions:', originalImg.width, 'x', originalImg.height);
+    console.log('[PSD Download] Edited image dimensions:', editedImg.width, 'x', editedImg.height);
+    console.log('[PSD Download] PSD canvas dimensions (max):', width, 'x', height);
     
     // Create canvases with white background and draw images in RGB mode
     const originalCanvas = createCanvas(width, height);
