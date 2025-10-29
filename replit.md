@@ -100,7 +100,28 @@ The platform has evolved from simple brand isolation to a comprehensive CRM syst
 - **AI Chat Capabilities**: Provides context-aware responses and selective image re-editing.
 - **Time Tracking**: Comprehensive backend tracking for processing time, estimated manual time, and time saved.
 
-## Recent Changes (October 26, 2025)
+## Recent Changes
+
+### October 29, 2025 - Critical Bug Fixes & Job Persistence
+**AI Re-Edit Functionality:**
+- Fixed AI chat re-edit to properly download edited images from Google Drive and convert to base64 before sending to Wavespeed API
+- Updated `nanoBanana.js` service to support base64 image input with `isBase64` flag
+- Re-edit workflow now: downloads edited image → converts to base64 → sends to Wavespeed → saves new result to Drive
+
+**Job Persistence System:**
+- Implemented hybrid job storage system combining in-memory cache with PostgreSQL persistence
+- Added new JSONB fields to `jobs` table: `promptText`, `processingStep`, `imagesData`, `editedImagesData`, `imageProgress`
+- Jobs now survive backend restarts - no more "Job not found" errors for PSD downloads
+- Created `getJobWithFallback()` utility that checks memory first, then loads from database automatically
+- Updated PSD and re-edit controllers to use database fallback for reliable job retrieval
+- All job state (including images, prompts, progress) persists to database asynchronously without blocking main thread
+
+**Technical Improvements:**
+- Fixed import path in `jobStore.js` to correctly reference `server/db.js`
+- Enhanced error handling for database operations with try/catch wrappers
+- Backend and frontend workflows running successfully
+
+### October 26, 2025 - CRM & ML Features
 **CRM System Implementation:**
 - Transformed brand management into comprehensive subaccount CRM system
 - Added 6 new database tables for CRM features (users, prompts, analytics, feedback)
