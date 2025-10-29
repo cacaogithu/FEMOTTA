@@ -45,19 +45,33 @@ export async function downloadPsd(req, res) {
     
     console.log('[PSD Download] Images downloaded, processing...');
     
+    // Convert buffers to data URIs for node-canvas compatibility
+    const bufferToDataUri = (buffer) => {
+      const base64 = buffer.toString('base64');
+      // Detect image type from buffer header
+      const isJPEG = buffer[0] === 0xFF && buffer[1] === 0xD8;
+      const isPNG = buffer[0] === 0x89 && buffer[1] === 0x50;
+      const mimeType = isJPEG ? 'image/jpeg' : isPNG ? 'image/png' : 'image/jpeg';
+      return `data:${mimeType};base64,${base64}`;
+    };
+    
     // Load both images properly with promises to ensure they're fully loaded
     const loadImage = (buffer) => {
       return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = buffer;
+        img.onerror = (err) => {
+          console.error('[PSD Download] Image load error:', err);
+          reject(new Error('Failed to load image into canvas'));
+        };
+        // Use data URI instead of raw buffer
+        img.src = bufferToDataUri(buffer);
       });
     };
     
     const [originalImg, editedImg] = await Promise.all([
-      loadImage(Buffer.from(originalBuffer)),
-      loadImage(Buffer.from(editedBuffer))
+      loadImage(originalBuffer),
+      loadImage(editedBuffer)
     ]);
     
     const width = originalImg.width;

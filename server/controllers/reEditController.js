@@ -24,25 +24,32 @@ export async function reEditImages(req, res) {
       return res.status(400).json({ error: 'No edited images found for this job' });
     }
 
+    // Match by editedImageId (Google Drive ID) which is what the AI provides
     const imagesToReEdit = imageIds 
-      ? job.editedImages.filter(img => imageIds.includes(img.id))
+      ? job.editedImages.filter(img => imageIds.includes(img.editedImageId) || imageIds.includes(img.id))
       : job.editedImages;
 
     // Validate imageIds if provided
     if (imageIds && imageIds.length > 0) {
-      const foundIds = imagesToReEdit.map(img => img.id);
-      const invalidIds = imageIds.filter(id => !foundIds.includes(id));
+      const foundEditedIds = imagesToReEdit.map(img => img.editedImageId);
+      const foundInternalIds = imagesToReEdit.map(img => img.id);
+      const invalidIds = imageIds.filter(id => !foundEditedIds.includes(id) && !foundInternalIds.includes(id));
       
       if (invalidIds.length > 0) {
         console.warn('[Re-edit] Invalid image IDs provided:', invalidIds);
-        console.log('[Re-edit] Available image IDs:', job.editedImages.map(img => img.id));
+        console.log('[Re-edit] Available editedImageIds:', job.editedImages.map(img => img.editedImageId));
+        console.log('[Re-edit] Available internal IDs:', job.editedImages.map(img => img.id));
       }
       
       if (imagesToReEdit.length === 0) {
         return res.status(400).json({ 
           error: 'No valid images found to re-edit',
           invalidIds,
-          availableIds: job.editedImages.map(img => ({ id: img.id, name: img.name }))
+          availableIds: job.editedImages.map(img => ({ 
+            id: img.id, 
+            editedImageId: img.editedImageId,
+            name: img.name 
+          }))
         });
       }
       
@@ -96,7 +103,7 @@ export async function reEditImages(req, res) {
     // When editing all images: replace entire array with new results
     const updatedEditedImages = imageIds && imageIds.length > 0
       ? [
-          ...job.editedImages.filter(img => !imageIds.includes(img.id)),
+          ...job.editedImages.filter(img => !imageIds.includes(img.editedImageId) && !imageIds.includes(img.id)),
           ...reEditedResults
         ]
       : reEditedResults;
