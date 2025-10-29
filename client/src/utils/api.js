@@ -43,7 +43,23 @@ export async function authenticatedFetch(url, options = {}) {
   
   // Convert to full API URL
   const apiUrl = getApiUrl(url);
-  return fetch(apiUrl, mergedOptions);
+  const response = await fetch(apiUrl, mergedOptions);
+  
+  // Handle 401 Unauthorized - token likely expired
+  if (response.status === 401) {
+    const responseData = await response.clone().json().catch(() => ({}));
+    
+    // If token expired, clear all auth data
+    if (responseData.expired || responseData.error?.includes('expired') || responseData.error?.includes('token')) {
+      console.log('[API] Token expired, clearing authentication data');
+      localStorage.removeItem('brandToken');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('brandInfo');
+      localStorage.removeItem('selectedBrand');
+    }
+  }
+  
+  return response;
 }
 
 /**
