@@ -1,4 +1,4 @@
-import { getApiUrl } from '../config/api.js';
+import { authenticatedFetch, getJSON } from '../utils/api.js';
 
 // Brand service for managing brand context in the frontend
 class BrandService {
@@ -23,9 +23,9 @@ class BrandService {
   async loadBrandConfig() {
     try {
       const brandSlug = this.getCurrentBrandSlug();
-      const url = getApiUrl(`/api/brand/config?brand=${brandSlug}`);
+      const url = `/api/brand/config?brand=${brandSlug}`;
       console.log('[BrandService] Fetching brand config from:', url);
-      const response = await fetch(url);
+      const response = await authenticatedFetch(url);
       console.log('[BrandService] Response status:', response.status, response.statusText);
       
       if (!response.ok) {
@@ -60,8 +60,7 @@ class BrandService {
   // Load list of available brands
   async loadAvailableBrands() {
     try {
-      const url = getApiUrl('/api/brand/list');
-      const response = await fetch(url);
+      const response = await authenticatedFetch('/api/brand/list');
       if (response.ok) {
         this.availableBrands = await response.json();
       }
@@ -106,8 +105,7 @@ class BrandService {
       ...(options.headers || {})
     };
     
-    const apiUrl = getApiUrl(url);
-    return fetch(apiUrl, {
+    return authenticatedFetch(url, {
       ...options,
       headers
     });
