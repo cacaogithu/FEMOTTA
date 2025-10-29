@@ -1,6 +1,6 @@
-import { reEditImage } from '../services/nanoBanana.js';
-import { getJob, updateJob } from '../utils/jobStore.js';
-import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
+import { editImageWithNanoBanana } from '../services/nanoBanana.js';
+import { getJobWithFallback, updateJob } from '../utils/jobStore.js';
+import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import fetch from 'node-fetch';
 
@@ -12,7 +12,7 @@ export async function reEditImages(req, res) {
       return res.status(400).json({ error: 'New prompt is required' });
     }
 
-    const job = getJob(jobId);
+    const job = await getJobWithFallback(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -61,13 +61,26 @@ export async function reEditImages(req, res) {
     const reEditedResults = [];
 
     for (const image of imagesToReEdit) {
-      const originalImage = job.images.find(img => img.driveId === image.originalImageId);
-      const imageUrl = originalImage?.publicUrl || image.url;
-
-      const result = await reEditImage(imageUrl, null, newPrompt, {
+      console.log(`[Re-edit] Processing image: ${image.name} (editedImageId: ${image.editedImageId})`);
+      
+      // Download the EDITED image from Google Drive (not the original)
+      const editedImageBuffer = await downloadFileFromDrive(image.editedImageId);
+      
+      if (!editedImageBuffer) {
+        console.error(`[Re-edit] Failed to download edited image: ${image.editedImageId}`);
+        continue;
+      }
+      
+      // Convert buffer to base64 for Wavespeed API
+      const base64Image = `data:image/jpeg;base64,${editedImageBuffer.toString('base64')}`;
+      console.log(`[Re-edit] Converted image to base64, length: ${base64Image.length}`);
+      
+      // Send base64 image + new prompt to Wavespeed API
+      const result = await editImageWithNanoBanana(base64Image, newPrompt, {
         enableSyncMode: true,
         outputFormat: 'jpeg',
-        wavespeedApiKey: brandConfig.wavespeedApiKey
+        wavespeedApiKey: brandConfig.wavespeedApiKey,
+        isBase64: true  // Flag to indicate we're sending base64
       });
 
       if (result.images && result.images.length > 0) {

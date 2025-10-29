@@ -76,10 +76,15 @@ export const jobs = pgTable('jobs', {
   status: text('status').notNull().default('pending'),
   briefText: text('brief_text'),
   briefFileId: text('brief_file_id'),
+  promptText: text('prompt_text'), // Current editing prompt
+  processingStep: text('processing_step'), // Current step description
   
   // Processing metadata
   imageSpecs: jsonb('image_specs'),
   workflowSteps: jsonb('workflow_steps'),
+  imagesData: jsonb('images_data'), // Array of original images with metadata
+  editedImagesData: jsonb('edited_images_data'), // Array of edited images with metadata
+  imageProgress: jsonb('image_progress'), // Real-time progress tracking
   
   // Time tracking
   startTime: timestamp('start_time'),

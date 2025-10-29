@@ -1,17 +1,104 @@
+import { db } from '../db.js';
+import { jobs as jobsTable } from '../../shared/schema.js';
+import { eq } from 'drizzle-orm';
+
 const jobs = new Map();
 const feedbackData = new Map();
 
+// Save job to database
+async function saveJobToDb(jobId, jobData) {
+  try {
+    const dbJob = {
+      jobId,
+      brandId: jobData.brandId || 1, // Default to Corsair
+      status: jobData.status || 'pending',
+      briefText: jobData.briefText || null,
+      briefFileId: jobData.briefFileId || null,
+      promptText: jobData.promptText || null,
+      processingStep: jobData.processingStep || null,
+      imageSpecs: jobData.imageSpecs || null,
+      workflowSteps: jobData.workflowSteps || [],
+      imagesData: jobData.images || [],
+      editedImagesData: jobData.editedImages || [],
+      imageProgress: jobData.imageProgress || [],
+      startTime: jobData.startTime ? new Date(jobData.startTime) : null,
+      endTime: jobData.endTime ? new Date(jobData.endTime) : null,
+      processingTimeSeconds: jobData.processingTimeSeconds || null,
+      estimatedManualTimeMinutes: jobData.estimatedManualTimeMinutes || null
+    };
+
+    // Upsert - update if exists, insert if not
+    const existing = await db.select().from(jobsTable).where(eq(jobsTable.jobId, jobId)).limit(1);
+    if (existing && existing.length > 0) {
+      await db.update(jobsTable).set(dbJob).where(eq(jobsTable.jobId, jobId));
+    } else {
+      await db.insert(jobsTable).values(dbJob);
+    }
+  } catch (error) {
+    console.error('[JobStore] Failed to save job to database:', error);
+  }
+}
+
 export function createJob(jobData) {
-  jobs.set(jobData.id, {
+  const job = {
     ...jobData,
     workflowSteps: [],
     imageProgress: []
-  });
-  return jobData;
+  };
+  jobs.set(jobData.id, job);
+  // Save to database asynchronously
+  saveJobToDb(jobData.id, job).catch(err => console.error('[JobStore] Create job DB error:', err));
+  return job;
+}
+
+export async function getJobWithFallback(jobId) {
+  // Try memory first
+  let job = jobs.get(jobId);
+  if (job) {
+    return job;
+  }
+  
+  // Fallback to database
+  console.log(`[JobStore] Job ${jobId} not in memory, loading from database...`);
+  job = await loadJobFromDb(jobId);
+  return job;
 }
 
 export function getJob(jobId) {
   return jobs.get(jobId);
+}
+
+export async function loadJobFromDb(jobId) {
+  try {
+    const result = await db.select().from(jobsTable).where(eq(jobsTable.jobId, jobId)).limit(1);
+    if (result && result.length > 0) {
+      const dbJob = result[0];
+      const job = {
+        id: dbJob.jobId,
+        brandId: dbJob.brandId,
+        status: dbJob.status,
+        briefText: dbJob.briefText,
+        briefFileId: dbJob.briefFileId,
+        promptText: dbJob.promptText,
+        processingStep: dbJob.processingStep,
+        imageSpecs: dbJob.imageSpecs,
+        workflowSteps: dbJob.workflowSteps || [],
+        images: dbJob.imagesData || [],
+        editedImages: dbJob.editedImagesData || [],
+        imageProgress: dbJob.imageProgress || [],
+        startTime: dbJob.startTime,
+        endTime: dbJob.endTime,
+        processingTimeSeconds: dbJob.processingTimeSeconds,
+        estimatedManualTimeMinutes: dbJob.estimatedManualTimeMinutes
+      };
+      // Load into memory
+      jobs.set(jobId, job);
+      return job;
+    }
+  } catch (error) {
+    console.error('[JobStore] Failed to load job from database:', error);
+  }
+  return null;
 }
 
 export function updateJob(jobId, updates) {
@@ -19,6 +106,8 @@ export function updateJob(jobId, updates) {
   if (job) {
     const updatedJob = { ...job, ...updates };
     jobs.set(jobId, updatedJob);
+    // Save to database asynchronously
+    saveJobToDb(jobId, updatedJob).catch(err => console.error('[JobStore] Update job DB error:', err));
     return updatedJob;
   }
   return null;

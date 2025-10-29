@@ -3,20 +3,24 @@ import fetch from 'node-fetch';
 const NANO_BANANA_EDIT_URL = 'https://api.wavespeed.ai/api/v3/google/nano-banana/edit';
 const NANO_BANANA_RESULT_URL = 'https://api.wavespeed.ai/api/v3/predictions';
 
-export async function editImageWithNanoBanana(imageUrl, prompt, options = {}) {
+export async function editImageWithNanoBanana(imageUrlOrBase64, prompt, options = {}) {
   try {
     const {
       enableSyncMode = true,
       outputFormat = 'jpeg',
       enableBase64Output = false,
       numImages = 1,
-      wavespeedApiKey = process.env.WAVESPEED_API_KEY
+      wavespeedApiKey = process.env.WAVESPEED_API_KEY,
+      isBase64 = false  // Flag to indicate if input is base64
     } = options;
+
+    // Prepare the image input - can be URL or base64
+    const imageInput = isBase64 ? imageUrlOrBase64 : imageUrlOrBase64;
 
     const payload = {
       enable_base64_output: enableBase64Output,
       enable_sync_mode: enableSyncMode,
-      images: [imageUrl],
+      images: [imageInput],  // Can be URL or base64 string
       output_format: outputFormat,
       prompt: prompt,
       num_images: numImages

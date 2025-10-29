@@ -1,4 +1,4 @@
-import { getJob } from '../utils/jobStore.js';
+import { getJobWithFallback } from '../utils/jobStore.js';
 import { downloadFileFromDrive } from '../utils/googleDrive.js';
 import 'ag-psd/initialize-canvas.js'; // Required for Node.js
 import { writePsdBuffer } from 'ag-psd';
@@ -8,7 +8,7 @@ export async function downloadPsd(req, res) {
   try {
     const { jobId, imageIndex } = req.params;
     
-    const job = getJob(jobId);
+    const job = await getJobWithFallback(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
