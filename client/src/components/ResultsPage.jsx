@@ -94,8 +94,23 @@ function ResultsPage({ results, onReset, jobId }) {
     }
   };
 
-  const handleDownloadPsd = async (imageIndex, originalName) => {
+  const handleDownloadPsd = (imageIndex, originalName) => {
+    // Open PSD download in new tab to bypass iframe download restrictions
+    const url = `/api/psd/${jobId}/${imageIndex}`;
+    
+    // Opening in new window works better in iframe environments (Replit webview)
+    // The Content-Disposition header will trigger download automatically
+    const downloadWindow = window.open(url, '_blank');
+    
+    // Fallback: if popup blocked, use fetch + blob approach
+    if (!downloadWindow) {
+      handleDownloadPsdFallback(imageIndex, originalName);
+    }
+  };
+
+  const handleDownloadPsdFallback = async (imageIndex, originalName) => {
     try {
+      console.log('Using fallback PSD download method...');
       const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
       if (!response.ok) {
         throw new Error('Failed to download PSD');
@@ -111,7 +126,7 @@ function ResultsPage({ results, onReset, jobId }) {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('PSD download error:', error);
-      alert('Failed to download PSD file');
+      alert('Failed to download PSD file. Please try again.');
     }
   };
 
