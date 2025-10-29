@@ -28,6 +28,20 @@ class BrandService {
       const response = await authenticatedFetch(url);
       console.log('[BrandService] Response status:', response.status, response.statusText);
       
+      // Handle 401 - expired/invalid token
+      if (response.status === 401) {
+        console.log('[BrandService] Authentication expired, clearing tokens and resetting to corsair');
+        localStorage.removeItem('brandToken');
+        localStorage.removeItem('selectedBrand');
+        localStorage.removeItem('brandInfo');
+        
+        // Retry without authentication for corsair
+        if (brandSlug !== 'corsair') {
+          this.currentBrand = null;
+          return this.loadBrandConfig();
+        }
+      }
+      
       if (!response.ok) {
         throw new Error(`Failed to load brand config: ${response.status} ${response.statusText}`);
       }
