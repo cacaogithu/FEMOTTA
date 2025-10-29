@@ -1,0 +1,28 @@
+
+
+
+
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=acme -> http://0.0.0.0:3000/api/brand/config?brand=acme
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=acme -> http://0.0.0.0:3000/api/brand/config?brand=acme
+[Vite Proxy] Response: 401 from /api/brand/config?brand=acme
+[Vite Proxy] Response: 401 from /api/brand/config?brand=acme
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=corsair -> http://0.0.0.0:3000/api/brand/config?brand=corsair
+[Vite Proxy] Response: 304 from /api/brand/config?brand=corsair
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=corsair -> http://0.0.0.0:3000/api/brand/config?brand=corsair
+[Vite Proxy] Response: 304 from /api/brand/config?brand=corsair
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=corsair -> http://0.0.0.0:3000/api/brand/config?brand=corsair
+[Vite Proxy] Response: 304 from /api/brand/config?brand=corsair
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=corsair -> http://0.0.0.0:3000/api/brand/config?brand=corsair
+[Vite Proxy] Response: 304 from /api/brand/config?brand=corsair
+[Vite Proxy] Forwarding: POST /api/upload/pdf -> http://0.0.0.0:3000/api/upload/pdf
+[Vite Proxy] Response: 401 from /api/upload/pdf
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=acme -> http://0.0.0.0:3000/api/brand/config?brand=acme
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=acme -> http://0.0.0.0:3000/api/brand/config?brand=acme
+[Vite Proxy] Response: 401 from /api/brand/config?brand=acme
+[Vite Proxy] Response: 401 from /api/brand/config?brand=acme
+[Vite Proxy] Forwarding: POST /api/upload/pdf -> http://0.0.0.0:3000/api/upload/pdf
+[Vite Proxy] Response: 401 from /api/upload/pdf
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=acme -> http://0.0.0.0:3000/api/brand/config?brand=acme
+[Vite Proxy] Forwarding: GET /api/brand/config?brand=acme -> http://0.0.0.0:3000/api/brand/config?brand=acme
+[Vite Proxy] Response: 401 from /api/brand/config?brand=acme
+[Vite Proxy] Response: 401 from /api/brand/config?brand=acme
