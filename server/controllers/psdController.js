@@ -45,27 +45,17 @@ export async function downloadPsd(req, res) {
     
     console.log('[PSD Download] Images downloaded, processing...');
     
-    // Load both images properly with promises to ensure they're fully loaded
-    // node-canvas Image can accept Buffer directly
-    const loadImage = (buffer) => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          console.log('[PSD Download] Image loaded successfully, dimensions:', img.width, 'x', img.height);
-          resolve(img);
-        };
-        img.onerror = (err) => {
-          console.error('[PSD Download] Image load error:', err);
-          reject(new Error('Failed to load image into canvas'));
-        };
-        // node-canvas can load directly from Buffer
-        img.src = buffer;
-      });
+    // Create canvases directly from buffers using loadImage utility
+    const loadImageFromBuffer = async (buffer) => {
+      const img = new Image();
+      img.src = buffer;
+      console.log('[PSD Download] Image loaded, dimensions:', img.width, 'x', img.height);
+      return img;
     };
     
     const [originalImg, editedImg] = await Promise.all([
-      loadImage(originalBuffer),
-      loadImage(editedBuffer)
+      loadImageFromBuffer(originalBuffer),
+      loadImageFromBuffer(editedBuffer)
     ]);
     
     // Use the maximum dimensions from both images to prevent cropping

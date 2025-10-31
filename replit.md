@@ -102,6 +102,21 @@ The platform has evolved from simple brand isolation to a comprehensive CRM syst
 
 ## Recent Changes
 
+### October 31, 2025 - UI Redesign & PSD Fix
+**Processing Page UI Redesign:**
+- Complete redesign of ProcessingPage component with modern, clean aesthetic
+- Replaced heavy visual style with minimalist, professional design
+- New features: animated progress glow, dot-pulse loading indicators, smooth check animations
+- Improved mobile responsiveness with optimized font sizes and spacing
+- Better visual hierarchy with subtle backgrounds and borders
+- Reduced visual noise while maintaining brand colors (Corsair gold/orange)
+
+**PSD Download Fix:**
+- Fixed image loading in `psdController.js` to correctly handle Buffer data from Google Drive
+- Simplified `loadImageFromBuffer` function to work synchronously with node-canvas Image API
+- Removed unnecessary promise wrapper causing download hangs
+- PSD downloads now complete successfully with proper layered output
+
 ### October 29, 2025 - Critical Bug Fixes & Job Persistence
 **AI Re-Edit Functionality:**
 - Fixed AI chat re-edit to properly download edited images from Google Drive and convert to base64 before sending to Wavespeed API
