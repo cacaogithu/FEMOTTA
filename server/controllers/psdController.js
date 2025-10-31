@@ -45,12 +45,24 @@ export async function downloadPsd(req, res) {
     
     console.log('[PSD Download] Images downloaded, processing...');
     
-    // Create canvases directly from buffers using loadImage utility
-    const loadImageFromBuffer = async (buffer) => {
-      const img = new Image();
-      img.src = buffer;
-      console.log('[PSD Download] Image loaded, dimensions:', img.width, 'x', img.height);
-      return img;
+    // Load images from buffers with proper onload event handling
+    const loadImageFromBuffer = (buffer) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        
+        img.onload = () => {
+          console.log('[PSD Download] Image loaded, dimensions:', img.width, 'x', img.height);
+          resolve(img);
+        };
+        
+        img.onerror = (err) => {
+          console.error('[PSD Download] Image load error:', err);
+          reject(new Error('Failed to load image from buffer'));
+        };
+        
+        // node-canvas can load directly from Buffer
+        img.src = buffer;
+      });
     };
     
     const [originalImg, editedImg] = await Promise.all([
