@@ -112,10 +112,13 @@ The platform has evolved from simple brand isolation to a comprehensive CRM syst
 - Reduced visual noise while maintaining brand colors (Corsair gold/orange)
 
 **PSD Download Fix:**
-- Fixed image loading in `psdController.js` to correctly handle Buffer data from Google Drive
-- Simplified `loadImageFromBuffer` function to work synchronously with node-canvas Image API
-- Removed unnecessary promise wrapper causing download hangs
-- PSD downloads now complete successfully with proper layered output
+- Fixed image loading in `psdController.js` to correctly handle async Buffer loading from Google Drive
+- Restored proper Promise-based image loading with onload/onerror event handlers
+- Fixed "Image given has not completed loading" error by ensuring Image.onload completes before accessing dimensions
+- Added job status validation: PSD downloads now require job status='completed'
+- Improved error messages on backend and frontend for incomplete jobs
+- Frontend now shows contextual error messages: "⏳ Images are still processing..." vs generic errors
+- Confirmed system works correctly: jobs with status='completed' have editedImages persisted in database
 
 ### October 29, 2025 - Critical Bug Fixes & Job Persistence
 **AI Re-Edit Functionality:**
