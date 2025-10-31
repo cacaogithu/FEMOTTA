@@ -112,9 +112,24 @@ function ResultsPage({ results, onReset, jobId }) {
     try {
       console.log('Using fallback PSD download method...');
       const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
+      
       if (!response.ok) {
-        throw new Error('Failed to download PSD');
+        const errorData = await response.json().catch(() => null);
+        if (errorData) {
+          console.error('PSD download error:', errorData);
+          if (errorData.jobStatus === 'processing') {
+            alert('⏳ Images are still processing. Please wait for processing to complete before downloading PSD files.');
+          } else if (errorData.details) {
+            alert(`❌ ${errorData.error}\n\n${errorData.details}`);
+          } else {
+            alert(`❌ ${errorData.error || 'Failed to download PSD'}`);
+          }
+        } else {
+          alert('❌ Failed to download PSD file. Please try again.');
+        }
+        return;
       }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -126,7 +141,7 @@ function ResultsPage({ results, onReset, jobId }) {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('PSD download error:', error);
-      alert('Failed to download PSD file. Please try again.');
+      alert('❌ Failed to download PSD file. Please try again.');
     }
   };
 

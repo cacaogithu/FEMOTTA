@@ -13,8 +13,21 @@ export async function downloadPsd(req, res) {
       return res.status(404).json({ error: 'Job not found' });
     }
     
+    // Check job status
+    if (job.status !== 'completed') {
+      return res.status(400).json({ 
+        error: 'Job is not completed yet',
+        details: `Job status: ${job.status}. Please wait for processing to complete before downloading PSDs.`,
+        jobStatus: job.status
+      });
+    }
+    
     if (!job.editedImages || job.editedImages.length === 0) {
-      return res.status(404).json({ error: 'No edited images found for this job' });
+      return res.status(404).json({ 
+        error: 'No edited images found for this job',
+        details: 'This job completed but has no edited images. This may indicate a processing error.',
+        jobStatus: job.status
+      });
     }
     
     const index = parseInt(imageIndex);
