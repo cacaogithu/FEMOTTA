@@ -74,26 +74,30 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
       messages: [
         {
           role: 'system',
-          content: `You are an AI creative assistant specialized in extracting marketing image specifications from briefs.
+          content: `You are an AI creative assistant specialized in extracting marketing image specifications from document briefs.
 
-Your task is to read the provided document brief and extract ALL image specifications into structured JSON format.
+Your task is to carefully READ the document layout and extract ALL image specifications into structured JSON format.
 
 CRITICAL INSTRUCTIONS:
 1. Extract EVERY image variant mentioned in the brief (IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
 2. If a brief mentions BOTH "Metal Dark" AND "Wood Dark" variants, create SEPARATE specifications for EACH variant
 3. Create one JSON object per variant, even if they share the same image number
 4. The total number of specifications should match the total number of product variant images described
-5. IMPORTANT: When the same headline/title is used for multiple variants of the same image number, you MUST differentiate them by appending the variant to the title. For example:
-   - If IMAGE 1 has title "HERO" for both METAL DARK and WOOD DARK variants, output:
-     * Spec 1: title "HERO - METAL DARK"
-     * Spec 2: title "HERO - WOOD DARK"
-   - This ensures each specification has a unique, identifiable title
+
+TITLE AND SUBTITLE EXTRACTION RULES:
+- ANALYZE the visual/textual layout of each image specification in the document
+- TITLE: Extract the main HEADLINE text - usually larger, bold, or emphasized text at the top of each spec
+- SUBTITLE: Extract the descriptive COPY text - usually smaller text below the headline
+- Extract titles and subtitles EXACTLY as written in the document
+- DO NOT add variant names (like "- METAL DARK") to titles unless they are already part of the written title in the document
+- DO NOT invent or modify titles - read what is actually written
+- If no subtitle exists, use empty string ""
 
 For each image specification, extract:
 - image_number: The sequential number from the brief (1, 2, 3, etc.)
 - variant: The variant name if specified (e.g., "METAL DARK", "WOOD DARK", or null if not applicable)
-- title: The HEADLINE text (convert to uppercase). If multiple variants share the same headline, append " - [VARIANT]" to differentiate them
-- subtitle: The COPY text (keep as written)
+- title: The HEADLINE text EXACTLY as written (convert to uppercase). Do NOT append variant names unless already in the document.
+- subtitle: The COPY text EXACTLY as written (keep original case)
 - asset: The ASSET filename (if mentioned)
 
 For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this template:
@@ -104,37 +108,37 @@ Replace {title} and {subtitle} with the actual extracted values for EACH image v
 
 Return ONLY a valid JSON array with ALL image variant specifications, no additional text.
 
-Example for document with variants:
+Example for document with variants (assuming the document titles are written without variant suffixes):
 [
   {
     "image_number": 1,
     "variant": "METAL DARK",
-    "title": "HERO - METAL DARK",
-    "subtitle": "",
+    "title": "CORSAIR ONE I600",
+    "subtitle": "Premium Small Form Factor Gaming PC",
     "asset": "CORSAIR_ONE_i600_DARK_METAL_RENDER_01",
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
     "image_number": 1,
     "variant": "WOOD DARK",
-    "title": "HERO - WOOD DARK",
-    "subtitle": "",
+    "title": "CORSAIR ONE I600",
+    "subtitle": "Premium Small Form Factor Gaming PC",
     "asset": "CORSAIR_ONE_i600_WOOD_DARK_RENDER_01",
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
     "image_number": 2,
     "variant": "METAL DARK",
-    "title": "CORSAIR ONE I600 - METAL DARK",
-    "subtitle": "A Compact PC...",
+    "title": "DUAL 240MM LIQUID COOLING",
+    "subtitle": "Stay cool under pressure",
     "asset": "CORSAIR_ONE_i600_DARK_METAL_12",
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
     "image_number": 2,
     "variant": "WOOD DARK",
-    "title": "CORSAIR ONE I600 - WOOD DARK",
-    "subtitle": "A Compact PC...",
+    "title": "DUAL 240MM LIQUID COOLING",
+    "subtitle": "Stay cool under pressure",
     "asset": "CORSAIR_ONE_i600_WOOD_DARK_PHOTO_17",
     "ai_prompt": "Add a dark gradient overlay..."
   }
