@@ -59,11 +59,30 @@ function TimeMetricsPanel({ jobId }) {
   );
 }
 
-function ResultsPage({ results, onReset, jobId }) {
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+function ResultsPage({ results: initialResults, onReset, jobId }) {
+  const [results, setResults] = useState(initialResults);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefreshImages = () => {
-    setRefreshTrigger(prev => prev + 1);
+  useEffect(() => {
+    setResults(initialResults);
+  }, [initialResults]);
+
+  const handleRefreshImages = async () => {
+    setIsRefreshing(true);
+    try {
+      console.log('[ResultsPage] Refreshing images for job:', jobId);
+      const response = await authenticatedFetch(`/api/results/poll/${jobId}`);
+      const data = await response.json();
+      console.log('[ResultsPage] Refresh response:', data);
+      if (data.status === 'completed' && data.results) {
+        setResults(data.results);
+        console.log('[ResultsPage] Images refreshed successfully');
+      }
+    } catch (error) {
+      console.error('[ResultsPage] Refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleDownloadAll = async () => {
@@ -157,7 +176,10 @@ function ResultsPage({ results, onReset, jobId }) {
       <div className="container">
         <header className="results-header">
           <h1>Your Images Are Ready!</h1>
-          <p>{results.images?.length || 0} images processed successfully</p>
+          <p>
+            {results?.images?.length || 0} images processed successfully
+            {isRefreshing && <span style={{ marginLeft: '10px', color: '#ffa500' }}>⚡ Refreshing...</span>}
+          </p>
           <TimeMetricsPanel jobId={jobId} />
           <div className="header-actions">
             <button className="button button-primary" onClick={handleDownloadAll}>
@@ -170,11 +192,10 @@ function ResultsPage({ results, onReset, jobId }) {
         </header>
 
         <div className="results-grid">
-          {results.images?.map((image, idx) => (
+          {results?.images?.map((image, idx) => (
             <div key={idx} className="result-card">
               {image.originalImageId && image.editedImageId ? (
                 <BeforeAfterSlider 
-                  key={`slider-${idx}-${refreshTrigger}`}
                   beforeImageId={image.originalImageId}
                   afterImageId={image.editedImageId}
                   name={image.name}
@@ -182,7 +203,6 @@ function ResultsPage({ results, onReset, jobId }) {
               ) : (
                 <div className="image-container">
                   <ImagePreview 
-                    key={`preview-${idx}-${refreshTrigger}`}
                     imageId={image.editedImageId || image.id}
                     alt={image.name}
                     className="result-image"

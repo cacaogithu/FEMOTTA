@@ -10,7 +10,7 @@ function ChatWidget({ jobId, onImageUpdated }) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
-  const refreshTimeoutRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -40,12 +40,8 @@ function ChatWidget({ jobId, onImageUpdated }) {
       setMessages([...messages, userMessage, { role: 'assistant', content: data.message }]);
 
       if (data.editTriggered && onImageUpdated) {
-        if (refreshTimeoutRef.current) {
-          clearTimeout(refreshTimeoutRef.current);
-        }
-        refreshTimeoutRef.current = setTimeout(() => {
-          onImageUpdated();
-        }, 35000);
+        console.log('[ChatWidget] Edit triggered, starting polling for completion...');
+        startPollingForCompletion();
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -58,10 +54,47 @@ function ChatWidget({ jobId, onImageUpdated }) {
     }
   };
 
+  const startPollingForCompletion = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    let pollCount = 0;
+    const maxPolls = 20;
+
+    const pollForUpdates = async () => {
+      try {
+        pollCount++;
+        console.log(`[ChatWidget] Polling attempt ${pollCount}/${maxPolls}`);
+        
+        const response = await fetch(`/api/results/poll/${jobId}`);
+        const data = await response.json();
+        
+        if (data.status === 'completed') {
+          console.log('[ChatWidget] Edit completed, triggering image refresh');
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+          if (onImageUpdated) {
+            onImageUpdated();
+          }
+        } else if (pollCount >= maxPolls) {
+          console.log('[ChatWidget] Max polls reached, stopping polling');
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+      } catch (error) {
+        console.error('[ChatWidget] Polling error:', error);
+      }
+    };
+
+    setTimeout(pollForUpdates, 10000);
+    pollingIntervalRef.current = setInterval(pollForUpdates, 5000);
+  };
+
   useEffect(() => {
     return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
   }, []);
