@@ -43,14 +43,19 @@ async function saveJobToDb(jobId, jobData) {
     if (jobData.processingTimeSeconds !== undefined) updateFields.processingTimeSeconds = dbJob.processingTimeSeconds;
     if (jobData.estimatedManualTimeMinutes !== undefined) updateFields.estimatedManualTimeMinutes = dbJob.estimatedManualTimeMinutes;
 
+    console.log(`[JobStore] Saving job ${jobId} to database. Status: ${dbJob.status}, EditedImages: ${dbJob.editedImagesData.length}`);
+    
     await db.insert(jobsTable)
       .values(dbJob)
       .onConflictDoUpdate({
         target: jobsTable.jobId,
         set: updateFields
       });
+      
+    console.log(`[JobStore] Successfully saved job ${jobId} to database`);
   } catch (error) {
     console.error('[JobStore] Failed to save job to database:', error);
+    console.error('[JobStore] Error details:', error.message, error.stack);
   }
 }
 
