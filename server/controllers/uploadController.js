@@ -83,11 +83,16 @@ CRITICAL INSTRUCTIONS:
 2. If a brief mentions BOTH "Metal Dark" AND "Wood Dark" variants, create SEPARATE specifications for EACH variant
 3. Create one JSON object per variant, even if they share the same image number
 4. The total number of specifications should match the total number of product variant images described
+5. IMPORTANT: When the same headline/title is used for multiple variants of the same image number, you MUST differentiate them by appending the variant to the title. For example:
+   - If IMAGE 1 has title "HERO" for both METAL DARK and WOOD DARK variants, output:
+     * Spec 1: title "HERO - METAL DARK"
+     * Spec 2: title "HERO - WOOD DARK"
+   - This ensures each specification has a unique, identifiable title
 
 For each image specification, extract:
 - image_number: The sequential number from the brief (1, 2, 3, etc.)
 - variant: The variant name if specified (e.g., "METAL DARK", "WOOD DARK", or null if not applicable)
-- title: The HEADLINE text (convert to uppercase)
+- title: The HEADLINE text (convert to uppercase). If multiple variants share the same headline, append " - [VARIANT]" to differentiate them
 - subtitle: The COPY text (keep as written)
 - asset: The ASSET filename (if mentioned)
 
@@ -104,25 +109,33 @@ Example for document with variants:
   {
     "image_number": 1,
     "variant": "METAL DARK",
-    "title": "CORSAIR ONE I600",
-    "subtitle": "A Compact PC...",
-    "asset": "CORSAIR_ONE_i600_DARK_METAL_12",
+    "title": "HERO - METAL DARK",
+    "subtitle": "",
+    "asset": "CORSAIR_ONE_i600_DARK_METAL_RENDER_01",
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
     "image_number": 1,
     "variant": "WOOD DARK",
-    "title": "CORSAIR ONE I600",
-    "subtitle": "A Compact PC...",
-    "asset": "CORSAIR_ONE_i600_WOOD_DARK_PHOTO_17",
+    "title": "HERO - WOOD DARK",
+    "subtitle": "",
+    "asset": "CORSAIR_ONE_i600_WOOD_DARK_RENDER_01",
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
     "image_number": 2,
     "variant": "METAL DARK",
-    "title": "DUAL 240MM LIQUID COOLING",
-    "subtitle": "Modern liquid cooling...",
-    "asset": "CORSAIR_ONE_i600_DARK_METAL_17",
+    "title": "CORSAIR ONE I600 - METAL DARK",
+    "subtitle": "A Compact PC...",
+    "asset": "CORSAIR_ONE_i600_DARK_METAL_12",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 2,
+    "variant": "WOOD DARK",
+    "title": "CORSAIR ONE I600 - WOOD DARK",
+    "subtitle": "A Compact PC...",
+    "asset": "CORSAIR_ONE_i600_WOOD_DARK_PHOTO_17",
     "ai_prompt": "Add a dark gradient overlay..."
   }
 ]`

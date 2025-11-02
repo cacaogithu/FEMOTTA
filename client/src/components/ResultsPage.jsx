@@ -60,6 +60,12 @@ function TimeMetricsPanel({ jobId }) {
 }
 
 function ResultsPage({ results, onReset, jobId }) {
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleRefreshImages = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   const handleDownloadAll = async () => {
     try {
       const response = await authenticatedFetch(`/api/results/download/${jobId}`);
@@ -147,7 +153,7 @@ function ResultsPage({ results, onReset, jobId }) {
 
   return (
     <div className="results-page">
-      <ChatWidget jobId={jobId} />
+      <ChatWidget jobId={jobId} onImageUpdated={handleRefreshImages} />
       <div className="container">
         <header className="results-header">
           <h1>Your Images Are Ready!</h1>
@@ -168,6 +174,7 @@ function ResultsPage({ results, onReset, jobId }) {
             <div key={idx} className="result-card">
               {image.originalImageId && image.editedImageId ? (
                 <BeforeAfterSlider 
+                  key={`slider-${idx}-${refreshTrigger}`}
                   beforeImageId={image.originalImageId}
                   afterImageId={image.editedImageId}
                   name={image.name}
@@ -175,6 +182,7 @@ function ResultsPage({ results, onReset, jobId }) {
               ) : (
                 <div className="image-container">
                   <ImagePreview 
+                    key={`preview-${idx}-${refreshTrigger}`}
                     imageId={image.editedImageId || image.id}
                     alt={image.name}
                     className="result-image"

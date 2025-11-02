@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { postJSON } from '../utils/api';
 import './ChatWidget.css';
 
-function ChatWidget({ jobId }) {
+function ChatWidget({ jobId, onImageUpdated }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Welcome to CORSAIR AI Assistant. I can help you optimize and edit your product images. What would you like to change?' }
@@ -10,6 +10,7 @@ function ChatWidget({ jobId }) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
+  const refreshTimeoutRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,6 +38,15 @@ function ChatWidget({ jobId }) {
 
       const data = await response.json();
       setMessages([...messages, userMessage, { role: 'assistant', content: data.message }]);
+
+      if (data.editTriggered && onImageUpdated) {
+        if (refreshTimeoutRef.current) {
+          clearTimeout(refreshTimeoutRef.current);
+        }
+        refreshTimeoutRef.current = setTimeout(() => {
+          onImageUpdated();
+        }, 35000);
+      }
     } catch (error) {
       console.error('Chat error:', error);
       setMessages([...messages, userMessage, { 
@@ -47,6 +57,14 @@ function ChatWidget({ jobId }) {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

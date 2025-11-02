@@ -148,7 +148,7 @@ After triggering an edit, confirm what you're doing. Be helpful, creative, and f
           if (reEditResponse.ok) {
             return res.json({
               success: true,
-              message: `I'm now editing ${targetDescription} with these instructions: "${args.newPrompt}". The processing will take about 30-60 seconds. Refresh the page to see the updated results!`,
+              message: `I'm now editing ${targetDescription} with these instructions: "${args.newPrompt}". The processing will take about 30-60 seconds. The images will automatically refresh once the editing is complete.`,
               editTriggered: true
             });
           } else {
