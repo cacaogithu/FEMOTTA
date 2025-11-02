@@ -3,6 +3,7 @@ import { downloadFileFromDrive } from '../utils/googleDrive.js';
 import 'ag-psd/initialize-canvas.js'; // Required for Node.js
 import { writePsdBuffer } from 'ag-psd';
 import { createCanvas, Image } from 'canvas';
+import sharp from 'sharp';
 
 export async function downloadPsd(req, res) {
   try {
@@ -58,24 +59,33 @@ export async function downloadPsd(req, res) {
     
     console.log('[PSD Download] Images downloaded, processing...');
     
-    // Load images from buffers with proper onload event handling
-    const loadImageFromBuffer = (buffer) => {
-      return new Promise((resolve, reject) => {
+    // Use sharp to decode images and convert to PNG format for reliable node-canvas loading
+    const loadImageFromBuffer = async (buffer) => {
+      try {
+        // Use sharp to decode the image and get metadata
+        const metadata = await sharp(buffer).metadata();
+        console.log('[PSD Download] Image metadata:', metadata.width, 'x', metadata.height, metadata.format);
+        
+        // Convert to PNG buffer for reliable node-canvas loading
+        const pngBuffer = await sharp(buffer)
+          .png()
+          .toBuffer();
+        
+        // Now load into node-canvas Image
         const img = new Image();
+        img.src = pngBuffer;
         
-        img.onload = () => {
-          console.log('[PSD Download] Image loaded, dimensions:', img.width, 'x', img.height);
-          resolve(img);
-        };
+        // Image should be loaded synchronously since it's a valid PNG buffer
+        if (!img.width || !img.height) {
+          throw new Error('Image dimensions not available after loading');
+        }
         
-        img.onerror = (err) => {
-          console.error('[PSD Download] Image load error:', err);
-          reject(new Error('Failed to load image from buffer'));
-        };
-        
-        // node-canvas can load directly from Buffer
-        img.src = buffer;
-      });
+        console.log('[PSD Download] Image loaded successfully:', img.width, 'x', img.height);
+        return img;
+      } catch (error) {
+        console.error('[PSD Download] Image load error:', error);
+        throw new Error(`Failed to load image from buffer: ${error.message}`);
+      }
     };
     
     const [originalImg, editedImg] = await Promise.all([
