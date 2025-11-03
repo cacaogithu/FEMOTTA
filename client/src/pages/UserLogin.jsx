@@ -45,7 +45,7 @@ function UserLogin() {
       <div className="user-login-container">
         <div className="user-login-header">
           <img 
-            src="/attached_assets/image_1760917218883.png" 
+            src="/corsair-logo.jpg" 
             alt="Corsair Logo" 
             className="corsair-logo"
           />
