@@ -8,6 +8,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import BrandForm from './pages/admin/BrandForm';
 import SubaccountDetail from './pages/admin/SubaccountDetail';
 import BrandLogin from './pages/BrandLogin';
+import UserLogin from './pages/UserLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import { brandService } from './services/brandService';
 import './App.css';
@@ -72,6 +73,9 @@ function App() {
     <Routes>
       {/* Main application routes */}
       <Route path="/" element={<MainApp />} />
+      
+      {/* User login route */}
+      <Route path="/login" element={<UserLogin />} />
       
       {/* Brand-specific login routes */}
       <Route path="/:brandSlug/login" element={<BrandLogin />} />

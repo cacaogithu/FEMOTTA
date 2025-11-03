@@ -1,0 +1,136 @@
+.user-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1e 100%);
+  padding: 20px;
+}
+
+.user-login-container {
+  width: 100%;
+  max-width: 460px;
+  background: rgba(30, 30, 50, 0.95);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  border-radius: 16px;
+  padding: 48px 40px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.user-login-header {
+  margin-bottom: 36px;
+  text-align: center;
+}
+
+.user-login-header .corsair-logo {
+  width: 160px;
+  height: auto;
+  margin-bottom: 24px;
+  filter: drop-shadow(0 4px 8px rgba(255, 193, 7, 0.2));
+}
+
+.user-login-header h1 {
+  color: #FFC107;
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  letter-spacing: 2px;
+}
+
+.user-login-header .subtitle {
+  color: rgba(255, 193, 7, 0.7);
+  font-size: 14px;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.user-login .error-message {
+  background: rgba(220, 53, 69, 0.1);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  color: #ff6b7a;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.user-login .form-group {
+  margin-bottom: 24px;
+}
+
+.user-login .form-group label {
+  display: block;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.user-login .form-group input {
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.user-login .form-group input:focus {
+  outline: none;
+  border-color: #FFC107;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.15);
+}
+
+.user-login .form-group input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.user-login .btn-login {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #FFC107 0%, #FF6F00 100%);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 8px;
+}
+
+.user-login .btn-login:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 193, 7, 0.5);
+}
+
+.user-login .btn-login:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.user-login .btn-login:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 480px) {
+  .user-login-container {
+    padding: 36px 28px;
+  }
+
+  .user-login-header .corsair-logo {
+    width: 140px;
+  }
+
+  .user-login-header h1 {
+    font-size: 28px;
+  }
+}
