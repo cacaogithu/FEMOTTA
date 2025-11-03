@@ -1,7 +1,7 @@
 # Multi-Brand AI Marketing Image Editor
 
 ## Overview
-A professional, multi-tenant SaaS platform for AI-powered marketing image editing. This platform allows users to upload marketing briefs (PDF, DOCX, or text prompt) and product images, which are then processed by the Wavespeed Nano Banana API for instant AI-powered image editing. Key capabilities include brand-specific theming, interactive before/after image comparisons, an AI chat assistant for selective re-editing, and the ability to download layered PSD files. The system delivers significant ROI by enhancing efficiency and reducing the time required for marketing image production.
+A professional, multi-tenant SaaS platform for AI-powered marketing image editing. This platform allows users to upload marketing briefs (PDF, DOCX, or text prompt) and product images for instant AI-powered editing. Key capabilities include brand-specific theming, interactive before/after image comparisons, an AI chat assistant for selective re-editing, and the ability to download layered PSD files. The system enhances efficiency and reduces the time required for marketing image production.
 
 ## User Preferences
 - I prefer clear and concise explanations.
@@ -16,167 +16,59 @@ A professional, multi-tenant SaaS platform for AI-powered marketing image editin
 ## System Architecture
 The application is a multi-tenant SaaS platform built with a React.js frontend (Vite), a Node.js/Express backend, and a PostgreSQL database (Neon). It utilizes Google Drive for file storage and integrates directly with the Wavespeed Nano Banana API for image processing.
 
-### CRM-Style Subaccount Management (New!)
-The platform has evolved from simple brand isolation to a comprehensive CRM system for managing subaccounts:
-
-**Database Schema:**
-- **Subaccount Tables**: `brands` (renamed conceptually to subaccounts), `subaccount_users`, `subaccount_prompts`, `prompt_versions`, `subaccount_usage_daily`, `feedback`, `edited_images`
-- **CRM Columns**: `seats_purchased`, `seats_used`, `workflow_config`, `monthly_job_limit`, `monthly_image_limit`
-
-**User Management:**
-- Multi-user support per subaccount with role-based access control (owner, admin, member, viewer)
-- Seat tracking and limits - enforce maximum users per subaccount
-- User invitation system with tokens
-- bcrypt-hashed passwords for each subaccount user
-
-**Prompt Management:**
-- Prompt template library per subaccount
-- Version control for prompts with performance tracking
-- Activate/deprecate prompt versions
-- Link prompts to edited images for analytics
-
-**Usage Analytics:**
-- Daily usage tracking: jobs created/completed/failed, images uploaded/processed
-- API call tracking (Wavespeed, OpenAI)
-- Cost estimation per subaccount
-- Time savings metrics (processing time vs. manual estimate)
-
-**Output Quality Analytics:**
-- Rating system (1-5 stars) with detailed metrics (goal alignment, creativity, technical quality)
-- Feedback collection linked to specific edited images
-- Rating trends over time
-- Prompt performance analysis
-
-**Workflow Customization:**
-- JSON-based workflow configuration storage
-- Visual workflow builder (UI placeholder ready)
-- Per-subaccount workflow customization
-
-**Admin CRM Dashboard:**
-- **Overview Tab**: Key metrics (users, jobs, images, prompts), usage limits
-- **Users Tab**: Add/remove users, role assignment, seat tracking, last login tracking
-- **Prompts Tab**: Template library with versions, categories, default flags
-- **Workflow Tab**: Workflow preview and customization (coming soon)
-- **Analytics Tab**: Usage stats, cost tracking, time saved metrics
-
-**Security:**
-- All CRM endpoints protected by `verifyAdminToken` middleware
-- Admin-only access to user management, prompt control, and analytics
-- JWT-based admin authentication with token expiration
+### CRM-Style Subaccount Management
+The platform includes a CRM system for managing subaccounts with features like:
+- **Database Schema**: Tables for `brands` (subaccounts), `subaccount_users`, `subaccount_prompts`, `prompt_versions`, `subaccount_usage_daily`, `feedback`, `edited_images`. Includes CRM-specific columns for `seats_purchased`, `workflow_config`, `monthly_job_limit`, etc.
+- **User Management**: Multi-user support per subaccount with role-based access control, seat tracking, and an invitation system.
+- **Prompt Management**: Per-subaccount prompt template library with version control and performance tracking.
+- **Usage Analytics**: Daily tracking of jobs, images, API calls, and cost/time savings per subaccount.
+- **Output Quality Analytics**: Rating system (1-5 stars) and feedback collection linked to edited images for trend and prompt performance analysis.
+- **Workflow Customization**: JSON-based workflow configuration with future visual builder.
+- **Admin CRM Dashboard**: Comprehensive dashboard for managing users, prompts, workflows, and analytics, secured with `verifyAdminToken` middleware.
 
 ### Multi-Tenant Architecture
-- **Brand Isolation**: Each brand operates with isolated Google Drive folders, branding assets, and AI configurations.
-- **Dynamic Theming**: The frontend dynamically loads brand-specific logos, colors, and prompts from the database.
-- **Secure Credential Management**: API keys are loaded securely per-request using a `brandLoader` utility without exposing them in job states.
-- **Admin Security**: Brand management is protected by `X-Admin-Key` header authentication.
+- **Brand Isolation**: Isolated Google Drive folders, branding assets, and AI configurations per brand/subaccount.
+- **Dynamic Theming**: Frontend dynamically loads brand-specific assets.
+- **Secure Credential Management**: API keys loaded securely per-request.
+- **Admin Security**: Brand management protected by `X-Admin-Key` header.
 
 ### Authentication & Authorization System
-- **Brand-Specific Authentication**: Each brand/sub-account has its own login credentials with bcrypt-hashed passwords stored securely.
-- **JWT Token-Based Auth**: Brand logins generate JWT tokens (role: 'brand') that include brandId, brandSlug, and brandName.
-- **Automatic Token Inclusion**: Frontend uses `authenticatedFetch`, `postJSON`, and `postFormData` utilities that automatically attach brand tokens from localStorage to all API requests.
-- **Middleware Enforcement**: `brandContextMiddleware` verifies JWT tokens and enforces brand data isolation - users can only access their own brand's jobs, images, and results.
-- **Blob URL Strategy**: Image previews (BeforeAfterSlider, ImagePreview) load images via authenticatedFetch and convert to blob URLs, ensuring all image access is authenticated.
-- **Parent-Child Brands**: Supports sub-accounts (e.g., LifeTrek Medical under Corsair) with isolated authentication and data.
-- **Login Routes**: Brand-specific login pages available at `/:brandSlug/login` (e.g., `/lifetrek-medical/login`).
-- **Backward Compatibility**: Unauthenticated requests default to 'corsair' brand for legacy support.
+- **User Authentication**: JWT-based authentication for main editor application with protected routes. User tokens stored in localStorage.
+- **Login UI**: Premium design with animated gradients and Corsair brand colors.
+- **Brand-Specific Authentication**: Each brand/sub-account has its own login with bcrypt-hashed passwords. Brand JWT tokens include `brandId`, `brandSlug`, and `brandName`.
+- **Automatic Token Inclusion**: Frontend utilities automatically attach brand tokens to API requests.
+- **Middleware Enforcement**: `brandContextMiddleware` enforces data isolation based on brand tokens.
+- **Blob URL Strategy**: Images loaded via authenticated fetch and converted to blob URLs for secure access.
+- **Parent-Child Brands**: Supports sub-accounts with isolated authentication and data.
+- **Login Routes**: Brand-specific login pages at `/:brandSlug/login`.
 
 ### UI/UX Decisions
-- **Aesthetic**: Features a sleek, dark gaming aesthetic with brand-specific theming.
-- **Interactive Elements**: Includes before/after comparison sliders for edited images and a floating AI chat assistant widget.
-- **Workflow Visualization**: Provides live display of processing steps and a results gallery with download options.
-- **Metrics Dashboard**: A `TimeMetricsPanel` displays "Time Saved," "Efficiency Gain," "Processing Time," and "Manual Estimate."
+- **Aesthetic**: Sleek, dark gaming aesthetic with brand-specific theming.
+- **Interactive Elements**: Before/after comparison sliders and a floating AI chat assistant.
+- **Workflow Visualization**: Live display of processing steps and results gallery.
+- **Metrics Dashboard**: `TimeMetricsPanel` showing "Time Saved," "Efficiency Gain," etc.
 
 ### Technical Implementations
-- **Triple Input Modes**: Supports PDF, DOCX, or text prompts; DOCX includes intelligent image filtering to skip logos.
-- **Parallel Processing**: Images are processed in parallel batches of 15 using `Promise.all` for efficiency, with real-time progress updates.
-- **AI Chat with Function Calling**: Leverages GPT-4 for natural language re-editing of selected images.
-- **ML Feedback System**: Incorporates a 5-star rating and text feedback mechanism, powered by GPT-4 for continuous prompt improvement.
-- **Job-based Architecture**: Ensures concurrent user support by isolating each job with a unique ID and dedicated storage.
-- **PSD Download**: Generates layered PSD files for each image (Original + AI Edited) using `ag-psd` and `node-canvas`.
+- **Triple Input Modes**: Supports PDF, DOCX, or text prompts; DOCX includes intelligent image filtering.
+- **Parallel Processing**: Images processed in parallel batches with real-time progress updates.
+- **AI Chat with Function Calling**: GPT-4 based for natural language re-editing of selected images.
+- **ML Feedback System**: GPT-4 powered 5-star rating and text feedback for continuous prompt improvement. Includes `MLAnalysisService` for intelligent feedback analysis and prompt optimization suggestions.
+- **Job-based Architecture**: Isolates each job with a unique ID and dedicated storage, ensuring concurrent user support. Implemented a hybrid job storage system using in-memory cache and PostgreSQL persistence for reliability.
+- **PSD Download**: Generates layered PSD files (Original + AI Edited) using `ag-psd` and `node-canvas`.
 
 ### Feature Specifications
-- **File Upload Interface**: Client-side validation, multi-image upload, and support for large files.
-- **Results Gallery**: Offers individual image download, bulk ZIP download, and PSD download.
-- **AI Chat Capabilities**: Provides context-aware responses and selective image re-editing.
-- **Time Tracking**: Comprehensive backend tracking for processing time, estimated manual time, and time saved.
-
-## Recent Changes
-
-### October 31, 2025 - UI Redesign & PSD Fix
-**Processing Page UI Redesign:**
-- Complete redesign of ProcessingPage component with modern, clean aesthetic
-- Replaced heavy visual style with minimalist, professional design
-- New features: animated progress glow, dot-pulse loading indicators, smooth check animations
-- Improved mobile responsiveness with optimized font sizes and spacing
-- Better visual hierarchy with subtle backgrounds and borders
-- Reduced visual noise while maintaining brand colors (Corsair gold/orange)
-
-**PSD Download Fix:**
-- Fixed image loading in `psdController.js` to correctly handle async Buffer loading from Google Drive
-- Restored proper Promise-based image loading with onload/onerror event handlers
-- Fixed "Image given has not completed loading" error by ensuring Image.onload completes before accessing dimensions
-- Added job status validation: PSD downloads now require job status='completed'
-- Improved error messages on backend and frontend for incomplete jobs
-- Frontend now shows contextual error messages: "⏳ Images are still processing..." vs generic errors
-- Confirmed system works correctly: jobs with status='completed' have editedImages persisted in database
-
-### October 29, 2025 - Critical Bug Fixes & Job Persistence
-**AI Re-Edit Functionality:**
-- Fixed AI chat re-edit to properly download edited images from Google Drive and convert to base64 before sending to Wavespeed API
-- Updated `nanoBanana.js` service to support base64 image input with `isBase64` flag
-- Re-edit workflow now: downloads edited image → converts to base64 → sends to Wavespeed → saves new result to Drive
-
-**Job Persistence System:**
-- Implemented hybrid job storage system combining in-memory cache with PostgreSQL persistence
-- Added new JSONB fields to `jobs` table: `promptText`, `processingStep`, `imagesData`, `editedImagesData`, `imageProgress`
-- Jobs now survive backend restarts - no more "Job not found" errors for PSD downloads
-- Created `getJobWithFallback()` utility that checks memory first, then loads from database automatically
-- Updated PSD and re-edit controllers to use database fallback for reliable job retrieval
-- All job state (including images, prompts, progress) persists to database asynchronously without blocking main thread
-
-**Technical Improvements:**
-- Fixed import path in `jobStore.js` to correctly reference `server/db.js`
-- Enhanced error handling for database operations with try/catch wrappers
-- Backend and frontend workflows running successfully
-
-### October 26, 2025 - CRM & ML Features
-**CRM System Implementation:**
-- Transformed brand management into comprehensive subaccount CRM system
-- Added 6 new database tables for CRM features (users, prompts, analytics, feedback)
-- Built SubaccountDetail admin dashboard with 6-tab interface
-- Implemented multi-user management with RBAC and seat limits
-- Created prompt template library with versioning system
-- Integrated usage analytics and output quality tracking
-- Secured all CRM endpoints with admin authentication
-- Updated terminology from "brands" to "subaccounts" in admin UI
-
-**ML Phase 1: Smart Prompt Optimization (NEW!):**
-- Created `MLAnalysisService` using GPT-4 for intelligent feedback analysis
-- Analyzes prompt performance across rating metrics (overall, goal alignment, creativity, technical quality)
-- Generates AI-powered prompt improvement suggestions based on low-rated feedback patterns
-- Identifies what makes high-performing prompts successful
-- Built API endpoints: `/api/ml/analyze/:subaccountId`, `/api/ml/insights/:subaccountId`, `/api/ml/suggest-improvement/:promptId/:versionId`
-- Added **ML Insights** tab (🤖) to SubaccountDetail dashboard with:
-  - One-click analysis button to run GPT-4 prompt optimization
-  - Performance breakdown table showing ratings by prompt version
-  - AI-generated improvement cards with problem analysis, improved prompts, key changes, and expected impact
-  - Success rate tracking and feedback count metrics
-- All ML endpoints secured with admin authentication
-- Zero infrastructure requirements - uses existing OpenAI GPT-4 API integration
-
-**Active Subaccounts:**
-- **Corsair** (Primary): Login at `/corsair/login` (password: corsair2025)
-- **LifeTrek Medical** (Sub-account): Login at `/lifetrek-medical/login` (password: lifetrek2025)
-
-Both subaccounts have 5 seats purchased, 0 currently used.
+- **File Upload Interface**: Client-side validation, multi-image upload, large file support.
+- **Results Gallery**: Individual, bulk ZIP, and PSD downloads.
+- **AI Chat Capabilities**: Context-aware responses and selective image re-editing.
+- **Time Tracking**: Comprehensive backend tracking for processing, manual, and saved time.
 
 ## External Dependencies
-- **PostgreSQL Database (Neon)**: Used for multi-tenant data storage (subaccounts, users, jobs, images, prompts, analytics).
-- **Google Drive API**: Manages storage for briefs, product images, and edited results, with brand-specific folder isolation.
-- **Wavespeed Nano Banana API**: Primary integration for AI-powered image editing.
-- **OpenAI API (GPT-4)**: Powers the AI Chat Assistant, function calling, and the ML feedback system.
-- **Mammoth.js**: Extracts text and images from DOCX files.
-- **pdfjs-dist**: Processes PDF files for text extraction.
-- **ag-psd** and **node-canvas**: Used for generating layered PSD files.
-- **Drizzle ORM**: Facilitates PostgreSQL schema management and queries.
-- **bcrypt**: Password hashing for admin and subaccount user authentication.
+- **PostgreSQL Database (Neon)**: Multi-tenant data storage.
+- **Google Drive API**: File storage for briefs, product images, and results.
+- **Wavespeed Nano Banana API**: Primary AI-powered image editing.
+- **OpenAI API (GPT-4)**: AI Chat Assistant, function calling, ML feedback system.
+- **Mammoth.js**: Extracts text and images from DOCX.
+- **pdfjs-dist**: Processes PDF files.
+- **ag-psd** and **node-canvas**: Generates layered PSD files.
+- **Drizzle ORM**: PostgreSQL schema management and queries.
+- **bcrypt**: Password hashing.

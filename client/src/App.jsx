@@ -10,6 +10,8 @@ import SubaccountDetail from './pages/admin/SubaccountDetail';
 import BrandLogin from './pages/BrandLogin';
 import UserLogin from './pages/UserLogin';
 import ProtectedRoute from './components/ProtectedRoute';
+import UserProtectedRoute from './components/UserProtectedRoute';
+import LogoutButton from './components/LogoutButton';
 import { brandService } from './services/brandService';
 import './App.css';
 
@@ -55,6 +57,7 @@ function MainApp() {
 
   return (
     <div className="app">
+      <LogoutButton />
       {page === 'upload' && (
         <UploadPage onComplete={handleUploadComplete} />
       )}
@@ -71,11 +74,26 @@ function MainApp() {
 function App() {
   return (
     <Routes>
-      {/* Main application routes */}
-      <Route path="/" element={<MainApp />} />
-      
-      {/* User login route */}
+      {/* Public routes */}
       <Route path="/login" element={<UserLogin />} />
+      
+      {/* Main application routes - Protected */}
+      <Route 
+        path="/" 
+        element={
+          <UserProtectedRoute>
+            <MainApp />
+          </UserProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/editor" 
+        element={
+          <UserProtectedRoute>
+            <MainApp />
+          </UserProtectedRoute>
+        } 
+      />
       
       {/* Brand-specific login routes */}
       <Route path="/:brandSlug/login" element={<BrandLogin />} />
@@ -115,8 +133,8 @@ function App() {
         }
       />
       
-      {/* Catch all - redirect to home */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Catch all - redirect to login */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

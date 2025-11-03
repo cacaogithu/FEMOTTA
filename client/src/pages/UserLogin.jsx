@@ -32,7 +32,7 @@ function UserLogin() {
       localStorage.setItem('userToken', data.token);
       localStorage.setItem('userInfo', JSON.stringify(data.user));
 
-      navigate('/');
+      navigate('/editor');
     } catch (err) {
       setError(err.message);
     } finally {
