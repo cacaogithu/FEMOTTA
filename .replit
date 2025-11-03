@@ -80,5 +80,6 @@ localPort = 42777
 externalPort = 3002
 
 [deployment]
-run = ["sh", "-c", "cd server && node index.js"]
-build = ["sh", "-c", "cd client && npm install && npm run build && cd ../server && npm install"]
+run = ["sh", "-c", "cd server && npm install && npm start"]
+build = ["sh", "-c", "cd client && npm install && npm run build"]
+deploymentTarget = "cloudrun"
