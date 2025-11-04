@@ -3,60 +3,96 @@ import fetch from 'node-fetch';
 const NANO_BANANA_EDIT_URL = 'https://api.wavespeed.ai/api/v3/google/nano-banana/edit';
 const NANO_BANANA_RESULT_URL = 'https://api.wavespeed.ai/api/v3/predictions';
 
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function editImageWithNanoBanana(imageUrlOrBase64, prompt, options = {}) {
-  try {
-    const {
-      enableSyncMode = true,
-      outputFormat = 'jpeg',
-      enableBase64Output = false,
-      numImages = 1,
-      wavespeedApiKey = process.env.WAVESPEED_API_KEY,
-      isBase64 = false  // Flag to indicate if input is base64
-    } = options;
+  const {
+    enableSyncMode = true,
+    outputFormat = 'jpeg',
+    enableBase64Output = false,
+    numImages = 1,
+    wavespeedApiKey = process.env.WAVESPEED_API_KEY,
+    isBase64 = false,
+    maxRetries = 2,
+    retryDelay = 3000
+  } = options;
 
-    // Prepare the image input - can be URL or base64
-    const imageInput = isBase64 ? imageUrlOrBase64 : imageUrlOrBase64;
+  let lastError;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        console.log(`Retry attempt ${attempt}/${maxRetries} for Nano Banana API...`);
+        await sleep(retryDelay * attempt);
+      }
 
-    const payload = {
-      enable_base64_output: enableBase64Output,
-      enable_sync_mode: enableSyncMode,
-      images: [imageInput],  // Can be URL or base64 string
-      output_format: outputFormat,
-      prompt: prompt,
-      num_images: numImages
-    };
+      const imageInput = isBase64 ? imageUrlOrBase64 : imageUrlOrBase64;
 
-    const response = await fetch(NANO_BANANA_EDIT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${wavespeedApiKey}`
-      },
-      body: JSON.stringify(payload)
-    });
+      const payload = {
+        enable_base64_output: enableBase64Output,
+        enable_sync_mode: enableSyncMode,
+        images: [imageInput],
+        output_format: outputFormat,
+        prompt: prompt,
+        num_images: numImages
+      };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Nano Banana API error: ${response.status} - ${errorText}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000);
+
+      const response = await fetch(NANO_BANANA_EDIT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${wavespeedApiKey}`
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        
+        if (response.status === 504 || response.status === 503 || response.status === 502) {
+          throw new Error(`GATEWAY_TIMEOUT: The image editing service is temporarily unavailable. Please try again in a moment.`);
+        }
+        
+        throw new Error(`Nano Banana API error: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+
+      if (enableSyncMode) {
+        return result;
+      } else {
+        return { requestId: result.requestId };
+      }
+    } catch (error) {
+      console.error(`Nano Banana edit error (attempt ${attempt + 1}/${maxRetries + 1}):`, error);
+      lastError = error;
+      
+      if (error.message.includes('Insufficient credits')) {
+        throw new Error('INSUFFICIENT_CREDITS: The Wavespeed API account needs to be topped up with credits.');
+      }
+      
+      if (error.name === 'AbortError') {
+        lastError = new Error('REQUEST_TIMEOUT: The image editing request took too long. Please try again with a simpler prompt or smaller image.');
+      }
+      
+      if (attempt === maxRetries) {
+        if (error.message.includes('504') || error.message.includes('503') || error.message.includes('502') || error.message.includes('GATEWAY_TIMEOUT')) {
+          throw new Error('GATEWAY_TIMEOUT: The image editing service is temporarily unavailable after multiple attempts. Please try again in a few minutes.');
+        }
+        throw lastError;
+      }
     }
-
-    const result = await response.json();
-
-    if (enableSyncMode) {
-      return result;
-    } else {
-      return { requestId: result.requestId };
-    }
-  } catch (error) {
-    console.error('Nano Banana edit error:', error);
-    
-    // Check for specific error messages
-    if (error.message.includes('Insufficient credits')) {
-      throw new Error('INSUFFICIENT_CREDITS: The Wavespeed API account needs to be topped up with credits.');
-    }
-    
-    throw error;
   }
+  
+  throw lastError;
 }
 
 export async function editMultipleImages(imageUrls, prompt, options = {}) {

@@ -157,9 +157,22 @@ After triggering an edit, confirm what you're doing. Be helpful, creative, and f
           }
         } catch (editError) {
           console.error('[Chat] Edit trigger error:', editError);
+          
+          let userMessage = 'Sorry, I encountered an error while trying to edit your images. ';
+          
+          if (editError.message.includes('GATEWAY_TIMEOUT') || editError.message.includes('504') || editError.message.includes('503')) {
+            userMessage += 'The image editing service is temporarily experiencing high load. Please try again in a moment, or try editing fewer images at once.';
+          } else if (editError.message.includes('REQUEST_TIMEOUT')) {
+            userMessage += 'Your editing request took too long to process. Try using a simpler prompt or editing fewer images at once.';
+          } else if (editError.message.includes('INSUFFICIENT_CREDITS')) {
+            userMessage += 'The Wavespeed API account needs credits. Please contact your administrator.';
+          } else {
+            userMessage += 'Please try again.';
+          }
+          
           return res.status(500).json({
             success: false,
-            error: `Failed to trigger image edit: ${editError.message}. Please try again or use the manual re-edit feature.`
+            error: userMessage
           });
         }
       }
