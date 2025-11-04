@@ -102,14 +102,31 @@ export async function createFolder(folderName, parentFolderId) {
 }
 
 export async function downloadFileFromDrive(fileId) {
-  const drive = await getUncachableGoogleDriveClient();
-  
-  const response = await drive.files.get(
-    { fileId: fileId, alt: 'media' },
-    { responseType: 'arraybuffer' }
-  );
+  try {
+    const drive = await getUncachableGoogleDriveClient();
+    
+    const response = await drive.files.get(
+      { fileId: fileId, alt: 'media' },
+      { responseType: 'arraybuffer' }
+    );
 
-  return response.data;
+    if (!response.data) {
+      throw new Error(`No data returned for file ${fileId}`);
+    }
+
+    const buffer = Buffer.from(response.data);
+    
+    if (buffer.length < 1000) {
+      console.error(`[Google Drive] Downloaded file ${fileId} is suspiciously small: ${buffer.length} bytes`);
+      throw new Error(`Downloaded file is too small (${buffer.length} bytes) - likely invalid`);
+    }
+    
+    console.log(`[Google Drive] Successfully downloaded file ${fileId}: ${buffer.length} bytes`);
+    return buffer;
+  } catch (error) {
+    console.error(`[Google Drive] Failed to download file ${fileId}:`, error.message);
+    throw error;
+  }
 }
 
 export async function makeFilePublic(fileId) {

@@ -64,16 +64,33 @@ export async function reEditImages(req, res) {
       console.log(`[Re-edit] Processing image: ${image.name} (editedImageId: ${image.editedImageId})`);
       
       // Download the EDITED image from Google Drive (not the original)
-      const editedImageBuffer = await downloadFileFromDrive(image.editedImageId);
+      let editedImageBuffer;
+      try {
+        editedImageBuffer = await downloadFileFromDrive(image.editedImageId);
+      } catch (downloadError) {
+        console.error(`[Re-edit] Failed to download edited image ${image.editedImageId}:`, downloadError.message);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: `Failed to download image: ${downloadError.message}`
+        });
+        continue;
+      }
       
-      if (!editedImageBuffer) {
-        console.error(`[Re-edit] Failed to download edited image: ${image.editedImageId}`);
+      if (!editedImageBuffer || editedImageBuffer.length < 1000) {
+        console.error(`[Re-edit] Downloaded image is invalid or too small: ${image.editedImageId}`);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: 'Downloaded image file is invalid or corrupted'
+        });
         continue;
       }
       
       // Convert buffer to base64 for Wavespeed API
       const base64Image = `data:image/jpeg;base64,${editedImageBuffer.toString('base64')}`;
-      console.log(`[Re-edit] Converted image to base64, length: ${base64Image.length}`);
+      const imageSizeKB = Math.round(base64Image.length / 1024);
+      console.log(`[Re-edit] Converted image to base64: ${imageSizeKB} KB`);
       
       // Send base64 image + new prompt to Wavespeed API
       const result = await editImageWithNanoBanana(base64Image, newPrompt, {
