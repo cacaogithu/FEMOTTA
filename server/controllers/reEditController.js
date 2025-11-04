@@ -63,34 +63,49 @@ export async function reEditImages(req, res) {
     for (const image of imagesToReEdit) {
       console.log(`[Re-edit] Processing image: ${image.name} (editedImageId: ${image.editedImageId})`);
       
-      // Download the EDITED image from Google Drive (not the original)
-      let editedImageBuffer;
-      try {
-        editedImageBuffer = await downloadFileFromDrive(image.editedImageId);
-      } catch (downloadError) {
-        console.error(`[Re-edit] Failed to download edited image ${image.editedImageId}:`, downloadError.message);
+      // Download the ORIGINAL image from Google Drive (not the edited one)
+      // This ensures we start from the source image for best quality
+      const originalImageId = image.originalImageId;
+      
+      if (!originalImageId) {
+        console.error(`[Re-edit] No original image ID found for ${image.name}`);
         reEditedResults.push({
           error: true,
           name: image.name,
-          message: `Failed to download image: ${downloadError.message}`
+          message: 'Original image ID not found - cannot re-edit'
         });
         continue;
       }
       
-      if (!editedImageBuffer || editedImageBuffer.length < 1000) {
-        console.error(`[Re-edit] Downloaded image is invalid or too small: ${image.editedImageId}`);
+      console.log(`[Re-edit] Downloading ORIGINAL image: ${originalImageId} (not edited version)`);
+      
+      let originalImageBuffer;
+      try {
+        originalImageBuffer = await downloadFileFromDrive(originalImageId);
+      } catch (downloadError) {
+        console.error(`[Re-edit] Failed to download original image ${originalImageId}:`, downloadError.message);
         reEditedResults.push({
           error: true,
           name: image.name,
-          message: 'Downloaded image file is invalid or corrupted'
+          message: `Failed to download original image: ${downloadError.message}`
+        });
+        continue;
+      }
+      
+      if (!originalImageBuffer || originalImageBuffer.length < 1000) {
+        console.error(`[Re-edit] Downloaded original image is invalid or too small: ${originalImageId}`);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: 'Downloaded original image file is invalid or corrupted'
         });
         continue;
       }
       
       // Convert buffer to base64 for Wavespeed API
-      const base64Image = `data:image/jpeg;base64,${editedImageBuffer.toString('base64')}`;
+      const base64Image = `data:image/jpeg;base64,${originalImageBuffer.toString('base64')}`;
       const imageSizeKB = Math.round(base64Image.length / 1024);
-      console.log(`[Re-edit] Converted image to base64: ${imageSizeKB} KB`);
+      console.log(`[Re-edit] Converted ORIGINAL image to base64: ${imageSizeKB} KB`);
       
       // Send base64 image + new prompt to Wavespeed API
       const result = await editImageWithNanoBanana(base64Image, newPrompt, {
