@@ -87,8 +87,8 @@ function ChatWidget({ jobId, onImageUpdated }) {
       }
     };
 
-    setTimeout(pollForUpdates, 10000);
-    pollingIntervalRef.current = setInterval(pollForUpdates, 5000);
+    pollForUpdates();
+    pollingIntervalRef.current = setInterval(pollForUpdates, 3000);
   };
 
   useEffect(() => {

@@ -193,9 +193,10 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
 
         <div className="results-grid">
           {results?.images?.map((image, idx) => (
-            <div key={idx} className="result-card">
+            <div key={`${image.editedImageId || image.id}-${idx}`} className="result-card">
               {image.originalImageId && image.editedImageId ? (
                 <BeforeAfterSlider 
+                  key={`slider-${image.editedImageId}`}
                   beforeImageId={image.originalImageId}
                   afterImageId={image.editedImageId}
                   name={image.name}
@@ -203,6 +204,7 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
               ) : (
                 <div className="image-container">
                   <ImagePreview 
+                    key={`preview-${image.editedImageId || image.id}`}
                     imageId={image.editedImageId || image.id}
                     alt={image.name}
                     className="result-image"
