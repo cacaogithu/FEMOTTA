@@ -40,7 +40,7 @@ export async function editImageWithNanoBanana(imageUrlOrBase64, prompt, options 
       };
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 60000);
+      const timeout = setTimeout(() => controller.abort(), 120000); // 120 seconds for complex edits
 
       const response = await fetch(NANO_BANANA_EDIT_URL, {
         method: 'POST',

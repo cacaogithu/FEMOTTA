@@ -108,22 +108,40 @@ export async function reEditImages(req, res) {
       console.log(`[Re-edit] Converted ORIGINAL image to base64: ${imageSizeKB} KB`);
       
       // Send base64 image + new prompt to Wavespeed API
-      const result = await editImageWithNanoBanana(base64Image, newPrompt, {
-        enableSyncMode: true,
-        outputFormat: 'jpeg',
-        wavespeedApiKey: brandConfig.wavespeedApiKey,
-        isBase64: true  // Flag to indicate we're sending base64
-      });
+      console.log(`[Re-edit] Calling Wavespeed API with prompt: "${newPrompt}"`);
+      console.log(`[Re-edit] This may take 60-120 seconds for complex edits...`);
+      
+      let result;
+      try {
+        result = await editImageWithNanoBanana(base64Image, newPrompt, {
+          enableSyncMode: true,
+          outputFormat: 'jpeg',
+          wavespeedApiKey: brandConfig.wavespeedApiKey,
+          isBase64: true  // Flag to indicate we're sending base64
+        });
+        console.log(`[Re-edit] Wavespeed API completed successfully`);
+      } catch (wavespeedError) {
+        console.error(`[Re-edit] Wavespeed API error:`, wavespeedError.message);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: `Wavespeed API failed: ${wavespeedError.message}`
+        });
+        continue;
+      }
 
       if (result.images && result.images.length > 0) {
+        console.log(`[Re-edit] Received result from Wavespeed, downloading edited image...`);
         const reEditedImageUrl = result.images[0].url;
         
         const imageResponse = await fetch(reEditedImageUrl);
         const imageBuffer = await imageResponse.arrayBuffer();
+        console.log(`[Re-edit] Downloaded edited image: ${Math.round(imageBuffer.byteLength / 1024)} KB`);
         
         const timestamp = Date.now();
         const reEditedFileName = `${image.name.replace('_edited.jpg', '')}_reedited_${timestamp}.jpg`;
         
+        console.log(`[Re-edit] Uploading to Drive as: ${reEditedFileName}`);
         const uploadedFile = await uploadFileToDrive(
           Buffer.from(imageBuffer),
           reEditedFileName,
@@ -132,6 +150,7 @@ export async function reEditImages(req, res) {
         );
 
         await makeFilePublic(uploadedFile.id);
+        console.log(`[Re-edit] Upload complete! File ID: ${uploadedFile.id}`);
 
         reEditedResults.push({
           id: uploadedFile.id,
@@ -140,6 +159,13 @@ export async function reEditImages(req, res) {
           originalImageId: image.originalImageId,
           originalName: image.originalName,
           url: getPublicImageUrl(uploadedFile.id)
+        });
+      } else {
+        console.error(`[Re-edit] No images returned from Wavespeed API`);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: 'Wavespeed API returned no edited images'
         });
       }
     }
