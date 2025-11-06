@@ -65,6 +65,14 @@ export async function editImageWithNanoBanana(imageUrlOrBase64, prompt, options 
       }
 
       const result = await response.json();
+      
+      console.log('[Wavespeed API] Full response:', JSON.stringify(result, null, 2));
+      console.log('[Wavespeed API] Response keys:', Object.keys(result));
+      if (result.images) {
+        console.log('[Wavespeed API] Images array length:', result.images.length);
+      } else if (result.output) {
+        console.log('[Wavespeed API] Output field exists:', typeof result.output);
+      }
 
       if (enableSyncMode) {
         return result;
