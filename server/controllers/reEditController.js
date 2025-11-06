@@ -130,9 +130,9 @@ export async function reEditImages(req, res) {
         continue;
       }
 
-      if (result.images && result.images.length > 0) {
+      if (result.data && result.data.outputs && result.data.outputs.length > 0) {
         console.log(`[Re-edit] Received result from Wavespeed, downloading edited image...`);
-        const reEditedImageUrl = result.images[0].url;
+        const reEditedImageUrl = result.data.outputs[0];
         
         const imageResponse = await fetch(reEditedImageUrl);
         const imageBuffer = await imageResponse.arrayBuffer();
