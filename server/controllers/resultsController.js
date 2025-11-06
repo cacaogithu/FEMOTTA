@@ -36,7 +36,9 @@ export async function pollResults(req, res) {
       return res.json({ 
         status: 'completed',
         jobId: jobId,
-        images: job.editedImages,
+        results: {
+          images: job.editedImages
+        },
         workflowSteps: job.workflowSteps || []
       });
     }
