@@ -38,7 +38,7 @@ function ProcessingPage({ jobId, onComplete }) {
           if (data.workflowSteps) {
             setWorkflowSteps(data.workflowSteps);
           }
-          setTimeout(() => onComplete(data), 500);
+          setTimeout(() => onComplete(data.results), 500);
         } else if (data.status === 'processing') {
           if (data.progress !== undefined) {
             setProgress(data.progress);
