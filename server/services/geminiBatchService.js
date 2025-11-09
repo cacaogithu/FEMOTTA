@@ -129,7 +129,7 @@ Format as JSON with fields: improvedPrompt, explanation, keyChanges`
       file: jsonlPath,
       config: {
         displayName: jobId,
-        mimeType: 'application/jsonl'
+        mimeType: 'application/json'
       }
     });
 
@@ -137,7 +137,10 @@ Format as JSON with fields: improvedPrompt, explanation, keyChanges`
 
     const batchJob = await this.client.batches.create({
       model,
-      src: uploadedFile.name
+      src: { fileName: uploadedFile.name },
+      config: {
+        displayName: jobId
+      }
     });
 
     console.log(`[Gemini Batch] Job created: ${batchJob.name} (Status: ${batchJob.state})`);
@@ -161,7 +164,7 @@ Format as JSON with fields: improvedPrompt, explanation, keyChanges`
   }
 
   async checkBatchStatus(batchJobName) {
-    const job = await this.client.batches.get(batchJobName);
+    const job = await this.client.batches.get({ name: batchJobName });
     
     return {
       status: job.state,
@@ -170,19 +173,23 @@ Format as JSON with fields: improvedPrompt, explanation, keyChanges`
       createTime: job.createTime,
       startTime: job.startTime,
       endTime: job.endTime,
-      outputUri: job.outputUri
+      outputFileName: job.dest?.fileName
     };
   }
 
   async getBatchResults(batchJobName) {
-    const job = await this.client.batches.get(batchJobName);
+    const job = await this.client.batches.get({ name: batchJobName });
     
-    if (job.state !== 'SUCCEEDED') {
+    if (job.state !== 'JOB_STATE_SUCCEEDED') {
       throw new Error(`Batch job not ready. Current status: ${job.state}`);
     }
 
-    const outputFile = await this.client.files.get(job.outputUri);
-    const outputContent = await this.client.files.download(outputFile.name);
+    const resultFileName = job.dest?.fileName;
+    if (!resultFileName) {
+      throw new Error('No output file available for batch job');
+    }
+
+    const outputContent = await this.client.files.download({ file: resultFileName });
     
     const results = outputContent
       .split('\n')
@@ -205,11 +212,11 @@ Format as JSON with fields: improvedPrompt, explanation, keyChanges`
       
       console.log(`[Gemini Batch] Poll ${polls + 1}/${maxPolls}: ${status.status}`);
 
-      if (status.status === 'SUCCEEDED') {
+      if (status.status === 'JOB_STATE_SUCCEEDED') {
         return await this.getBatchResults(batchJobName);
       }
 
-      if (status.status === 'FAILED') {
+      if (status.status === 'JOB_STATE_FAILED') {
         throw new Error('Batch job failed');
       }
 

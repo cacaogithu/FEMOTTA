@@ -1,8 +1,24 @@
 import GeminiBatchService from '../services/geminiBatchService.js';
+import { brandService } from '../services/brandService.js';
+
+async function getBrandGeminiKey(brandId) {
+  if (!brandId) {
+    return process.env.GEMINI_API_KEY;
+  }
+  
+  try {
+    const brand = await brandService.getBrandById(brandId);
+    return brand?.geminiApiKey || process.env.GEMINI_API_KEY;
+  } catch (error) {
+    console.warn('[Batch API] Could not load brand config, using global key:', error.message);
+    return process.env.GEMINI_API_KEY;
+  }
+}
 
 export const submitBriefAnalysisBatch = async (req, res) => {
   try {
     const { briefs } = req.body;
+    const brandId = req.brandId;
 
     if (!briefs || !Array.isArray(briefs) || briefs.length === 0) {
       return res.status(400).json({
@@ -11,7 +27,8 @@ export const submitBriefAnalysisBatch = async (req, res) => {
       });
     }
 
-    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
 
     const jobMetadata = await batchService.createBriefAnalysisBatch(briefs);
     const costEstimate = await batchService.estimateCostSavings(briefs.length, 800);
@@ -35,6 +52,7 @@ export const submitBriefAnalysisBatch = async (req, res) => {
 export const submitQualityCheckBatch = async (req, res) => {
   try {
     const { images } = req.body;
+    const brandId = req.brandId;
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return res.status(400).json({
@@ -43,7 +61,8 @@ export const submitQualityCheckBatch = async (req, res) => {
       });
     }
 
-    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
 
     const jobMetadata = await batchService.createQualityCheckBatch(images);
     const costEstimate = await batchService.estimateCostSavings(images.length, 600);
@@ -67,6 +86,7 @@ export const submitQualityCheckBatch = async (req, res) => {
 export const submitPromptOptimizationBatch = async (req, res) => {
   try {
     const { feedbackData } = req.body;
+    const brandId = req.brandId;
 
     if (!feedbackData || !Array.isArray(feedbackData) || feedbackData.length === 0) {
       return res.status(400).json({
@@ -75,7 +95,8 @@ export const submitPromptOptimizationBatch = async (req, res) => {
       });
     }
 
-    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
 
     const jobMetadata = await batchService.createPromptOptimizationBatch(feedbackData);
     const costEstimate = await batchService.estimateCostSavings(feedbackData.length, 1000);
@@ -99,8 +120,10 @@ export const submitPromptOptimizationBatch = async (req, res) => {
 export const getBatchJobStatus = async (req, res) => {
   try {
     const { batchJobName } = req.params;
+    const brandId = req.brandId;
 
-    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
 
     const status = await batchService.checkBatchStatus(batchJobName);
 
@@ -121,8 +144,10 @@ export const getBatchJobStatus = async (req, res) => {
 export const getBatchJobResults = async (req, res) => {
   try {
     const { batchJobName } = req.params;
+    const brandId = req.brandId;
 
-    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
 
     const results = await batchService.getBatchResults(batchJobName);
 
