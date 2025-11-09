@@ -141,6 +141,13 @@ export async function reEditImages(req, res) {
         const timestamp = Date.now();
         const reEditedFileName = `${image.name.replace('_edited.jpg', '')}_reedited_${timestamp}.jpg`;
         
+        // Create clean display name from original name
+        const baseDisplayName = (image.originalName || image.name)
+          .replace(/\.(jpg|jpeg|png)$/i, '')
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase());
+        const displayName = `${baseDisplayName} (Re-edited)`;
+        
         console.log(`[Re-edit] Uploading to Drive as: ${reEditedFileName}`);
         const uploadedFile = await uploadFileToDrive(
           Buffer.from(imageBuffer),
@@ -154,7 +161,8 @@ export async function reEditImages(req, res) {
 
         reEditedResults.push({
           id: uploadedFile.id,
-          name: reEditedFileName,
+          name: displayName,
+          fileName: reEditedFileName,
           editedImageId: uploadedFile.id,
           originalImageId: image.originalImageId,
           originalName: image.originalName,
