@@ -51,7 +51,8 @@ The platform includes a CRM system for managing subaccounts with features like:
 ### Technical Implementations
 - **Triple Input Modes**: Supports PDF, DOCX, or text prompts; DOCX includes intelligent image filtering.
 - **Parallel Processing**: Images processed in parallel batches with real-time progress updates.
-- **AI Chat with Function Calling**: GPT-4 based for natural language re-editing of selected images.
+- **AI Chat with Vision**: GPT-4o with vision capabilities - can SEE referenced images and generate precise edit prompts based on visual analysis. Automatically detects image references (e.g., "image 13") and attaches them to the conversation.
+- **Hybrid AI Strategy**: Gemini Batch API for 50% cost savings on non-urgent analysis (brief parsing, quality checks, prompt optimization) with 24-hour turnaround. Wavespeed Nano Banana for all actual image editing (instant results).
 - **ML Feedback System**: GPT-4 powered 5-star rating and text feedback for continuous prompt improvement. Includes `MLAnalysisService` for intelligent feedback analysis and prompt optimization suggestions.
 - **Job-based Architecture**: Isolates each job with a unique ID and dedicated storage, ensuring concurrent user support. Implemented a hybrid job storage system using in-memory cache and PostgreSQL persistence for reliability.
 - **PSD Download**: Generates layered PSD files (Original + AI Edited) using `ag-psd` and `node-canvas`.
@@ -65,10 +66,15 @@ The platform includes a CRM system for managing subaccounts with features like:
 ## External Dependencies
 - **PostgreSQL Database (Neon)**: Multi-tenant data storage.
 - **Google Drive API**: File storage for briefs, product images, and results.
-- **Wavespeed Nano Banana API**: Primary AI-powered image editing.
-- **OpenAI API (GPT-4)**: AI Chat Assistant, function calling, ML feedback system.
+- **Wavespeed Nano Banana API**: Primary AI-powered image editing (all real-time edits).
+- **OpenAI API (GPT-4o)**: AI Chat Assistant with vision, function calling, ML feedback system.
+- **Google Gemini Batch API**: Cost-optimized bulk analysis (50% savings, 24hr turnaround) for brief parsing, quality checks, prompt optimization.
 - **Mammoth.js**: Extracts text and images from DOCX.
 - **pdfjs-dist**: Processes PDF files.
 - **ag-psd** and **node-canvas**: Generates layered PSD files.
 - **Drizzle ORM**: PostgreSQL schema management and queries.
 - **bcrypt**: Password hashing.
+
+## Recent Changes (November 2025)
+- **Nov 9**: Integrated Gemini Batch API for 50% cost savings on bulk operations. Brand-aware API key resolution with global fallback. Production-ready batch endpoints for brief analysis, quality checks, and prompt optimization.
+- **Nov 9**: Enhanced AI chat with GPT-4o vision capabilities - AI can now see referenced images and generate precise prompts based on visual analysis (e.g., "copy title from image 12" now works perfectly).
