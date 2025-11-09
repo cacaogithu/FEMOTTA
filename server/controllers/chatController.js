@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { getJob } from '../utils/jobStore.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
+import { getPublicImageUrl } from '../utils/googleDrive.js';
 import fetch from 'node-fetch';
 
 export async function handleChat(req, res) {
@@ -24,6 +25,7 @@ export async function handleChat(req, res) {
 
     let context = '';
     let imageList = '';
+    let imageMap = new Map(); // Maps image numbers to image objects
     
     if (job) {
       if (job.promptText) {
@@ -31,21 +33,38 @@ export async function handleChat(req, res) {
       }
       if (job.editedImages && job.editedImages.length > 0) {
         context += `They have ${job.editedImages.length} edited images. `;
-        imageList = `\n\nAvailable images:\n${job.editedImages.map((img, idx) => `${idx + 1}. ${img.originalName || img.name} (ID: ${img.id})`).join('\n')}`;
+        imageList = `\n\nAvailable images:\n${job.editedImages.map((img, idx) => {
+          imageMap.set(idx + 1, img);
+          return `${idx + 1}. ${img.originalName || img.name} (ID: ${img.editedImageId || img.id})`;
+        }).join('\n')}`;
       }
     }
 
     const systemMessage = {
       role: 'system',
-      content: `You are CORSAIR's AI image editing assistant with the ability to ACTUALLY EDIT IMAGES in real-time. ${context}
+      content: `You are CORSAIR's AI image editing assistant with VISION CAPABILITIES and the ability to ACTUALLY EDIT IMAGES in real-time. ${context}
 
-When users ask you to edit images, you can trigger actual image editing by calling the editImages function. You can edit:
+🔍 VISION CAPABILITIES:
+You can SEE the images users reference! When images are attached to the conversation, you can:
+- Read text exactly as it appears (font, size, position, shadows)
+- Analyze colors, gradients, and visual composition
+- Identify design flaws (truncated text, poor contrast, misalignment)
+- Compare multiple images to understand visual consistency
+- Extract specific text content to copy from one image to another
+
+✨ EDITING CAPABILITIES:
+You can trigger actual image editing by calling the editImages function. You can edit:
 - SPECIFIC images: "fix image 3", "edit the first one", "change images 1 and 5"
 - ALL images: "fix all images", "edit everything", "change all the text"
 
 You can make changes like: fix typos in text, adjust text positioning, change colors, modify gradients, add/remove elements, etc.
 
 When the user mentions specific images (by number, position, or name), extract those image IDs and pass them to the function. If they say "all" or don't specify, edit all images.${imageList}
+
+💡 ADVANCED USAGE:
+- When users reference text from one image to another, READ the source image first to get the exact text
+- When comparing images, analyze the visual differences and be specific in your edit instructions
+- When users ask about visual quality, provide detailed feedback based on what you SEE
 
 After triggering an edit, confirm what you're doing. Be helpful, creative, and focus on creating visuals that convey performance and quality with CORSAIR's premium aesthetic.`
     };
@@ -75,9 +94,55 @@ After triggering an edit, confirm what you're doing. Be helpful, creative, and f
       }
     ];
 
+    // Detect image references in user messages and attach them for vision analysis
+    const enhancedMessages = await Promise.all(messages.map(async (msg) => {
+      if (msg.role !== 'user' || typeof msg.content !== 'string') {
+        return msg;
+      }
+
+      // Detect patterns like "image 3", "image 12", "images 1 and 5", "image #7"
+      const imageNumberRegex = /image[s]?\s*#?(\d+)/gi;
+      const matches = [...msg.content.matchAll(imageNumberRegex)];
+      
+      if (matches.length === 0) {
+        return msg; // No images referenced
+      }
+
+      // Extract unique image numbers
+      const imageNumbers = [...new Set(matches.map(m => parseInt(m[1])))];
+      
+      // Build multimodal content array
+      const contentParts = [{ type: 'text', text: msg.content }];
+      
+      for (const imgNum of imageNumbers) {
+        const imageObj = imageMap.get(imgNum);
+        if (imageObj) {
+          const imageFileId = imageObj.editedImageId || imageObj.id;
+          const imageUrl = getPublicImageUrl(imageFileId);
+          
+          contentParts.push({
+            type: 'image_url',
+            image_url: {
+              url: imageUrl,
+              detail: 'high' // High detail for precise text reading
+            }
+          });
+          
+          console.log(`[Chat Vision] Attached image ${imgNum} (${imageObj.name}) to conversation`);
+        } else {
+          console.log(`[Chat Vision] Image ${imgNum} not found in job`);
+        }
+      }
+      
+      return {
+        role: 'user',
+        content: contentParts
+      };
+    }));
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
-      messages: [systemMessage, ...messages],
+      messages: [systemMessage, ...enhancedMessages],
       tools,
       tool_choice: 'auto',
       temperature: 0.7,
