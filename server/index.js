@@ -16,6 +16,7 @@ import adminRoutes from './routes/admin.js';
 import subaccountsRoutes from './routes/subaccounts.js';
 import mlRoutes from './routes/ml.js';
 import userRoutes from './routes/users.js';
+import batchRoutes from './routes/batch.js';
 
 dotenv.config();
 
@@ -43,6 +44,9 @@ app.use('/api/subaccounts', subaccountsRoutes);
 
 // ML Analysis routes
 app.use('/api/ml', mlRoutes);
+
+// Gemini Batch API routes
+app.use('/api/batch', batchRoutes);
 
 app.use('/api/upload', uploadRoutes);
 app.use('/api/results', resultsRoutes);
