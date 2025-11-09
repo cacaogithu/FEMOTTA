@@ -1,7 +1,7 @@
-const { GoogleGenAI } = require('@google/genai');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+import { GoogleGenAI } from '@google/genai';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 class GeminiBatchService {
   constructor(apiKey) {
@@ -240,4 +240,4 @@ Format as JSON with fields: improvedPrompt, explanation, keyChanges`
   }
 }
 
-module.exports = GeminiBatchService;
+export default GeminiBatchService;

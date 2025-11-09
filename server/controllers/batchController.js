@@ -1,10 +1,8 @@
-const GeminiBatchService = require('../services/geminiBatchService');
-const { loadBrandConfig } = require('../config/brandConfig');
+import GeminiBatchService from '../services/geminiBatchService.js';
 
-exports.submitBriefAnalysisBatch = async (req, res) => {
+export const submitBriefAnalysisBatch = async (req, res) => {
   try {
     const { briefs } = req.body;
-    const brandId = req.brandId;
 
     if (!briefs || !Array.isArray(briefs) || briefs.length === 0) {
       return res.status(400).json({
@@ -13,8 +11,7 @@ exports.submitBriefAnalysisBatch = async (req, res) => {
       });
     }
 
-    const brandConfig = loadBrandConfig(brandId);
-    const batchService = new GeminiBatchService(brandConfig.geminiApiKey);
+    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
 
     const jobMetadata = await batchService.createBriefAnalysisBatch(briefs);
     const costEstimate = await batchService.estimateCostSavings(briefs.length, 800);
@@ -35,10 +32,9 @@ exports.submitBriefAnalysisBatch = async (req, res) => {
   }
 };
 
-exports.submitQualityCheckBatch = async (req, res) => {
+export const submitQualityCheckBatch = async (req, res) => {
   try {
     const { images } = req.body;
-    const brandId = req.brandId;
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return res.status(400).json({
@@ -47,8 +43,7 @@ exports.submitQualityCheckBatch = async (req, res) => {
       });
     }
 
-    const brandConfig = loadBrandConfig(brandId);
-    const batchService = new GeminiBatchService(brandConfig.geminiApiKey);
+    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
 
     const jobMetadata = await batchService.createQualityCheckBatch(images);
     const costEstimate = await batchService.estimateCostSavings(images.length, 600);
@@ -69,10 +64,9 @@ exports.submitQualityCheckBatch = async (req, res) => {
   }
 };
 
-exports.submitPromptOptimizationBatch = async (req, res) => {
+export const submitPromptOptimizationBatch = async (req, res) => {
   try {
     const { feedbackData } = req.body;
-    const brandId = req.brandId;
 
     if (!feedbackData || !Array.isArray(feedbackData) || feedbackData.length === 0) {
       return res.status(400).json({
@@ -81,8 +75,7 @@ exports.submitPromptOptimizationBatch = async (req, res) => {
       });
     }
 
-    const brandConfig = loadBrandConfig(brandId);
-    const batchService = new GeminiBatchService(brandConfig.geminiApiKey);
+    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
 
     const jobMetadata = await batchService.createPromptOptimizationBatch(feedbackData);
     const costEstimate = await batchService.estimateCostSavings(feedbackData.length, 1000);
@@ -103,13 +96,11 @@ exports.submitPromptOptimizationBatch = async (req, res) => {
   }
 };
 
-exports.getBatchJobStatus = async (req, res) => {
+export const getBatchJobStatus = async (req, res) => {
   try {
     const { batchJobName } = req.params;
-    const brandId = req.brandId;
 
-    const brandConfig = loadBrandConfig(brandId);
-    const batchService = new GeminiBatchService(brandConfig.geminiApiKey);
+    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
 
     const status = await batchService.checkBatchStatus(batchJobName);
 
@@ -127,13 +118,11 @@ exports.getBatchJobStatus = async (req, res) => {
   }
 };
 
-exports.getBatchJobResults = async (req, res) => {
+export const getBatchJobResults = async (req, res) => {
   try {
     const { batchJobName } = req.params;
-    const brandId = req.brandId;
 
-    const brandConfig = loadBrandConfig(brandId);
-    const batchService = new GeminiBatchService(brandConfig.geminiApiKey);
+    const batchService = new GeminiBatchService(process.env.GEMINI_API_KEY);
 
     const results = await batchService.getBatchResults(batchJobName);
 
@@ -150,4 +139,12 @@ exports.getBatchJobResults = async (req, res) => {
       error: error.message
     });
   }
+};
+
+export default {
+  submitBriefAnalysisBatch,
+  submitQualityCheckBatch,
+  submitPromptOptimizationBatch,
+  getBatchJobStatus,
+  getBatchJobResults
 };
