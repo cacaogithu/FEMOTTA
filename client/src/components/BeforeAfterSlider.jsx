@@ -14,9 +14,10 @@ function BeforeAfterSlider({ beforeImageId, afterImageId, name }) {
 
     const loadImages = async () => {
       try {
+        const cacheBuster = Date.now();
         const [beforeResponse, afterResponse] = await Promise.all([
-          authenticatedFetch(`/api/images/${beforeImageId}`),
-          authenticatedFetch(`/api/images/${afterImageId}`)
+          authenticatedFetch(`/api/images/${beforeImageId}?t=${cacheBuster}`),
+          authenticatedFetch(`/api/images/${afterImageId}?t=${cacheBuster}`)
         ]);
 
         const beforeBlob = await beforeResponse.blob();

@@ -11,7 +11,8 @@ function ImagePreview({ imageId, alt, className }) {
 
     const loadImage = async () => {
       try {
-        const response = await authenticatedFetch(`/api/images/${imageId}`);
+        const cacheBuster = Date.now();
+        const response = await authenticatedFetch(`/api/images/${imageId}?t=${cacheBuster}`);
         
         if (!response.ok) {
           throw new Error('Failed to load image');
