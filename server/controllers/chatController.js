@@ -33,10 +33,11 @@ export async function handleChat(req, res) {
             ? userResponse.toLowerCase().trim() 
             : '';
           
-          const isConfirmation = /^(yes|yeah|yep|ok|okay|sure|proceed|go ahead|do it|confirm|approved?|looks good|perfect)$/i.test(normalizedResponse);
-          const isRejection = /^(no|nope|cancel|stop|don't|nevermind|wait|not)$/i.test(normalizedResponse);
+          // More flexible detection: allow surrounding words and punctuation
+          const isConfirmation = /\b(yes|yeah|yep|ok|okay|sure|proceed|go ahead|do it|confirm|approved?|looks good|perfect|let'?s do it|go for it)\b/i.test(normalizedResponse);
+          const isRejection = /\b(no|nope|cancel|stop|don'?t|nevermind|wait|not now|hold on|hold off)\b/i.test(normalizedResponse);
           
-          if (isConfirmation) {
+          if (isConfirmation && !isRejection) {
             // Execute the pending edit
             console.log('[Chat] User confirmed edit. Executing:', job.pendingEdit.newPrompt);
             
@@ -82,9 +83,14 @@ export async function handleChat(req, res) {
               success: true,
               message: 'Okay, I\'ve cancelled that edit. What would you like me to do instead?'
             });
+          } else {
+            // Ambiguous response - keep pending edit and remind user
+            console.log('[Chat] Ambiguous response to confirmation request:', normalizedResponse);
+            return res.json({
+              success: true,
+              message: `I'm still waiting for your confirmation to proceed with the edit:\n\n"${job.pendingEdit.newPrompt}"\n\nPlease reply "yes" to proceed or "no" to cancel.`
+            });
           }
-          // If neither confirmation nor rejection, clear stale pending edit and continue with new request
-          delete job.pendingEdit;
         }
       }
     }
