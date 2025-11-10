@@ -1,5 +1,5 @@
 import { editImageWithNanoBanana } from '../services/nanoBanana.js';
-import { getJobWithFallback, updateJob } from '../utils/jobStore.js';
+import { getJobWithFallback, updateJob, getJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import fetch from 'node-fetch';
@@ -180,12 +180,28 @@ export async function reEditImages(req, res) {
 
     // When editing specific images: keep others unchanged, replace only the edited ones
     // When editing all images: replace entire array with new results
+    console.log('[Re-edit] BEFORE UPDATE:');
+    console.log('[Re-edit] - imageIds requested:', imageIds);
+    console.log('[Re-edit] - job.editedImages count:', job.editedImages.length);
+    console.log('[Re-edit] - reEditedResults count:', reEditedResults.length);
+    console.log('[Re-edit] - Re-edited image IDs:', reEditedResults.map(r => ({ name: r.name, editedImageId: r.editedImageId })));
+    
     const updatedEditedImages = imageIds && imageIds.length > 0
       ? [
-          ...job.editedImages.filter(img => !imageIds.includes(img.editedImageId) && !imageIds.includes(img.id)),
+          ...job.editedImages.filter(img => {
+            const shouldKeep = !imageIds.includes(img.editedImageId) && !imageIds.includes(img.id);
+            if (!shouldKeep) {
+              console.log(`[Re-edit] REPLACING old image: ${img.name} (ID: ${img.editedImageId})`);
+            }
+            return shouldKeep;
+          }),
           ...reEditedResults
         ]
       : reEditedResults;
+
+    console.log('[Re-edit] AFTER MERGE:');
+    console.log('[Re-edit] - updatedEditedImages count:', updatedEditedImages.length);
+    console.log('[Re-edit] - Image 13 details:', updatedEditedImages.find(img => img.name && img.name.includes('13')));
 
     await updateJob(jobId, {
       editedImages: updatedEditedImages,
@@ -194,6 +210,11 @@ export async function reEditImages(req, res) {
         images: updatedEditedImages
       }
     });
+    
+    console.log('[Re-edit] Job updated successfully. Verifying...');
+    const verifyJob = getJob(jobId);
+    console.log('[Re-edit] Verified job.editedImages count:', verifyJob.editedImages.length);
+    console.log('[Re-edit] Verified Image 13:', verifyJob.editedImages.find(img => img.name && img.name.includes('13')));
 
     res.json({
       success: true,
