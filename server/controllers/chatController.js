@@ -17,6 +17,78 @@ export async function handleChat(req, res) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
+    // Check if we're waiting for confirmation and handle user response
+    if (job.pendingEdit) {
+      // Check timeout (15 minutes)
+      const pendingAge = Date.now() - job.pendingEdit.timestamp;
+      if (pendingAge > 15 * 60 * 1000) {
+        console.log('[Chat] Pending edit expired due to timeout');
+        delete job.pendingEdit;
+      } else {
+        const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+        const userResponse = lastUserMessage?.content;
+        
+        if (userResponse) {
+          const normalizedResponse = typeof userResponse === 'string' 
+            ? userResponse.toLowerCase().trim() 
+            : '';
+          
+          const isConfirmation = /^(yes|yeah|yep|ok|okay|sure|proceed|go ahead|do it|confirm|approved?|looks good|perfect)$/i.test(normalizedResponse);
+          const isRejection = /^(no|nope|cancel|stop|don't|nevermind|wait|not)$/i.test(normalizedResponse);
+          
+          if (isConfirmation) {
+            // Execute the pending edit
+            console.log('[Chat] User confirmed edit. Executing:', job.pendingEdit.newPrompt);
+            
+            try {
+              const requestBody = {
+                jobId,
+                newPrompt: job.pendingEdit.newPrompt
+              };
+              
+              if (job.pendingEdit.imageIds && job.pendingEdit.imageIds.length > 0) {
+                requestBody.imageIds = job.pendingEdit.imageIds;
+              }
+
+              const reEditResponse = await fetch(`http://localhost:3000/api/re-edit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+              });
+
+              delete job.pendingEdit; // Clear pending edit
+
+              if (reEditResponse.ok) {
+                return res.json({
+                  success: true,
+                  message: `Perfect! I'm now applying the changes: "${requestBody.newPrompt}". The processing will take about 30-60 seconds. The images will automatically refresh once complete.`,
+                  editTriggered: true
+                });
+              } else {
+                const errorData = await reEditResponse.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Re-edit request failed');
+              }
+            } catch (editError) {
+              console.error('[Chat] Edit execution error:', editError);
+              delete job.pendingEdit;
+              return res.status(500).json({
+                success: false,
+                error: 'Sorry, I encountered an error while trying to edit your images. Please try again.'
+              });
+            }
+          } else if (isRejection) {
+            delete job.pendingEdit;
+            return res.json({
+              success: true,
+              message: 'Okay, I\'ve cancelled that edit. What would you like me to do instead?'
+            });
+          }
+          // If neither confirmation nor rejection, clear stale pending edit and continue with new request
+          delete job.pendingEdit;
+        }
+      }
+    }
+
     // Load brand-specific API keys securely
     const brandConfig = await getBrandApiKeys(job);
     const openai = new OpenAI({
@@ -59,6 +131,13 @@ You can trigger actual image editing by calling the editImages function. You can
 
 You can make changes like: fix typos in text, adjust text positioning, change colors, modify gradients, add/remove elements, etc.
 
+⚠️ CONFIRMATION WORKFLOW:
+When you call the editImages function, the user will be asked to confirm the edit prompt before it executes. DO NOT call editImages multiple times or act like the edit is already processing. The system will:
+1. Show your prompt to the user
+2. Ask "Is this okay to proceed?"
+3. Wait for their confirmation (yes/no)
+4. Only then execute the edit
+
 When the user mentions specific images (by number, position, or name), extract those image IDs and pass them to the function. If they say "all" or don't specify, edit all images.${imageList}
 
 💡 ADVANCED USAGE:
@@ -66,7 +145,7 @@ When the user mentions specific images (by number, position, or name), extract t
 - When comparing images, analyze the visual differences and be specific in your edit instructions
 - When users ask about visual quality, provide detailed feedback based on what you SEE
 
-After triggering an edit, confirm what you're doing. Be helpful, creative, and focus on creating visuals that convey performance and quality with CORSAIR's premium aesthetic.`
+Be helpful, creative, and focus on creating visuals that convey performance and quality with CORSAIR's premium aesthetic.`
     };
 
     const tools = [
@@ -188,58 +267,25 @@ After triggering an edit, confirm what you're doing. Be helpful, creative, and f
           ? `${imageIds.length} specific image${imageIds.length > 1 ? 's' : ''}`
           : 'all your images';
 
-        console.log('[Chat] AI triggering image re-edit with prompt:', args.newPrompt);
+        console.log('[Chat] AI wants to edit images with prompt:', args.newPrompt);
         if (imageIds) {
           console.log('[Chat] Targeting specific images:', imageIds);
         }
         
-        // Call the re-edit endpoint
-        try {
-          const requestBody = {
-            jobId,
-            newPrompt: args.newPrompt
-          };
-          
-          if (imageIds && imageIds.length > 0) {
-            requestBody.imageIds = imageIds;
-          }
-
-          const reEditResponse = await fetch(`http://localhost:3000/api/re-edit`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-          });
-
-          if (reEditResponse.ok) {
-            return res.json({
-              success: true,
-              message: `I'm now editing ${targetDescription} with these instructions: "${args.newPrompt}". The processing will take about 30-60 seconds. The images will automatically refresh once the editing is complete.`,
-              editTriggered: true
-            });
-          } else {
-            const errorData = await reEditResponse.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Re-edit request failed');
-          }
-        } catch (editError) {
-          console.error('[Chat] Edit trigger error:', editError);
-          
-          let userMessage = 'Sorry, I encountered an error while trying to edit your images. ';
-          
-          if (editError.message.includes('GATEWAY_TIMEOUT') || editError.message.includes('504') || editError.message.includes('503')) {
-            userMessage += 'The image editing service is temporarily experiencing high load. Please try again in a moment, or try editing fewer images at once.';
-          } else if (editError.message.includes('REQUEST_TIMEOUT')) {
-            userMessage += 'Your editing request took too long to process. Try using a simpler prompt or editing fewer images at once.';
-          } else if (editError.message.includes('INSUFFICIENT_CREDITS')) {
-            userMessage += 'The Wavespeed API account needs credits. Please contact your administrator.';
-          } else {
-            userMessage += 'Please try again.';
-          }
-          
-          return res.status(500).json({
-            success: false,
-            error: userMessage
-          });
-        }
+        // Store the pending edit for user confirmation
+        job.pendingEdit = {
+          newPrompt: args.newPrompt,
+          imageIds: imageIds,
+          timestamp: Date.now()
+        };
+        
+        console.log('[Chat] Stored pending edit, awaiting user confirmation');
+        
+        // Ask user for confirmation
+        return res.json({
+          success: true,
+          message: `I'll edit ${targetDescription} with this prompt:\n\n"${args.newPrompt}"\n\nIs this okay to proceed? (Reply with "yes" to confirm or "no" to cancel)`
+        });
       }
     }
 
