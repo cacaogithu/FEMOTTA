@@ -184,14 +184,22 @@ export async function reEditImages(req, res) {
     console.log('[Re-edit] - imageIds requested:', imageIds);
     console.log('[Re-edit] - job.editedImages count:', job.editedImages.length);
     console.log('[Re-edit] - reEditedResults count:', reEditedResults.length);
-    console.log('[Re-edit] - Re-edited image IDs:', reEditedResults.map(r => ({ name: r.name, editedImageId: r.editedImageId })));
+    console.log('[Re-edit] - Re-edited originalImageIds:', reEditedResults.map(r => ({ name: r.name, originalImageId: r.originalImageId })));
+    
+    // Build set of originalImageIds being re-edited for efficient lookup
+    const reEditedOriginalIds = new Set(reEditedResults.map(r => r.originalImageId).filter(Boolean));
     
     const updatedEditedImages = imageIds && imageIds.length > 0
       ? [
           ...job.editedImages.filter(img => {
-            const shouldKeep = !imageIds.includes(img.editedImageId) && !imageIds.includes(img.id);
+            // Match by originalImageId (the stable reference to the source image)
+            // Fall back to editedImageId/id for backwards compatibility
+            const matchesOriginalId = img.originalImageId && reEditedOriginalIds.has(img.originalImageId);
+            const matchesEditedId = imageIds.includes(img.editedImageId) || imageIds.includes(img.id);
+            const shouldKeep = !matchesOriginalId && !matchesEditedId;
+            
             if (!shouldKeep) {
-              console.log(`[Re-edit] REPLACING old image: ${img.name} (ID: ${img.editedImageId})`);
+              console.log(`[Re-edit] REPLACING old version: ${img.name} (originalImageId: ${img.originalImageId})`);
             }
             return shouldKeep;
           }),
