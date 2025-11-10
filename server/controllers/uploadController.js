@@ -541,9 +541,9 @@ export async function uploadPDF(req, res) {
       });
 
       // Start processing in the background
-      processImagesWithNanoBanana(jobId).catch(err => {
+      processImagesWithNanoBanana(jobId).catch(async err => {
         console.error('Background processing error:', err);
-        updateJob(jobId, { 
+        await updateJob(jobId, { 
           status: 'failed',
           error: err.message
         });
@@ -615,7 +615,7 @@ export async function uploadImages(req, res) {
 
     console.log(`Uploaded ${uploadedImages.length} images, starting processing...`);
 
-    updateJob(jobId, {
+    await updateJob(jobId, {
       images: uploadedImages,
       status: 'processing',
       imageCount: uploadedImages.length
@@ -628,9 +628,9 @@ export async function uploadImages(req, res) {
       message: 'Images uploaded successfully, processing started' 
     });
 
-    processImagesWithNanoBanana(jobId).catch(err => {
+    processImagesWithNanoBanana(jobId).catch(async err => {
       console.error('Background processing error:', err);
-      updateJob(jobId, { 
+      await updateJob(jobId, { 
         status: 'failed',
         error: err.message
       });
@@ -656,7 +656,7 @@ async function processImagesWithNanoBanana(jobId) {
 
   if (!job.imageSpecs || job.imageSpecs.length === 0) {
     console.error('No image specifications found for job:', jobId);
-    updateJob(jobId, { 
+    await updateJob(jobId, { 
       status: 'waiting_for_prompt',
       processingStep: 'Waiting for image specifications from PDF brief'
     });
@@ -704,7 +704,7 @@ async function processImagesWithNanoBanana(jobId) {
     }
   });
 
-  updateJob(jobId, { 
+  await updateJob(jobId, { 
     status: 'processing',
     processingStep: 'Processing images with individual prompts'
   });
@@ -736,7 +736,7 @@ async function processImagesWithNanoBanana(jobId) {
   const imageUrls = job.images.map(img => img.publicUrl);
   console.log('Image URLs to process:', imageUrls);
 
-  updateJob(jobId, { 
+  await updateJob(jobId, { 
     status: 'processing',
     processingStep: 'Editing images with AI (individual prompts per image)'
   });
@@ -798,8 +798,8 @@ async function processImagesWithNanoBanana(jobId) {
         outputFormat: 'jpeg',
         numImages: 1,
         wavespeedApiKey: brandConfig.wavespeedApiKey
-      }).then(result => {
-        updateJob(jobId, {
+      }).then(async result => {
+        await updateJob(jobId, {
           processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
           progress: Math.round(((imageIndex + 1) / imageUrls.length) * 100),
           currentImageIndex: imageIndex
@@ -844,7 +844,7 @@ async function processImagesWithNanoBanana(jobId) {
 
   console.log(`Saving ${results.length} edited images to Drive (brand: ${job.brandSlug})...`);
 
-  updateJob(jobId, { 
+  await updateJob(jobId, { 
     processingStep: 'Saving edited images to cloud storage'
   });
 
@@ -895,7 +895,7 @@ async function processImagesWithNanoBanana(jobId) {
       });
       console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
 
-      updateJob(jobId, {
+      await updateJob(jobId, {
         processingStep: `Saved ${i + 1} of ${results.length} images`,
         progress: Math.round(((i + 1) / results.length) * 100)
       });
@@ -916,7 +916,7 @@ async function processImagesWithNanoBanana(jobId) {
   });
 
   console.log(`Successfully processed ${editedImages.length} images`);
-  updateJob(jobId, { 
+  await updateJob(jobId, { 
     status: 'completed',
     editedImages,
     processingStep: 'Complete',

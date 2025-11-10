@@ -22,11 +22,11 @@ export async function processImages(req, res) {
       return res.status(400).json({ error: 'No images found for this job' });
     }
 
-    updateJob(jobId, { status: 'processing', processingStep: 'Getting image URLs' });
+    await updateJob(jobId, { status: 'processing', processingStep: 'Getting image URLs' });
 
     const imageUrls = job.images.map(img => getPublicImageUrl(img.driveId));
 
-    updateJob(jobId, {
+    await updateJob(jobId, {
       status: 'processing',
       processingStep: 'Editing images with Nano Banana AI',
       imageUrls
@@ -38,7 +38,7 @@ export async function processImages(req, res) {
       numImages: 1
     });
 
-    updateJob(jobId, {
+    await updateJob(jobId, {
       status: 'processing',
       processingStep: 'Saving edited images to Google Drive'
     });
@@ -120,7 +120,7 @@ export async function processImages(req, res) {
     console.log(`[Time Tracking] Estimated manual time: ${estimatedManualTimeMinutes} minutes`);
     console.log(`[Time Tracking] Time saved: ${timeSavedMinutes.toFixed(1)} minutes (${timeSavedPercent}%)`);
     
-    updateJob(jobId, {
+    await updateJob(jobId, {
       status: 'completed',
       editedImages,
       processingStep: 'Complete',
@@ -144,7 +144,7 @@ export async function processImages(req, res) {
 
     const { jobId } = req.body;
     if (jobId) {
-      updateJob(jobId, {
+      await updateJob(jobId, {
         status: 'failed',
         error: error.message
       });

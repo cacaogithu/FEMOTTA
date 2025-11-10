@@ -187,7 +187,7 @@ export async function reEditImages(req, res) {
         ]
       : reEditedResults;
 
-    updateJob(jobId, {
+    await updateJob(jobId, {
       editedImages: updatedEditedImages
     });
 

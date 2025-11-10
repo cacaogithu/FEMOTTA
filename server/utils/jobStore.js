@@ -121,15 +121,23 @@ export async function loadJobFromDb(jobId) {
   return null;
 }
 
-export function updateJob(jobId, updates) {
-  const job = jobs.get(jobId);
+export async function updateJob(jobId, updates) {
+  let job = jobs.get(jobId);
+  
+  if (!job) {
+    console.log(`[JobStore] Job ${jobId} not in memory during update, loading from database...`);
+    job = await loadJobFromDb(jobId);
+  }
+  
   if (job) {
     const updatedJob = { ...job, ...updates };
     jobs.set(jobId, updatedJob);
-    // Save to database asynchronously
-    saveJobToDb(jobId, updatedJob).catch(err => console.error('[JobStore] Update job DB error:', err));
+    await saveJobToDb(jobId, updatedJob);
+    console.log(`[JobStore] Job ${jobId} updated successfully in memory and database`);
     return updatedJob;
   }
+  
+  console.error(`[JobStore] Failed to update job ${jobId}: job not found in memory or database`);
   return null;
 }
 
