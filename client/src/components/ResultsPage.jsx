@@ -71,7 +71,8 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
     setIsRefreshing(true);
     try {
       console.log('[ResultsPage] Refreshing images for job:', jobId);
-      const response = await authenticatedFetch(`/api/results/poll/${jobId}`);
+      // Add timestamp to prevent caching and ensure real-time updates
+      const response = await authenticatedFetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
       const data = await response.json();
       console.log('[ResultsPage] Refresh response:', data);
       if (data.status === 'completed' && data.results) {

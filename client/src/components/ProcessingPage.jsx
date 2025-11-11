@@ -23,7 +23,8 @@ function ProcessingPage({ jobId, onComplete }) {
 
     const poll = async () => {
       try {
-        const response = await authenticatedFetch(`/api/results/poll/${jobId}`);
+        // Add timestamp to prevent caching and ensure real-time updates (especially for re-edits)
+        const response = await authenticatedFetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
         const data = await response.json();
 
         if (data.status === 'failed') {

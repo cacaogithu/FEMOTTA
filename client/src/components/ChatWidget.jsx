@@ -67,7 +67,8 @@ function ChatWidget({ jobId, onImageUpdated }) {
         pollCount++;
         console.log(`[ChatWidget] Polling attempt ${pollCount}/${maxPolls}`);
         
-        const response = await fetch(`/api/results/poll/${jobId}`);
+        // Add timestamp to prevent caching and ensure real-time updates
+        const response = await fetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
         const data = await response.json();
         
         if (data.status === 'completed') {

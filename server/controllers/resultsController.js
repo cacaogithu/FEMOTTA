@@ -6,6 +6,11 @@ const CORSAIR_FOLDER_ID = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
 
 export async function pollResults(req, res) {
   try {
+    // Disable caching to ensure real-time updates (especially for re-edits)
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     const { jobId } = req.params;
     
     const job = getJob(jobId);
