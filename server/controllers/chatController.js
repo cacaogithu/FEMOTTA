@@ -38,45 +38,38 @@ export async function handleChat(req, res) {
           const isRejection = /\b(no|nope|cancel|stop|don'?t|nevermind|wait|not now|hold on|hold off)\b/i.test(normalizedResponse);
           
           if (isConfirmation && !isRejection) {
-            // Execute the pending edit
-            console.log('[Chat] User confirmed edit. Executing:', job.pendingEdit.newPrompt);
+            console.log('[Chat] User confirmed edit. Triggering asynchronously:', job.pendingEdit.newPrompt);
             
-            try {
-              const requestBody = {
-                jobId,
-                newPrompt: job.pendingEdit.newPrompt
-              };
-              
-              if (job.pendingEdit.imageIds && job.pendingEdit.imageIds.length > 0) {
-                requestBody.imageIds = job.pendingEdit.imageIds;
-              }
-
-              const reEditResponse = await fetch(`http://localhost:3000/api/re-edit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-              });
-
-              delete job.pendingEdit; // Clear pending edit
-
-              if (reEditResponse.ok) {
-                return res.json({
-                  success: true,
-                  message: `Perfect! I'm now applying the changes: "${requestBody.newPrompt}". The processing will take about 30-60 seconds. The images will automatically refresh once complete.`,
-                  editTriggered: true
-                });
-              } else {
-                const errorData = await reEditResponse.json().catch(() => ({}));
-                throw new Error(errorData.error || 'Re-edit request failed');
-              }
-            } catch (editError) {
-              console.error('[Chat] Edit execution error:', editError);
-              delete job.pendingEdit;
-              return res.status(500).json({
-                success: false,
-                error: 'Sorry, I encountered an error while trying to edit your images. Please try again.'
-              });
+            const requestBody = {
+              jobId,
+              newPrompt: job.pendingEdit.newPrompt
+            };
+            
+            if (job.pendingEdit.imageIds && job.pendingEdit.imageIds.length > 0) {
+              requestBody.imageIds = job.pendingEdit.imageIds;
             }
+
+            delete job.pendingEdit;
+
+            fetch(`http://localhost:3000/api/re-edit`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody)
+            }).then(response => {
+              if (response.ok) {
+                console.log('[Chat] Re-edit triggered successfully in background');
+              } else {
+                console.error('[Chat] Re-edit failed:', response.status);
+              }
+            }).catch(error => {
+              console.error('[Chat] Re-edit trigger error:', error.message);
+            });
+
+            return res.json({
+              success: true,
+              message: `Perfect! I'm now applying the changes: "${requestBody.newPrompt}". The processing will take about 30-60 seconds. The images will automatically refresh once complete.`,
+              editTriggered: true
+            });
           } else if (isRejection) {
             delete job.pendingEdit;
             return res.json({
