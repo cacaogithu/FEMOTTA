@@ -14,6 +14,61 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET = process.env.JWT_SECRET;
 const USER_TOKEN_EXPIRY = '7d';
 
+// Test mode endpoint - allows bypassing authentication during testing
+router.get('/test-mode', (req, res) => {
+  const testMode = process.env.TEST_MODE === 'true';
+  res.json({ testMode });
+});
+
+// Test mode auto-login - provides a test token without credentials
+router.post('/test-login', async (req, res) => {
+  try {
+    // Only allow this endpoint if TEST_MODE is enabled
+    if (process.env.TEST_MODE !== 'true') {
+      return res.status(403).json({ error: 'Test mode is not enabled' });
+    }
+
+    // Get the first active user as the test user
+    const [user] = await db.select().from(users).where(eq(users.active, true)).limit(1);
+    
+    if (!user) {
+      return res.status(500).json({ error: 'No active users found for test mode' });
+    }
+
+    const token = jwt.sign(
+      {
+        role: 'user',
+        userId: user.id,
+        email: user.email,
+        username: user.username,
+        brandId: user.brandId,
+        testMode: true,
+        timestamp: Date.now()
+      },
+      JWT_SECRET,
+      { expiresIn: USER_TOKEN_EXPIRY }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        brandId: user.brandId
+      },
+      message: 'Test mode login successful',
+      expiresIn: USER_TOKEN_EXPIRY,
+      testMode: true
+    });
+  } catch (error) {
+    console.error('Test mode login error:', error);
+    res.status(500).json({ error: 'Test login failed' });
+  }
+});
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;

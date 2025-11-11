@@ -6,8 +6,38 @@ function UserProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    verifyToken();
+    checkAuthAndTestMode();
   }, []);
+
+  const checkAuthAndTestMode = async () => {
+    try {
+      const testModeResponse = await fetch('/api/users/test-mode');
+      const testModeData = await testModeResponse.json();
+      
+      if (testModeData.testMode) {
+        const existingToken = localStorage.getItem('userToken');
+        
+        if (!existingToken) {
+          const loginResponse = await fetch('/api/users/test-login', {
+            method: 'POST',
+          });
+          const loginData = await loginResponse.json();
+          
+          if (loginResponse.ok) {
+            localStorage.setItem('userToken', loginData.token);
+            localStorage.setItem('userInfo', JSON.stringify(loginData.user));
+            setIsValid(true);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Test mode check failed, using normal auth');
+    }
+    
+    verifyToken();
+  };
 
   const verifyToken = async () => {
     const userToken = localStorage.getItem('userToken');
