@@ -15,8 +15,6 @@ function BeforeAfterSlider({ beforeImageId, afterImageId, name, refreshToken }) 
     const loadImages = async () => {
       try {
         const cacheBuster = refreshToken || Date.now();
-        console.log(`[BeforeAfterSlider] Loading images - afterImageId: ${afterImageId}, refreshToken: ${refreshToken}, cacheBuster: ${cacheBuster}`);
-        
         const [beforeResponse, afterResponse] = await Promise.all([
           authenticatedFetch(`/api/images/${beforeImageId}?t=${cacheBuster}`),
           authenticatedFetch(`/api/images/${afterImageId}?t=${cacheBuster}`)
@@ -28,7 +26,6 @@ function BeforeAfterSlider({ beforeImageId, afterImageId, name, refreshToken }) 
         beforeBlobUrl = URL.createObjectURL(beforeBlob);
         afterBlobUrl = URL.createObjectURL(afterBlob);
 
-        console.log(`[BeforeAfterSlider] Images loaded successfully for ${afterImageId}`);
         setBeforeUrl(beforeBlobUrl);
         setAfterUrl(afterBlobUrl);
         setLoading(false);
