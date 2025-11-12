@@ -60,7 +60,8 @@ function ChatWidget({ jobId, onImageUpdated }) {
     }
 
     let pollCount = 0;
-    const maxPolls = 20;
+    const maxPolls = 40; // Increased to allow more time for re-edits
+    let previousImageCount = 0;
 
     const pollForUpdates = async () => {
       try {
@@ -71,8 +72,18 @@ function ChatWidget({ jobId, onImageUpdated }) {
         const response = await fetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
         const data = await response.json();
         
-        if (data.status === 'completed') {
-          console.log('[ChatWidget] Edit completed, triggering image refresh');
+        // Check if images array changed (new re-edited images added)
+        const currentImageCount = data.results?.images?.length || 0;
+        
+        if (pollCount === 1) {
+          previousImageCount = currentImageCount;
+          console.log(`[ChatWidget] Initial image count: ${previousImageCount}`);
+        }
+        
+        // Trigger refresh after 3 seconds to allow backend to complete
+        // This gives time for the re-edit to finish and be saved to the job
+        if (pollCount >= 2) {
+          console.log('[ChatWidget] Re-edit likely completed, triggering image refresh');
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
           if (onImageUpdated) {
@@ -82,14 +93,21 @@ function ChatWidget({ jobId, onImageUpdated }) {
           console.log('[ChatWidget] Max polls reached, stopping polling');
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
+          // Still trigger refresh in case edit completed
+          if (onImageUpdated) {
+            onImageUpdated();
+          }
         }
       } catch (error) {
         console.error('[ChatWidget] Polling error:', error);
       }
     };
 
-    pollForUpdates();
-    pollingIntervalRef.current = setInterval(pollForUpdates, 3000);
+    // Wait 2 seconds before starting to poll to give backend time to process
+    setTimeout(() => {
+      pollForUpdates();
+      pollingIntervalRef.current = setInterval(pollForUpdates, 3000);
+    }, 2000);
   };
 
   useEffect(() => {

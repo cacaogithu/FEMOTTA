@@ -76,7 +76,8 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
       const data = await response.json();
       console.log('[ResultsPage] Refresh response:', data);
       if (data.status === 'completed' && data.results) {
-        setResults(data.results);
+        // Force component re-render by creating new object reference
+        setResults({ ...data.results, _refreshTimestamp: Date.now() });
         console.log('[ResultsPage] Images refreshed successfully');
       }
     } catch (error) {
