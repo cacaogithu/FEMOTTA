@@ -72,15 +72,21 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
     setIsRefreshing(true);
     try {
       console.log('[ResultsPage] Refreshing images for job:', jobId);
+      console.log('[ResultsPage] Current refreshToken:', refreshToken);
+      console.log('[ResultsPage] Current results.images:', results?.images?.map(img => ({ name: img.name, editedImageId: img.editedImageId })));
+      
       // Add timestamp to prevent caching and ensure real-time updates
       const response = await authenticatedFetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
       const data = await response.json();
-      console.log('[ResultsPage] Refresh response:', data);
+      console.log('[ResultsPage] Refresh response images:', data.results?.images?.map(img => ({ name: img.name, editedImageId: img.editedImageId })));
+      
       if (data.status === 'completed' && data.results) {
+        const newRefreshToken = Date.now();
         // Force component re-render by creating new object reference and updating refresh token
-        setResults({ ...data.results, _refreshTimestamp: Date.now() });
-        setRefreshToken(Date.now());
-        console.log('[ResultsPage] Images refreshed successfully');
+        setResults({ ...data.results, _refreshTimestamp: newRefreshToken });
+        setRefreshToken(newRefreshToken);
+        console.log('[ResultsPage] Images refreshed successfully. New refreshToken:', newRefreshToken);
+        console.log('[ResultsPage] Updated results.images:', data.results.images?.map(img => ({ name: img.name, editedImageId: img.editedImageId })));
       }
     } catch (error) {
       console.error('[ResultsPage] Refresh error:', error);
