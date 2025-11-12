@@ -62,6 +62,7 @@ function TimeMetricsPanel({ jobId }) {
 function ResultsPage({ results: initialResults, onReset, jobId }) {
   const [results, setResults] = useState(initialResults);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(Date.now());
 
   useEffect(() => {
     setResults(initialResults);
@@ -76,8 +77,9 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
       const data = await response.json();
       console.log('[ResultsPage] Refresh response:', data);
       if (data.status === 'completed' && data.results) {
-        // Force component re-render by creating new object reference
+        // Force component re-render by creating new object reference and updating refresh token
         setResults({ ...data.results, _refreshTimestamp: Date.now() });
+        setRefreshToken(Date.now());
         console.log('[ResultsPage] Images refreshed successfully');
       }
     } catch (error) {
@@ -106,7 +108,7 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
 
   const handleDownloadImage = async (editedImageId, name) => {
     try {
-      const response = await authenticatedFetch(`/api/images/${editedImageId}`);
+      const response = await authenticatedFetch(`/api/images/${editedImageId}?t=${Date.now()}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -198,18 +200,20 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
             <div key={`${image.editedImageId || image.id}-${idx}`} className="result-card">
               {image.originalImageId && image.editedImageId ? (
                 <BeforeAfterSlider 
-                  key={`slider-${image.editedImageId}`}
+                  key={`slider-${image.editedImageId}-${refreshToken}`}
                   beforeImageId={image.originalImageId}
                   afterImageId={image.editedImageId}
                   name={image.name}
+                  refreshToken={refreshToken}
                 />
               ) : (
                 <div className="image-container">
                   <ImagePreview 
-                    key={`preview-${image.editedImageId || image.id}`}
+                    key={`preview-${image.editedImageId || image.id}-${refreshToken}`}
                     imageId={image.editedImageId || image.id}
                     alt={image.name}
                     className="result-image"
+                    refreshToken={refreshToken}
                   />
                 </div>
               )}

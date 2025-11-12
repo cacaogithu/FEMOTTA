@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../utils/api';
 
-function ImagePreview({ imageId, alt, className }) {
+function ImagePreview({ imageId, alt, className, refreshToken }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -11,7 +11,7 @@ function ImagePreview({ imageId, alt, className }) {
 
     const loadImage = async () => {
       try {
-        const cacheBuster = Date.now();
+        const cacheBuster = refreshToken || Date.now();
         const response = await authenticatedFetch(`/api/images/${imageId}?t=${cacheBuster}`);
         
         if (!response.ok) {
@@ -35,7 +35,7 @@ function ImagePreview({ imageId, alt, className }) {
     return () => {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
-  }, [imageId]);
+  }, [imageId, refreshToken]);
 
   if (loading) {
     return (
