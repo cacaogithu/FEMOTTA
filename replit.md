@@ -47,7 +47,8 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 ## External Dependencies
 - **PostgreSQL Database (Neon)**: Multi-tenant data storage.
 - **Google Drive API**: File storage for briefs, product images, and results.
-- **Wavespeed Nano Banana API**: Primary AI-powered image editing (all real-time edits).
+- **Google Gemini 3 Pro Image API**: Primary AI-powered image editing with highest quality output. Automatic fallback to Wavespeed if unavailable.
+- **Wavespeed Nano Banana API**: Fallback AI-powered image editing.
 - **OpenAI API (GPT-4o)**: AI Chat Assistant with vision, function calling, ML feedback system.
 - **Google Gemini Batch API**: Cost-optimized bulk analysis (brief parsing, quality checks, prompt optimization).
 - **Mammoth.js**: Extracts text and images from DOCX.

@@ -2,6 +2,7 @@ import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/g
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
 import { editMultipleImages, editImageWithNanoBanana } from '../services/nanoBanana.js';
+import { editImageWithGemini } from '../services/geminiImage.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { Readable } from 'stream';
@@ -10,6 +11,51 @@ import OpenAI from 'openai';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
 import sharp from 'sharp';
+
+async function editImageUnified(imageUrl, prompt, options = {}) {
+  const { provider = 'gemini' } = options;
+  
+  console.log(`[EditUnified] Using provider: ${provider}`);
+  
+  try {
+    if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
+      console.log('[EditUnified] Using Gemini 3 Pro Image model');
+      const result = await editImageWithGemini(imageUrl, prompt, {
+        geminiApiKey: options.geminiApiKey || process.env.GEMINI_API_KEY,
+        retries: 3
+      });
+      return result;
+    } else {
+      console.log('[EditUnified] Using Wavespeed Nano Banana');
+      const result = await editImageWithNanoBanana(imageUrl, prompt, {
+        wavespeedApiKey: options.wavespeedApiKey,
+        enableSyncMode: options.enableSyncMode !== false,
+        outputFormat: options.outputFormat || 'jpeg',
+        numImages: options.numImages || 1
+      });
+      return result;
+    }
+  } catch (error) {
+    console.error(`[EditUnified] ${provider} failed:`, error.message);
+    
+    if (provider === 'gemini') {
+      console.log('[EditUnified] Falling back to Wavespeed Nano Banana');
+      try {
+        const fallbackResult = await editImageWithNanoBanana(imageUrl, prompt, {
+          wavespeedApiKey: options.wavespeedApiKey,
+          enableSyncMode: true,
+          outputFormat: 'jpeg',
+          numImages: 1
+        });
+        return fallbackResult;
+      } catch (fallbackError) {
+        console.error('[EditUnified] Fallback also failed:', fallbackError.message);
+        throw fallbackError;
+      }
+    }
+    throw error;
+  }
+}
 
 // Helper function to overlay a logo on an edited image
 async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-left') {
