@@ -889,8 +889,7 @@ async function processImagesWithNanoBanana(jobId) {
     }
   });
 
-  for (let i = 0; i < results.length; i++) {
-    const result = results[i];
+  const saveImagePromises = results.map(async (result, i) => {
     const originalImage = job.images[i];
 
     console.log(`Processing result ${i + 1}/${results.length}:`, result);
@@ -915,24 +914,30 @@ async function processImagesWithNanoBanana(jobId) {
 
       await makeFilePublic(uploadedFile.id);
 
-      editedImages.push({
+      console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
+
+      return {
         id: uploadedFile.id,
         name: editedFileName,
         editedImageId: uploadedFile.id,
         originalImageId: originalImage.driveId,
         originalName: originalImage.originalName,
         url: getPublicImageUrl(uploadedFile.id)
-      });
-      console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
-
-      await updateJob(jobId, {
-        processingStep: `Saved ${i + 1} of ${results.length} images`,
-        progress: Math.round(((i + 1) / results.length) * 100)
-      });
+      };
     } else {
       console.error(`No edited image in result ${i + 1} - Missing data.outputs`);
+      return null;
     }
-  }
+  });
+
+  const savedImages = await Promise.all(saveImagePromises);
+  const editedImagesResult = savedImages.filter(img => img !== null);
+  editedImages.push(...editedImagesResult);
+
+  await updateJob(jobId, {
+    processingStep: `Exported ${editedImages.length} images`,
+    progress: 95
+  });
 
   addWorkflowStep(jobId, {
     name: 'Saving Complete',

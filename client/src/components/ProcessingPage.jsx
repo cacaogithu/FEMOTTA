@@ -4,11 +4,11 @@ import WorkflowViewer from './WorkflowViewer';
 import './ProcessingPage.css';
 
 const steps = [
-  'Uploading files to cloud storage...',
-  'AI parsing your creative brief...',
-  'Matching images to specifications...',
-  'Editing images with AI...',
-  'Preparing results...'
+  { label: 'Uploading', description: 'Uploading files to cloud storage' },
+  { label: 'Extracting', description: 'AI parsing your creative brief' },
+  { label: 'Rendering', description: 'AI editing product images' },
+  { label: 'Exporting', description: 'Saving results to storage' },
+  { label: 'Complete', description: 'Processing finished' }
 ];
 
 function ProcessingPage({ jobId, onComplete }) {
@@ -167,7 +167,8 @@ function ProcessingPage({ jobId, onComplete }) {
                   )}
                 </div>
                 <div className="step-content">
-                  <div className="step-title">{step}</div>
+                  <div className="step-label">{step.label}</div>
+                  <div className="step-description">{step.description}</div>
                   {idx === currentStep && idx < steps.length - 1 && (
                     <div className="step-loader">
                       <div className="dot-pulse">

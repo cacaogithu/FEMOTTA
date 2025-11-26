@@ -66,8 +66,8 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 32px;
+  padding: 28px 32px;
+  margin-bottom: 40px;
 }
 
 .progress-stats {
@@ -129,18 +129,18 @@
 .steps-modern {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 32px;
+  gap: 16px;
+  margin-bottom: 40px;
 }
 
 .step-modern {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: 20px;
+  padding: 20px 24px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  border-radius: 14px;
   opacity: 0.4;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -199,18 +199,39 @@
 
 .step-content {
   flex: 1;
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
-.step-title {
-  font-size: 15px;
-  color: #CCCCCC;
-  font-weight: 500;
+.step-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #666666;
   margin-bottom: 4px;
 }
 
-.step-modern.active .step-title {
+.step-modern.active .step-label {
+  color: #FFC107;
+}
+
+.step-modern.completed .step-label {
+  color: #4CAF50;
+}
+
+.step-description {
+  font-size: 14px;
+  color: #999999;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.step-modern.active .step-description {
   color: #FFFFFF;
+}
+
+.step-modern.completed .step-description {
+  color: #CCCCCC;
 }
 
 .step-loader {
