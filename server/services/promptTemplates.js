@@ -8,14 +8,28 @@
  * Use this for: Product catalogs, strict brand consistency
  * Characteristics: Nearly identical results, minimal variance
  */
-export const PROMPT_TEMPLATE_FIXED = `Apply a linear gradient overlay at the top 22% of the image, transitioning from rgba(20,20,20,0.35) at the top edge to fully transparent. Position text 32px from the top edge and 40px from the left edge. Render the title text '{title}' using Montserrat Extra Bold font at exactly 52px, uppercase, white color (#FFFFFF), with line-height 1.1 and max-width 85% of image width. Position subtitle text '{subtitle}' exactly 8px below the title, using Montserrat Regular font at exactly 18px, white color, line-height 1.3. Apply text shadow to both texts: 0px 1.5px 3px rgba(0,0,0,0.25). Preserve all original image details and product features. Output as high-resolution JPEG.`;
+export const PROMPT_TEMPLATE_FIXED = `CRITICAL: Do NOT render any font names, sizes, CSS values, or technical parameters as visible text on the image. These are styling instructions only.
+
+Apply a linear gradient overlay at the top 22% of the image, transitioning from dark semi-transparent to fully transparent. Position and render ONLY these text elements:
+
+Title: '{title}' (large, bold, uppercase, white)
+Subtitle: '{subtitle}' (smaller, regular weight, white, positioned below title)
+
+Use clean, professional typography with subtle drop shadow for readability. Preserve all original image details and product features. Output as high-resolution JPEG.`;
 
 /**
  * OPTION B: SMART ADAPTIVE STANDARDIZATION  
  * Use this for: Mixed content, varied aspect ratios, complex layouts
  * Characteristics: Consistent style with intelligent adaptation
  */
-export const PROMPT_TEMPLATE_ADAPTIVE = `Apply a linear gradient overlay at the top 22% of the image (or top 12% if product is detected in the upper third), transitioning from rgba(20,20,20,0.35) to fully transparent. Position text based on image aspect ratio: for portrait images (width/height < 0.75) place 40px from top and centered horizontally; for landscape images (width/height > 1.5) place 32px from top and 60px from left; for standard images place 32px from top and 40px from left. Render title '{title}' in Montserrat Extra Bold, uppercase, white (#FFFFFF) - for images under 1000px wide use 48px, for 1000-2000px wide use 52px, for over 2000px wide use 58px. Render subtitle '{subtitle}' 8px below title in Montserrat Regular, white, at 34.6% of the title font size (maintains 2.89:1 ratio). Apply text shadow: 0px 1.5px 3px rgba(0,0,0,0.25) to all text. Preserve all original image details. Output as high-resolution JPEG.`;
+export const PROMPT_TEMPLATE_ADAPTIVE = `CRITICAL: Do NOT render any font names, sizes, pixel values, CSS parameters, or technical specifications as visible text on the image. These are styling instructions only.
+
+Apply a subtle dark gradient overlay at the top portion of the image. Position and render ONLY these text elements:
+
+Title: '{title}' (large, bold, uppercase, white, positioned at top)
+Subtitle: '{subtitle}' (smaller, regular weight, white, positioned below title)
+
+Adapt text size and positioning based on image dimensions while maintaining professional appearance. Use clean typography with subtle drop shadow. Preserve all original image details and product features. Output as high-resolution JPEG.`;
 
 /**
  * DEPRECATED: OLD TEMPLATE WITH EXCESSIVE RANGES
