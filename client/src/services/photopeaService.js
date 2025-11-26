@@ -2,6 +2,20 @@ let photopeaFrame = null;
 let photopeaReady = false;
 let messageQueue = [];
 let isProcessing = false;
+let processingTimeout = null;
+
+function resetProcessingState() {
+  console.log('[PHOTOPEA] 🔄 Resetting processing state');
+  isProcessing = false;
+  if (processingTimeout) {
+    clearTimeout(processingTimeout);
+    processingTimeout = null;
+  }
+  while (messageQueue.length > 0) {
+    const resolve = messageQueue.shift();
+    resolve();
+  }
+}
 
 export function initPhotopea() {
   if (photopeaFrame) return Promise.resolve();
@@ -118,10 +132,24 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
   await initPhotopea();
   
   if (isProcessing) {
-    console.log('[PHOTOPEA] ⏳ Queued - waiting for previous operation...');
-    await new Promise(resolve => messageQueue.push(resolve));
+    console.log('[PHOTOPEA] ⏳ Queued - waiting for previous operation (max 30s)...');
+    const waitPromise = new Promise(resolve => messageQueue.push(resolve));
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Queue timeout - previous operation took too long')), 30000)
+    );
+    try {
+      await Promise.race([waitPromise, timeoutPromise]);
+    } catch (e) {
+      console.warn('[PHOTOPEA] ⚠️ Queue timeout, resetting state');
+      resetProcessingState();
+    }
   }
   isProcessing = true;
+  
+  processingTimeout = setTimeout(() => {
+    console.error('[PHOTOPEA] ⚠️ Processing timeout (90s), forcing reset');
+    resetProcessingState();
+  }, 90000);
   
   try {
     const {
@@ -218,6 +246,10 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
     console.error('[PHOTOPEA] → Stack:', error.stack);
     throw error;
   } finally {
+    if (processingTimeout) {
+      clearTimeout(processingTimeout);
+      processingTimeout = null;
+    }
     isProcessing = false;
     if (messageQueue.length > 0) {
       const next = messageQueue.shift();
