@@ -717,6 +717,7 @@ export async function uploadPDF(req, res) {
       // Start processing in the background
       processImagesWithNanoBanana(jobId).catch(async err => {
         console.error('Background processing error:', err);
+        console.error('Error stack:', err.stack);
         await updateJob(jobId, { 
           status: 'failed',
           error: err.message
@@ -804,6 +805,7 @@ export async function uploadImages(req, res) {
 
     processImagesWithNanoBanana(jobId).catch(async err => {
       console.error('Background processing error:', err);
+      console.error('Error stack:', err.stack);
       await updateJob(jobId, { 
         status: 'failed',
         error: err.message
@@ -1000,16 +1002,35 @@ async function processImagesWithNanoBanana(jobId) {
         numImages: 1,
         wavespeedApiKey: brandConfig.wavespeedApiKey
       }).then(async result => {
-        await updateJob(jobId, {
-          processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
-          progress: Math.round(((imageIndex + 1) / imageUrls.length) * 100),
-          currentImageIndex: imageIndex
-        });
+        try {
+          await updateJob(jobId, {
+            processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
+            progress: Math.round(((imageIndex + 1) / imageUrls.length) * 100),
+            currentImageIndex: imageIndex
+          });
+        } catch (updateErr) {
+          console.error(`[Batch] Error updating job progress:`, updateErr.message);
+        }
         return result;
+      }).catch(err => {
+        console.error(`[Batch] Image ${imageIndex + 1} failed:`, err.message);
+        return { error: err.message, imageIndex };
       });
     });
 
-    const batchResults = await Promise.all(batchPromises);
+    console.log(`[Batch ${batchNumber}] Waiting for ${batchPromises.length} promises...`);
+    let batchResults;
+    try {
+      batchResults = await Promise.all(batchPromises);
+      console.log(`[Batch ${batchNumber}] All promises resolved. Results count: ${batchResults.length}`);
+      if (batchResults[0]) {
+        console.log(`[Batch ${batchNumber}] First result structure:`, JSON.stringify(batchResults[0], null, 2).substring(0, 500));
+      }
+    } catch (batchErr) {
+      console.error(`[Batch ${batchNumber}] Promise.all failed:`, batchErr.message);
+      console.error(`[Batch ${batchNumber}] Error stack:`, batchErr.stack);
+      throw batchErr;
+    }
     results.push(...batchResults);
 
     addWorkflowStep(jobId, {
