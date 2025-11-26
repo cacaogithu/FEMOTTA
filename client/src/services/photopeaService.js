@@ -211,23 +211,18 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
             console.log("Photopea: Subtitle error:", e.message);
           }
           
-          // Try to add drop shadow to subtitle via layer style
+          // Create subtitle shadow layer (behind text, independently editable)
           try {
-            var subShadowDesc = {
-              "dropShadow": {
-                "enabled": true,
-                "mode": "normal",
-                "color": {"r":0,"g":0,"b":0},
-                "opacity": 60,
-                "angle": 120,
-                "distance": 2,
-                "blur": 4,
-                "spread": 0
-              }
-            };
-            app.activeDocument.activeLayer = subtitleLayer;
-            subtitleLayer.layerEffects.dropShadow.enabled = true;
-          } catch(e) { console.log("Photopea: Subtitle shadow skipped:", e.message); }
+            var subtitleShadowLayer = doc.artLayers.add();
+            subtitleShadowLayer.name = "Subtitle Shadow";
+            subtitleShadowLayer.kind = LayerKind.SOLIDFILL;
+            subtitleShadowLayer.opacity = 45;
+            // Move shadow layer behind the text layer
+            if (doc.artLayers.length > 1) {
+              subtitleShadowLayer.move(subtitleLayer, ElementPlacement.PLACEBEFORE);
+            }
+            console.log("Photopea: Subtitle shadow layer added");
+          } catch(e) { console.log("Photopea: Subtitle shadow layer skipped:", e.message); }
           ` : ''}
           
           ${cleanTitle ? `
