@@ -4,6 +4,7 @@ import { uploadFileToDrive, getPublicImageUrl } from '../utils/googleDrive.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import { analyzeResultQuality } from '../services/mlLearning.js';
+import { archiveBatchToStorage } from '../services/historyService.js';
 
 export async function processImages(req, res) {
   try {
@@ -145,6 +146,16 @@ export async function processImages(req, res) {
       estimatedManualTimeMinutes: estimatedManualTimeMinutes,
       timeSavedMinutes: parseFloat(timeSavedMinutes.toFixed(1)),
       timeSavedPercent: timeSavedPercent
+    });
+
+    archiveBatchToStorage(jobId, {
+      ...job,
+      editedImages,
+      processingTimeSeconds,
+      estimatedManualTimeMinutes,
+      timeSavedMinutes: parseFloat(timeSavedMinutes.toFixed(1))
+    }).catch(err => {
+      console.error('[History Archive] Non-blocking archive error:', err.message);
     });
 
     res.json({

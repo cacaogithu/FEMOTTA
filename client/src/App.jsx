@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import UploadPage from './components/UploadPage';
 import ProcessingPage from './components/ProcessingPage';
 import ResultsPage from './components/ResultsPage';
+import HistoryPanel from './components/HistoryPanel';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import BrandForm from './pages/admin/BrandForm';
@@ -17,12 +18,12 @@ import './App.css';
 
 function MainApp() {
   const [page, setPage] = useState('upload');
+  const [activeTab, setActiveTab] = useState('editor');
   const [jobId, setJobId] = useState(null);
   const [results, setResults] = useState(null);
   const [brandLoaded, setBrandLoaded] = useState(false);
 
   useEffect(() => {
-    // Load brand configuration on app initialization
     async function initializeBrand() {
       const brand = await brandService.loadBrandConfig();
       brandService.applyBrandTheming(brand);
@@ -47,6 +48,13 @@ function MainApp() {
     setResults(null);
   };
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'editor') {
+      handleReset();
+    }
+  };
+
   if (!brandLoaded) {
     return (
       <div className="app loading-brand">
@@ -58,14 +66,38 @@ function MainApp() {
   return (
     <div className="app">
       <LogoutButton />
-      {page === 'upload' && (
-        <UploadPage onComplete={handleUploadComplete} />
+      
+      <nav className="main-nav">
+        <button 
+          className={`nav-tab ${activeTab === 'editor' ? 'active' : ''}`}
+          onClick={() => handleTabChange('editor')}
+        >
+          Editor
+        </button>
+        <button 
+          className={`nav-tab ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => handleTabChange('history')}
+        >
+          History
+        </button>
+      </nav>
+
+      {activeTab === 'editor' && (
+        <>
+          {page === 'upload' && (
+            <UploadPage onComplete={handleUploadComplete} />
+          )}
+          {page === 'processing' && (
+            <ProcessingPage jobId={jobId} onComplete={handleProcessingComplete} />
+          )}
+          {page === 'results' && (
+            <ResultsPage results={results} onReset={handleReset} jobId={jobId} />
+          )}
+        </>
       )}
-      {page === 'processing' && (
-        <ProcessingPage jobId={jobId} onComplete={handleProcessingComplete} />
-      )}
-      {page === 'results' && (
-        <ResultsPage results={results} onReset={handleReset} jobId={jobId} />
+
+      {activeTab === 'history' && (
+        <HistoryPanel />
       )}
     </div>
   );

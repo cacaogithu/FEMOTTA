@@ -1,5 +1,6 @@
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
+import { archiveBatchToStorage } from '../services/historyService.js';
 import { editMultipleImages, editImageWithNanoBanana } from '../services/nanoBanana.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
@@ -961,6 +962,14 @@ async function processImagesWithNanoBanana(jobId) {
       jobId: jobId,
       completedAt: new Date().toISOString()
     }
+  });
+
+  const finalJob = getJob(jobId);
+  archiveBatchToStorage(jobId, {
+    ...finalJob,
+    editedImages
+  }).catch(err => {
+    console.error('[History Archive] Non-blocking archive error:', err.message);
   });
 }
 

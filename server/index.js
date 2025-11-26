@@ -17,6 +17,7 @@ import subaccountsRoutes from './routes/subaccounts.js';
 import mlRoutes from './routes/ml.js';
 import userRoutes from './routes/users.js';
 import batchRoutes from './routes/batch.js';
+import historyRoutes from './routes/history.js';
 
 dotenv.config();
 
@@ -56,6 +57,7 @@ app.use('/api/re-edit', reEditRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/ml', mlStatsRoutes);
 app.use('/api/psd', psdRoutes);
+app.use('/api/history', historyRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });

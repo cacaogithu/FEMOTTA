@@ -17,6 +17,7 @@
     "@google/generative-ai": "^0.24.1",
     "@neondatabase/serverless": "^1.0.2",
     "ag-psd": "^28.4.1",
+    "archiver": "^7.0.1",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "canvas": "^3.2.0",
