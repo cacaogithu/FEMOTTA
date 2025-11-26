@@ -1,14 +1,19 @@
 import express from 'express';
-import { createBatchJob, getBatchStatus, getBatchResults } from '../controllers/batchController.js';
-import { requireBrandAuth } from '../middleware/brandAuth.js';
+import batchController from '../controllers/batchController.js';
+import { brandContextMiddleware } from '../middleware/brandContext.js';
 
 const router = express.Router();
 
-// All batch routes require brand authentication
-router.use(requireBrandAuth);
+router.use(brandContextMiddleware);
 
-router.post('/create', createBatchJob);
-router.get('/:jobName/status', getBatchStatus);
-router.get('/results', getBatchResults);
+router.post('/brief-analysis', batchController.submitBriefAnalysisBatch);
+
+router.post('/quality-check', batchController.submitQualityCheckBatch);
+
+router.post('/prompt-optimization', batchController.submitPromptOptimizationBatch);
+
+router.get('/status/:batchJobName', batchController.getBatchJobStatus);
+
+router.get('/results/:batchJobName', batchController.getBatchJobResults);
 
 export default router;

@@ -16,6 +16,9 @@ import brandRoutes from './routes/brand.js';
 import adminRoutes from './routes/admin.js';
 import subaccountsRoutes from './routes/subaccounts.js';
 import mlRoutes from './routes/ml.js';
+import userRoutes from './routes/users.js';
+import batchRoutes from './routes/batch.js';
+import historyRoutes from './routes/history.js';
 
 dotenv.config();
 
@@ -35,11 +38,17 @@ app.use('/api/brand', brandRoutes);
 // Admin routes
 app.use('/api/admin', adminRoutes);
 
+// User routes
+app.use('/api/users', userRoutes);
+
 // Subaccounts CRM routes
 app.use('/api/subaccounts', subaccountsRoutes);
 
 // ML Analysis routes
 app.use('/api/ml', mlRoutes);
+
+// Gemini Batch API routes
+app.use('/api/batch', batchRoutes);
 
 app.use('/api/upload', uploadRoutes);
 app.use('/api/results', resultsRoutes);
@@ -50,19 +59,22 @@ app.use('/api/batch', batchRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/ml', mlStatsRoutes);
 app.use('/api/psd', psdRoutes);
+app.use('/api/history', historyRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
-// Serve frontend build files in production
-const clientBuildPath = path.join(__dirname, '../client/dist');
-app.use(express.static(clientBuildPath));
+// Serve frontend build files in production only
+if (process.env.NODE_ENV === 'production') {
+  const clientBuildPath = path.join(__dirname, '../client/dist');
+  app.use(express.static(clientBuildPath));
 
-// Serve index.html for all non-API routes (SPA routing)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(clientBuildPath, 'index.html'));
-});
+  // Serve index.html for all non-API routes (SPA routing)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+}
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);

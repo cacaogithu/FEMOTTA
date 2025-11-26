@@ -1,5 +1,5 @@
-import { editImageUnified } from '../services/nanoBanana.js';
-import { getJobWithFallback, updateJob } from '../utils/jobStore.js';
+import { editImageWithNanoBanana } from '../services/nanoBanana.js';
+import { getJobWithFallback, updateJob, getJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import fetch from 'node-fetch';
@@ -62,53 +62,93 @@ export async function reEditImages(req, res) {
 
     for (const image of imagesToReEdit) {
       console.log(`[Re-edit] Processing image: ${image.name} (editedImageId: ${image.editedImageId})`);
-
-      // Download the EDITED image from Google Drive (not the original)
-      const editedImageBuffer = await downloadFileFromDrive(image.editedImageId);
-
-      if (!editedImageBuffer) {
-        console.error(`[Re-edit] Failed to download edited image: ${image.editedImageId}`);
+      
+      // Download the EDITED image from Google Drive to build on previous work
+      // This enables iterative refinement - each re-edit builds on top of the last
+      const editedImageId = image.editedImageId;
+      
+      if (!editedImageId) {
+        console.error(`[Re-edit] No edited image ID found for ${image.name}`);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: 'Edited image ID not found - cannot re-edit'
+        });
+        continue;
+      }
+      
+      console.log(`[Re-edit] Downloading EDITED image: ${editedImageId} (preserving previous edits)`);
+      
+      let editedImageBuffer;
+      try {
+        editedImageBuffer = await downloadFileFromDrive(editedImageId);
+      } catch (downloadError) {
+        console.error(`[Re-edit] Failed to download edited image ${editedImageId}:`, downloadError.message);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: `Failed to download edited image: ${downloadError.message}`
+        });
+        continue;
+      }
+      
+      if (!editedImageBuffer || editedImageBuffer.length < 1000) {
+        console.error(`[Re-edit] Downloaded edited image is invalid or too small: ${editedImageId}`);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: 'Downloaded edited image file is invalid or corrupted'
+        });
         continue;
       }
 
       // Convert buffer to base64 for Wavespeed API
       const base64Image = `data:image/jpeg;base64,${editedImageBuffer.toString('base64')}`;
-      console.log(`[Re-edit] Converted image to base64, length: ${base64Image.length}`);
+      const imageSizeKB = Math.round(base64Image.length / 1024);
+      console.log(`[Re-edit] Converted EDITED image to base64: ${imageSizeKB} KB`);
+      
+      // Send base64 image + new prompt to Wavespeed API
+      console.log(`[Re-edit] Calling Wavespeed API with prompt: "${newPrompt}"`);
+      console.log(`[Re-edit] This may take 60-120 seconds for complex edits...`);
+      
+      let result;
+      try {
+        result = await editImageWithNanoBanana(base64Image, newPrompt, {
+          enableSyncMode: true,
+          outputFormat: 'jpeg',
+          wavespeedApiKey: brandConfig.wavespeedApiKey,
+          isBase64: true  // Flag to indicate we're sending base64
+        });
+        console.log(`[Re-edit] Wavespeed API completed successfully`);
+      } catch (wavespeedError) {
+        console.error(`[Re-edit] Wavespeed API error:`, wavespeedError.message);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: `Wavespeed API failed: ${wavespeedError.message}`
+        });
+        continue;
+      }
 
-      // Send base64 image + new prompt to Unified API
-      const result = await editImageUnified(base64Image, newPrompt, {
-        provider: brandConfig.preferredImageApi || 'wavespeed',
-        geminiApiKey: brandConfig.geminiApiKey,
-        wavespeedApiKey: brandConfig.wavespeedApiKey,
-        enableSyncMode: true,
-        outputFormat: 'jpeg',
-        isBase64: true,
-        fallbackToWavespeed: true
-      });
-
-      // Handle unified response format (result.data.outputs array of URLs or Data URIs)
-      // Note: uploadController uses result.data.outputs, while previous reEdit used result.images
-      // editImageUnified standardizes on result.data.outputs
-
-      const outputs = result.data?.outputs || result.images?.map(img => img.url);
-
-      if (outputs && outputs.length > 0) {
-        const reEditedImageUrl = outputs[0];
-        let imageBuffer;
-
-        if (reEditedImageUrl.startsWith('data:')) {
-          // Handle Data URI (Gemini)
-          const base64Data = reEditedImageUrl.split(',')[1];
-          imageBuffer = Buffer.from(base64Data, 'base64');
-        } else {
-          // Handle URL (Wavespeed)
-          const imageResponse = await fetch(reEditedImageUrl);
-          imageBuffer = await imageResponse.arrayBuffer();
-        }
-
+      if (result.data && result.data.outputs && result.data.outputs.length > 0) {
+        console.log(`[Re-edit] Received result from Wavespeed, downloading edited image...`);
+        const reEditedImageUrl = result.data.outputs[0];
+        
+        const imageResponse = await fetch(reEditedImageUrl);
+        const imageBuffer = await imageResponse.arrayBuffer();
+        console.log(`[Re-edit] Downloaded edited image: ${Math.round(imageBuffer.byteLength / 1024)} KB`);
+        
         const timestamp = Date.now();
         const reEditedFileName = `${image.name.replace('_edited.jpg', '')}_reedited_${timestamp}.jpg`;
-
+        
+        // Create clean display name from original name
+        const baseDisplayName = (image.originalName || image.name)
+          .replace(/\.(jpg|jpeg|png)$/i, '')
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase());
+        const displayName = `${baseDisplayName} (Re-edited)`;
+        
+        console.log(`[Re-edit] Uploading to Drive as: ${reEditedFileName}`);
         const uploadedFile = await uploadFileToDrive(
           Buffer.from(imageBuffer),
           reEditedFileName,
@@ -117,30 +157,72 @@ export async function reEditImages(req, res) {
         );
 
         await makeFilePublic(uploadedFile.id);
+        console.log(`[Re-edit] Upload complete! File ID: ${uploadedFile.id}`);
 
         reEditedResults.push({
           id: uploadedFile.id,
-          name: reEditedFileName,
+          name: displayName,
+          fileName: reEditedFileName,
           editedImageId: uploadedFile.id,
           originalImageId: image.originalImageId,
           originalName: image.originalName,
           url: getPublicImageUrl(uploadedFile.id)
+        });
+      } else {
+        console.error(`[Re-edit] No images returned from Wavespeed API`);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: 'Wavespeed API returned no edited images'
         });
       }
     }
 
     // When editing specific images: keep others unchanged, replace only the edited ones
     // When editing all images: replace entire array with new results
+    console.log('[Re-edit] BEFORE UPDATE:');
+    console.log('[Re-edit] - imageIds requested:', imageIds);
+    console.log('[Re-edit] - job.editedImages count:', job.editedImages.length);
+    console.log('[Re-edit] - reEditedResults count:', reEditedResults.length);
+    console.log('[Re-edit] - Re-edited originalImageIds:', reEditedResults.map(r => ({ name: r.name, originalImageId: r.originalImageId })));
+    
+    // Build set of originalImageIds being re-edited for efficient lookup
+    const reEditedOriginalIds = new Set(reEditedResults.map(r => r.originalImageId).filter(Boolean));
+    
     const updatedEditedImages = imageIds && imageIds.length > 0
       ? [
-        ...job.editedImages.filter(img => !imageIds.includes(img.editedImageId) && !imageIds.includes(img.id)),
-        ...reEditedResults
-      ]
+          ...job.editedImages.filter(img => {
+            // Match by originalImageId (the stable reference to the source image)
+            // Fall back to editedImageId/id for backwards compatibility
+            const matchesOriginalId = img.originalImageId && reEditedOriginalIds.has(img.originalImageId);
+            const matchesEditedId = imageIds.includes(img.editedImageId) || imageIds.includes(img.id);
+            const shouldKeep = !matchesOriginalId && !matchesEditedId;
+            
+            if (!shouldKeep) {
+              console.log(`[Re-edit] REPLACING old version: ${img.name} (originalImageId: ${img.originalImageId})`);
+            }
+            return shouldKeep;
+          }),
+          ...reEditedResults
+        ]
       : reEditedResults;
 
-    updateJob(jobId, {
-      editedImages: updatedEditedImages
+    console.log('[Re-edit] AFTER MERGE:');
+    console.log('[Re-edit] - updatedEditedImages count:', updatedEditedImages.length);
+    console.log('[Re-edit] - Image 13 details:', updatedEditedImages.find(img => img.name && img.name.includes('13')));
+
+    await updateJob(jobId, {
+      editedImages: updatedEditedImages,
+      results: {
+        ...job.results,
+        images: updatedEditedImages
+      }
     });
+    
+    console.log('[Re-edit] Job updated successfully. Verifying...');
+    const verifyJob = getJob(jobId);
+    console.log('[Re-edit] Verified job.editedImages count:', verifyJob.editedImages.length);
+    console.log('[Re-edit] Verified Image 13:', verifyJob.editedImages.find(img => img.name && img.name.includes('13')));
 
     res.json({
       success: true,

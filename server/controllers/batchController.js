@@ -1,86 +1,175 @@
-import { GeminiImageService } from '../services/geminiService.js';
-import { getBrandApiKeys } from '../utils/brandLoader.js';
-import { createJob, getJob, updateJob } from '../utils/jobStore.js';
+import GeminiBatchService from '../services/geminiBatchService.js';
+import { brandService } from '../services/brandService.js';
 
-export async function createBatchJob(req, res) {
-    try {
-        const { requests, options } = req.body;
-        // requests: [{ prompt, imageInput (base64/url), id }]
-
-        if (!requests || !Array.isArray(requests) || requests.length === 0) {
-            return res.status(400).json({ error: 'Invalid requests array' });
-        }
-
-        // Get brand config for API key
-        // Assuming req.brand is populated by middleware
-        const brandConfig = req.brand;
-
-        if (!brandConfig.geminiApiKey) {
-            return res.status(400).json({ error: 'Gemini API key not configured for this brand' });
-        }
-
-        const geminiService = new GeminiImageService(brandConfig.geminiApiKey);
-
-        const batchJob = await geminiService.createBatchJob(requests, {
-            modelName: options?.modelName || brandConfig.geminiImageModel || 'gemini-2.5-flash-image',
-            displayName: options?.displayName || `batch_${Date.now()}`,
-            aspectRatio: options?.aspectRatio,
-            imageSize: options?.imageSize
-        });
-
-        // Store batch job info in our local job store or DB
-        // For now, we'll just return the Gemini job info
-
-        res.json({
-            success: true,
-            job: batchJob
-        });
-
-    } catch (error) {
-        console.error('Batch creation error:', error);
-        res.status(500).json({ error: 'Failed to create batch job', details: error.message });
-    }
+async function getBrandGeminiKey(brandId) {
+  if (!brandId) {
+    return process.env.GEMINI_API_KEY;
+  }
+  
+  try {
+    const brand = await brandService.getBrandById(brandId);
+    return brand?.geminiApiKey || process.env.GEMINI_API_KEY;
+  } catch (error) {
+    console.warn('[Batch API] Could not load brand config, using global key:', error.message);
+    return process.env.GEMINI_API_KEY;
+  }
 }
 
-export async function getBatchStatus(req, res) {
-    try {
-        const { jobName } = req.params;
-        const { brandId } = req.query; // Pass brand ID to look up key
+export const submitBriefAnalysisBatch = async (req, res) => {
+  try {
+    const { briefs } = req.body;
+    const brandId = req.brandId;
 
-        // We need the API key. In a real app, we'd look up the brand associated with this job.
-        // For now, we'll assume the brand is passed or we look it up.
-        // Let's assume req.brand is set by middleware if authenticated.
-
-        const brandConfig = req.brand;
-        if (!brandConfig || !brandConfig.geminiApiKey) {
-            return res.status(400).json({ error: 'Brand context required' });
-        }
-
-        const geminiService = new GeminiImageService(brandConfig.geminiApiKey);
-        const status = await geminiService.getBatchJobStatus(jobName);
-
-        res.json(status);
-    } catch (error) {
-        console.error('Batch status error:', error);
-        res.status(500).json({ error: 'Failed to get batch status', details: error.message });
+    if (!briefs || !Array.isArray(briefs) || briefs.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Briefs array is required'
+      });
     }
-}
 
-export async function getBatchResults(req, res) {
-    try {
-        const { outputUri } = req.query; // Pass output URI
-        const brandConfig = req.brand;
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
 
-        if (!brandConfig || !brandConfig.geminiApiKey) {
-            return res.status(400).json({ error: 'Brand context required' });
-        }
+    const jobMetadata = await batchService.createBriefAnalysisBatch(briefs);
+    const costEstimate = await batchService.estimateCostSavings(briefs.length, 800);
 
-        const geminiService = new GeminiImageService(brandConfig.geminiApiKey);
-        const results = await geminiService.getBatchResults(outputUri);
+    res.json({
+      success: true,
+      job: jobMetadata,
+      costEstimate,
+      message: `Batch job submitted with ${briefs.length} briefs. Results in ~24 hours at 50% cost.`
+    });
 
-        res.json({ success: true, results });
-    } catch (error) {
-        console.error('Batch results error:', error);
-        res.status(500).json({ error: 'Failed to get batch results', details: error.message });
+  } catch (error) {
+    console.error('[Batch API] Brief analysis error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+export const submitQualityCheckBatch = async (req, res) => {
+  try {
+    const { images } = req.body;
+    const brandId = req.brandId;
+
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Images array is required'
+      });
     }
-}
+
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
+
+    const jobMetadata = await batchService.createQualityCheckBatch(images);
+    const costEstimate = await batchService.estimateCostSavings(images.length, 600);
+
+    res.json({
+      success: true,
+      job: jobMetadata,
+      costEstimate,
+      message: `Batch job submitted with ${images.length} images. Quality analysis in ~24 hours at 50% cost.`
+    });
+
+  } catch (error) {
+    console.error('[Batch API] Quality check error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+export const submitPromptOptimizationBatch = async (req, res) => {
+  try {
+    const { feedbackData } = req.body;
+    const brandId = req.brandId;
+
+    if (!feedbackData || !Array.isArray(feedbackData) || feedbackData.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Feedback data array is required'
+      });
+    }
+
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
+
+    const jobMetadata = await batchService.createPromptOptimizationBatch(feedbackData);
+    const costEstimate = await batchService.estimateCostSavings(feedbackData.length, 1000);
+
+    res.json({
+      success: true,
+      job: jobMetadata,
+      costEstimate,
+      message: `Batch job submitted with ${feedbackData.length} feedback items. Optimized prompts in ~24 hours at 50% cost.`
+    });
+
+  } catch (error) {
+    console.error('[Batch API] Prompt optimization error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+export const getBatchJobStatus = async (req, res) => {
+  try {
+    const { batchJobName } = req.params;
+    const brandId = req.brandId;
+
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
+
+    const status = await batchService.checkBatchStatus(batchJobName);
+
+    res.json({
+      success: true,
+      status
+    });
+
+  } catch (error) {
+    console.error('[Batch API] Status check error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+export const getBatchJobResults = async (req, res) => {
+  try {
+    const { batchJobName } = req.params;
+    const brandId = req.brandId;
+
+    const geminiKey = await getBrandGeminiKey(brandId);
+    const batchService = new GeminiBatchService(geminiKey);
+
+    const results = await batchService.getBatchResults(batchJobName);
+
+    res.json({
+      success: true,
+      results,
+      count: results.length
+    });
+
+  } catch (error) {
+    console.error('[Batch API] Results retrieval error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+export default {
+  submitBriefAnalysisBatch,
+  submitQualityCheckBatch,
+  submitPromptOptimizationBatch,
+  getBatchJobStatus,
+  getBatchJobResults
+};

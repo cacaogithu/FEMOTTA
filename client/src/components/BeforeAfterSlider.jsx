@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../utils/api';
 import './BeforeAfterSlider.css';
 
-function BeforeAfterSlider({ beforeImageId, afterImageId, name }) {
+function BeforeAfterSlider({ beforeImageId, afterImageId, name, refreshToken }) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [beforeUrl, setBeforeUrl] = useState(null);
   const [afterUrl, setAfterUrl] = useState(null);
@@ -14,9 +14,10 @@ function BeforeAfterSlider({ beforeImageId, afterImageId, name }) {
 
     const loadImages = async () => {
       try {
+        const cacheBuster = refreshToken || Date.now();
         const [beforeResponse, afterResponse] = await Promise.all([
-          authenticatedFetch(`/api/images/${beforeImageId}`),
-          authenticatedFetch(`/api/images/${afterImageId}`)
+          authenticatedFetch(`/api/images/${beforeImageId}?t=${cacheBuster}`),
+          authenticatedFetch(`/api/images/${afterImageId}?t=${cacheBuster}`)
         ]);
 
         const beforeBlob = await beforeResponse.blob();
@@ -40,7 +41,7 @@ function BeforeAfterSlider({ beforeImageId, afterImageId, name }) {
       if (beforeBlobUrl) URL.revokeObjectURL(beforeBlobUrl);
       if (afterBlobUrl) URL.revokeObjectURL(afterBlobUrl);
     };
-  }, [beforeImageId, afterImageId]);
+  }, [beforeImageId, afterImageId, refreshToken]);
 
   const handleSliderChange = (e) => {
     setSliderPosition(e.target.value);

@@ -10,32 +10,52 @@ async function saveJobToDb(jobId, jobData) {
   try {
     const dbJob = {
       jobId,
-      brandId: jobData.brandId || 1, // Default to Corsair
+      brandId: jobData.brandId || 1,
       status: jobData.status || 'pending',
-      briefText: jobData.briefText || null,
-      briefFileId: jobData.briefFileId || null,
-      promptText: jobData.promptText || null,
-      processingStep: jobData.processingStep || null,
-      imageSpecs: jobData.imageSpecs || null,
-      workflowSteps: jobData.workflowSteps || [],
-      imagesData: jobData.images || [],
-      editedImagesData: jobData.editedImages || [],
-      imageProgress: jobData.imageProgress || [],
+      briefText: jobData.briefText !== undefined ? jobData.briefText : null,
+      briefFileId: jobData.briefFileId !== undefined ? jobData.briefFileId : null,
+      promptText: jobData.promptText !== undefined ? jobData.promptText : null,
+      processingStep: jobData.processingStep !== undefined ? jobData.processingStep : null,
+      imageSpecs: jobData.imageSpecs !== undefined ? jobData.imageSpecs : null,
+      workflowSteps: jobData.workflowSteps !== undefined ? jobData.workflowSteps : [],
+      imagesData: jobData.images !== undefined ? jobData.images : [],
+      editedImagesData: jobData.editedImages !== undefined ? jobData.editedImages : [],
+      imageProgress: jobData.imageProgress !== undefined ? jobData.imageProgress : [],
       startTime: jobData.startTime ? new Date(jobData.startTime) : null,
       endTime: jobData.endTime ? new Date(jobData.endTime) : null,
-      processingTimeSeconds: jobData.processingTimeSeconds || null,
-      estimatedManualTimeMinutes: jobData.estimatedManualTimeMinutes || null
+      processingTimeSeconds: jobData.processingTimeSeconds !== undefined ? jobData.processingTimeSeconds : null,
+      estimatedManualTimeMinutes: jobData.estimatedManualTimeMinutes !== undefined ? jobData.estimatedManualTimeMinutes : null
     };
 
-    // Upsert - update if exists, insert if not
-    const existing = await db.select().from(jobsTable).where(eq(jobsTable.jobId, jobId)).limit(1);
-    if (existing && existing.length > 0) {
-      await db.update(jobsTable).set(dbJob).where(eq(jobsTable.jobId, jobId));
-    } else {
-      await db.insert(jobsTable).values(dbJob);
-    }
+    const updateFields = {};
+    if (jobData.status !== undefined) updateFields.status = dbJob.status;
+    if (jobData.briefText !== undefined) updateFields.briefText = dbJob.briefText;
+    if (jobData.briefFileId !== undefined) updateFields.briefFileId = dbJob.briefFileId;
+    if (jobData.promptText !== undefined) updateFields.promptText = dbJob.promptText;
+    if (jobData.processingStep !== undefined) updateFields.processingStep = dbJob.processingStep;
+    if (jobData.imageSpecs !== undefined) updateFields.imageSpecs = dbJob.imageSpecs;
+    if (jobData.workflowSteps !== undefined) updateFields.workflowSteps = dbJob.workflowSteps;
+    if (jobData.images !== undefined) updateFields.imagesData = dbJob.imagesData;
+    if (jobData.editedImages !== undefined) updateFields.editedImagesData = dbJob.editedImagesData;
+    if (jobData.imageProgress !== undefined) updateFields.imageProgress = dbJob.imageProgress;
+    if (jobData.startTime !== undefined) updateFields.startTime = dbJob.startTime;
+    if (jobData.endTime !== undefined) updateFields.endTime = dbJob.endTime;
+    if (jobData.processingTimeSeconds !== undefined) updateFields.processingTimeSeconds = dbJob.processingTimeSeconds;
+    if (jobData.estimatedManualTimeMinutes !== undefined) updateFields.estimatedManualTimeMinutes = dbJob.estimatedManualTimeMinutes;
+
+    console.log(`[JobStore] Saving job ${jobId} to database. Status: ${dbJob.status}, EditedImages: ${dbJob.editedImagesData.length}`);
+    
+    await db.insert(jobsTable)
+      .values(dbJob)
+      .onConflictDoUpdate({
+        target: jobsTable.jobId,
+        set: updateFields
+      });
+      
+    console.log(`[JobStore] Successfully saved job ${jobId} to database`);
   } catch (error) {
     console.error('[JobStore] Failed to save job to database:', error);
+    console.error('[JobStore] Error details:', error.message, error.stack);
   }
 }
 
@@ -101,15 +121,23 @@ export async function loadJobFromDb(jobId) {
   return null;
 }
 
-export function updateJob(jobId, updates) {
-  const job = jobs.get(jobId);
+export async function updateJob(jobId, updates) {
+  let job = jobs.get(jobId);
+  
+  if (!job) {
+    console.log(`[JobStore] Job ${jobId} not in memory during update, loading from database...`);
+    job = await loadJobFromDb(jobId);
+  }
+  
   if (job) {
     const updatedJob = { ...job, ...updates };
     jobs.set(jobId, updatedJob);
-    // Save to database asynchronously
-    saveJobToDb(jobId, updatedJob).catch(err => console.error('[JobStore] Update job DB error:', err));
+    await saveJobToDb(jobId, updatedJob);
+    console.log(`[JobStore] Job ${jobId} updated successfully in memory and database`);
     return updatedJob;
   }
+  
+  console.error(`[JobStore] Failed to update job ${jobId}: job not found in memory or database`);
   return null;
 }
 

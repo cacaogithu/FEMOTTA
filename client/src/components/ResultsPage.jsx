@@ -59,7 +59,33 @@ function TimeMetricsPanel({ jobId }) {
   );
 }
 
-function ResultsPage({ results, onReset, jobId }) {
+function ResultsPage({ results: initialResults, onReset, jobId }) {
+  const [results, setResults] = useState(initialResults);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(Date.now());
+
+  useEffect(() => {
+    setResults(initialResults);
+  }, [initialResults]);
+
+  const handleRefreshImages = async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await authenticatedFetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
+      const data = await response.json();
+      
+      if (data.status === 'completed' && data.results) {
+        const newRefreshToken = Date.now();
+        setResults({ ...data.results, _refreshTimestamp: newRefreshToken });
+        setRefreshToken(newRefreshToken);
+      }
+    } catch (error) {
+      console.error('[ResultsPage] Refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleDownloadAll = async () => {
     try {
       const response = await authenticatedFetch(`/api/results/download/${jobId}`);
@@ -79,7 +105,7 @@ function ResultsPage({ results, onReset, jobId }) {
 
   const handleDownloadImage = async (editedImageId, name) => {
     try {
-      const response = await authenticatedFetch(`/api/images/${editedImageId}`);
+      const response = await authenticatedFetch(`/api/images/${editedImageId}?t=${Date.now()}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -112,9 +138,24 @@ function ResultsPage({ results, onReset, jobId }) {
     try {
       console.log('Using fallback PSD download method...');
       const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
+      
       if (!response.ok) {
-        throw new Error('Failed to download PSD');
+        const errorData = await response.json().catch(() => null);
+        if (errorData) {
+          console.error('PSD download error:', errorData);
+          if (errorData.jobStatus === 'processing') {
+            alert('⏳ Images are still processing. Please wait for processing to complete before downloading PSD files.');
+          } else if (errorData.details) {
+            alert(`❌ ${errorData.error}\n\n${errorData.details}`);
+          } else {
+            alert(`❌ ${errorData.error || 'Failed to download PSD'}`);
+          }
+        } else {
+          alert('❌ Failed to download PSD file. Please try again.');
+        }
+        return;
       }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -126,17 +167,20 @@ function ResultsPage({ results, onReset, jobId }) {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('PSD download error:', error);
-      alert('Failed to download PSD file. Please try again.');
+      alert('❌ Failed to download PSD file. Please try again.');
     }
   };
 
   return (
     <div className="results-page">
-      <ChatWidget jobId={jobId} />
+      <ChatWidget jobId={jobId} onImageUpdated={handleRefreshImages} />
       <div className="container">
         <header className="results-header">
           <h1>Your Images Are Ready!</h1>
-          <p>{results.images?.length || 0} images processed successfully</p>
+          <p>
+            {results?.images?.length || 0} images processed successfully
+            {isRefreshing && <span style={{ marginLeft: '10px', color: '#ffa500' }}>⚡ Refreshing...</span>}
+          </p>
           <TimeMetricsPanel jobId={jobId} />
           <div className="header-actions">
             <button className="button button-primary" onClick={handleDownloadAll}>
@@ -149,20 +193,24 @@ function ResultsPage({ results, onReset, jobId }) {
         </header>
 
         <div className="results-grid">
-          {results.images?.map((image, idx) => (
-            <div key={idx} className="result-card">
+          {results?.images?.map((image, idx) => (
+            <div key={`${image.editedImageId || image.id}-${idx}`} className="result-card">
               {image.originalImageId && image.editedImageId ? (
                 <BeforeAfterSlider 
+                  key={`slider-${image.editedImageId}-${refreshToken}`}
                   beforeImageId={image.originalImageId}
                   afterImageId={image.editedImageId}
                   name={image.name}
+                  refreshToken={refreshToken}
                 />
               ) : (
                 <div className="image-container">
                   <ImagePreview 
+                    key={`preview-${image.editedImageId || image.id}-${refreshToken}`}
                     imageId={image.editedImageId || image.id}
                     alt={image.name}
                     className="result-image"
+                    refreshToken={refreshToken}
                   />
                 </div>
               )}

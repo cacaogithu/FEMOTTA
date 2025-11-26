@@ -4,11 +4,11 @@ import WorkflowViewer from './WorkflowViewer';
 import './ProcessingPage.css';
 
 const steps = [
-  'Uploading files to cloud storage...',
-  'AI parsing your creative brief...',
-  'Matching images to specifications...',
-  'Editing images with AI...',
-  'Preparing results...'
+  { label: 'Uploading', description: 'Uploading files to cloud storage' },
+  { label: 'Extracting', description: 'AI parsing your creative brief' },
+  { label: 'Rendering', description: 'AI editing product images' },
+  { label: 'Exporting', description: 'Saving results to storage' },
+  { label: 'Complete', description: 'Processing finished' }
 ];
 
 function ProcessingPage({ jobId, onComplete }) {
@@ -23,7 +23,8 @@ function ProcessingPage({ jobId, onComplete }) {
 
     const poll = async () => {
       try {
-        const response = await authenticatedFetch(`/api/results/poll/${jobId}`);
+        // Add timestamp to prevent caching and ensure real-time updates (especially for re-edits)
+        const response = await authenticatedFetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
         const data = await response.json();
 
         if (data.status === 'failed') {
@@ -38,7 +39,7 @@ function ProcessingPage({ jobId, onComplete }) {
           if (data.workflowSteps) {
             setWorkflowSteps(data.workflowSteps);
           }
-          setTimeout(() => onComplete(data), 500);
+          setTimeout(() => onComplete(data.results), 500);
         } else if (data.status === 'processing') {
           if (data.progress !== undefined) {
             setProgress(data.progress);
@@ -129,33 +130,66 @@ function ProcessingPage({ jobId, onComplete }) {
     <div className="processing-page">
       <div className="container">
         <div className="processing-content">
-          <div className="spinner-large"></div>
-          <h1>Processing Your Images...</h1>
+          <div className="processing-header">
+            <div className="spinner-modern"></div>
+            <h1>Processing Images</h1>
+            <p className="subtitle">AI is analyzing and enhancing your product images</p>
+          </div>
           
-          <div className="progress-bar">
-            <div 
-              className="progress-fill" 
-              style={{ width: `${progress}%` }}
-            ></div>
+          <div className="progress-section">
+            <div className="progress-stats">
+              <span className="progress-label">Progress</span>
+              <span className="progress-percentage">{progress}%</span>
+            </div>
+            <div className="progress-bar-modern">
+              <div 
+                className="progress-fill-modern" 
+                style={{ width: `${progress}%` }}
+              >
+                <div className="progress-glow"></div>
+              </div>
+            </div>
           </div>
 
-          <div className="steps">
+          <div className="steps-modern">
             {steps.map((step, idx) => (
               <div 
                 key={idx} 
-                className={`step ${idx <= currentStep ? 'active' : ''} ${idx < currentStep ? 'completed' : ''}`}
+                className={`step-modern ${idx <= currentStep ? 'active' : ''} ${idx < currentStep ? 'completed' : ''}`}
               >
-                <div className="step-number">{idx + 1}</div>
-                <div className="step-text">{step}</div>
+                <div className="step-indicator">
+                  {idx < currentStep ? (
+                    <svg className="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  ) : (
+                    <span className="step-num">{idx + 1}</span>
+                  )}
+                </div>
+                <div className="step-content">
+                  <div className="step-label">{step.label}</div>
+                  <div className="step-description">{step.description}</div>
+                  {idx === currentStep && idx < steps.length - 1 && (
+                    <div className="step-loader">
+                      <div className="dot-pulse">
+                        <div className="dot"></div>
+                        <div className="dot"></div>
+                        <div className="dot"></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
 
-          {progress > 0 && progress < 100 && (
-            <p className="progress-text">{progress}% complete</p>
-          )}
-
-          <p className="estimate">Estimated time: 2-3 minutes</p>
+          <div className="estimate-modern">
+            <svg className="clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span>Estimated time: 2-3 minutes</span>
+          </div>
           
           <WorkflowViewer workflowSteps={workflowSteps} />
         </div>

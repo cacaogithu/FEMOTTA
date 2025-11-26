@@ -4,6 +4,7 @@ import { uploadFileToDrive, getPublicImageUrl } from '../utils/googleDrive.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import { analyzeResultQuality } from '../services/mlLearning.js';
+import { archiveBatchToStorage } from '../services/historyService.js';
 
 export async function processImages(req, res) {
   try {
@@ -22,11 +23,11 @@ export async function processImages(req, res) {
       return res.status(400).json({ error: 'No images found for this job' });
     }
 
-    updateJob(jobId, { status: 'processing', processingStep: 'Getting image URLs' });
+    await updateJob(jobId, { status: 'processing', processingStep: 'Getting image URLs' });
 
     const imageUrls = job.images.map(img => getPublicImageUrl(img.driveId));
 
-    updateJob(jobId, {
+    await updateJob(jobId, {
       status: 'processing',
       processingStep: 'Editing images with Nano Banana AI',
       imageUrls
@@ -38,12 +39,21 @@ export async function processImages(req, res) {
       numImages: 1
     });
 
-    updateJob(jobId, {
+    await updateJob(jobId, {
       status: 'processing',
       processingStep: 'Saving edited images to Google Drive'
     });
 
-    const EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
+    const DEFAULT_EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
+    const targetFolderId = job.driveDestinationFolderId || DEFAULT_EDITED_IMAGES_FOLDER;
+    
+    if (job.driveDestinationFolderId) {
+      console.log(`[Process] Using custom drive destination: ${targetFolderId}`);
+    }
+    
+    if (job.marketplacePreset) {
+      console.log(`[Process] Marketplace preset applied: ${job.marketplacePreset.id}`);
+    }
 
     const editedImages = [];
     for (let i = 0; i < results.length; i++) {
@@ -65,7 +75,7 @@ export async function processImages(req, res) {
           stream,
           editedFileName,
           'image/jpeg',
-          EDITED_IMAGES_FOLDER
+          targetFolderId
         );
 
         // Get the public URL for the uploaded file
@@ -90,13 +100,19 @@ export async function processImages(req, res) {
           console.error('[Active Learning] Quality analysis error (non-blocking):', err);
         });
 
+        // Get title/subtitle from imageSpecs if available (for PSD text layers)
+        const imageSpec = job.imageSpecs && job.imageSpecs[i] ? job.imageSpecs[i] : null;
+        
         editedImages.push({
           id: uploadedFile.id,
           name: editedFileName,
           editedImageId: uploadedFile.id,
           originalImageId: originalImage.driveId,
           originalName: originalImage.originalName,
-          url: publicEditedUrl // Use the public URL for the final output
+          url: publicEditedUrl,
+          title: imageSpec?.title || null,
+          subtitle: imageSpec?.subtitle || null,
+          promptUsed: job.promptText || null
         });
       }
     }
@@ -120,7 +136,7 @@ export async function processImages(req, res) {
     console.log(`[Time Tracking] Estimated manual time: ${estimatedManualTimeMinutes} minutes`);
     console.log(`[Time Tracking] Time saved: ${timeSavedMinutes.toFixed(1)} minutes (${timeSavedPercent}%)`);
     
-    updateJob(jobId, {
+    await updateJob(jobId, {
       status: 'completed',
       editedImages,
       processingStep: 'Complete',
@@ -130,6 +146,16 @@ export async function processImages(req, res) {
       estimatedManualTimeMinutes: estimatedManualTimeMinutes,
       timeSavedMinutes: parseFloat(timeSavedMinutes.toFixed(1)),
       timeSavedPercent: timeSavedPercent
+    });
+
+    archiveBatchToStorage(jobId, {
+      ...job,
+      editedImages,
+      processingTimeSeconds,
+      estimatedManualTimeMinutes,
+      timeSavedMinutes: parseFloat(timeSavedMinutes.toFixed(1))
+    }).catch(err => {
+      console.error('[History Archive] Non-blocking archive error:', err.message);
     });
 
     res.json({
@@ -144,7 +170,7 @@ export async function processImages(req, res) {
 
     const { jobId } = req.body;
     if (jobId) {
-      updateJob(jobId, {
+      await updateJob(jobId, {
         status: 'failed',
         error: error.message
       });

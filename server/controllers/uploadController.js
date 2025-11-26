@@ -1,9 +1,8 @@
 ```javascript
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
-import { editMultipleImages,  editImageWithNanoBanana, 
-  editImageUnified 
-} from '../services/nanoBanana.js';
+import { archiveBatchToStorage } from '../services/historyService.js';
+import { editMultipleImages, editImageWithNanoBanana } from '../services/nanoBanana.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { Readable } from 'stream';
@@ -11,6 +10,69 @@ import fetch from 'node-fetch';
 import OpenAI from 'openai';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
+import sharp from 'sharp';
+
+// Helper function to overlay a logo on an edited image
+async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-left') {
+  try {
+    // Extract base64 data from data URL
+    const base64Data = logoBase64.replace(/^data:image\/\w+;base64,/, '');
+    const logoBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Get image metadata
+    const imageMetadata = await sharp(imageBuffer).metadata();
+    const { width, height } = imageMetadata;
+    
+    // Resize logo to be proportional (max 15% of image width)
+    const maxLogoWidth = Math.floor(width * 0.15);
+    const resizedLogo = await sharp(logoBuffer)
+      .resize(maxLogoWidth, null, { fit: 'inside', withoutEnlargement: true })
+      .toBuffer();
+    
+    const logoMetadata = await sharp(resizedLogo).metadata();
+    
+    // Calculate position based on option
+    let left, top;
+    const margin = Math.floor(width * 0.03); // 3% margin
+    
+    switch (position) {
+      case 'top-left':
+        left = margin;
+        top = margin;
+        break;
+      case 'top-right':
+        left = width - logoMetadata.width - margin;
+        top = margin;
+        break;
+      case 'bottom-right':
+        left = width - logoMetadata.width - margin;
+        top = height - logoMetadata.height - margin;
+        break;
+      case 'bottom-left':
+      default:
+        left = margin;
+        top = height - logoMetadata.height - margin;
+        break;
+    }
+    
+    // Composite the logo onto the image
+    const resultBuffer = await sharp(imageBuffer)
+      .composite([{
+        input: resizedLogo,
+        left: Math.round(left),
+        top: Math.round(top)
+      }])
+      .jpeg({ quality: 95 })
+      .toBuffer();
+    
+    console.log(`[Logo Overlay] Successfully overlaid logo at ${position} (${logoMetadata.width}x${logoMetadata.height})`);
+    return resultBuffer;
+  } catch (error) {
+    console.error('[Logo Overlay] Failed to overlay logo:', error.message);
+    // Return original image if overlay fails
+    return imageBuffer;
+  }
+}
 
 // Helper to get brand-specific OpenAI client
 function getBrandOpenAI(brand) {
@@ -77,9 +139,9 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
       messages: [
         {
           role: 'system',
-          content: `You are an AI creative assistant specialized in extracting marketing image specifications from briefs.
+          content: `You are an AI creative assistant specialized in extracting marketing image specifications from document briefs.
 
-Your task is to read the provided document brief and extract ALL image specifications into structured JSON format.
+Your task is to carefully READ the document layout and extract ALL image specifications into structured JSON format.
 
 CRITICAL INSTRUCTIONS:
 1. Extract EVERY image variant mentioned in the brief(IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
@@ -87,12 +149,23 @@ CRITICAL INSTRUCTIONS:
 3. Create one JSON object per variant, even if they share the same image number
 4. The total number of specifications should match the total number of product variant images described
 
+TITLE AND SUBTITLE EXTRACTION RULES:
+- ANALYZE the visual/textual layout of each image specification in the document
+- TITLE: Extract the main HEADLINE text - usually larger, bold, or emphasized text at the top of each spec
+- SUBTITLE: Extract the descriptive COPY text - usually smaller text below the headline
+- Extract titles and subtitles EXACTLY as written in the document
+- DO NOT add variant names (like "- METAL DARK") to titles unless they are already part of the written title in the document
+- DO NOT invent or modify titles - read what is actually written
+- If no subtitle exists, use empty string ""
+
 For each image specification, extract:
-- image_number: The sequential number from the brief(1, 2, 3, etc.)
-  - variant: The variant name if specified(e.g., "METAL DARK", "WOOD DARK", or null if not applicable)
-- title: The HEADLINE text(convert to uppercase)
-  - subtitle: The COPY text(keep as written)
-    - asset: The ASSET filename(if mentioned)
+- image_number: The sequential number from the brief (1, 2, 3, etc.)
+- variant: The variant name if specified (e.g., "METAL DARK", "WOOD DARK", or null if not applicable)
+- title: The HEADLINE text EXACTLY as written (convert to uppercase). Do NOT append variant names unless already in the document.
+- subtitle: The COPY text EXACTLY as written (keep original case). IMPORTANT: If a logo annotation like "(Logo)" appears, extract the subtitle WITHOUT the "(Logo)" text - the logo will be overlaid separately.
+- asset: The ASSET filename (if mentioned)
+- logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", etc.)
+- logo_name: If logo_requested is true, extract the brand/logo name (e.g., "Intel Core", "AMD Ryzen", "NVIDIA GeForce"). Set to null if no logo requested.
 
 For the ai_prompt field, generate a plain text instruction(no markdown, no line breaks) using this template:
 
@@ -102,33 +175,39 @@ Replace { title } and { subtitle } with the actual extracted values for EACH ima
 
 Return ONLY a valid JSON array with ALL image variant specifications, no additional text.
 
-Example for document with variants:
-  [
-    {
-      "image_number": 1,
-      "variant": "METAL DARK",
-      "title": "CORSAIR ONE I600",
-      "subtitle": "A Compact PC...",
-      "asset": "CORSAIR_ONE_i600_DARK_METAL_12",
-      "ai_prompt": "Add a dark gradient overlay..."
-    },
-    {
-      "image_number": 1,
-      "variant": "WOOD DARK",
-      "title": "CORSAIR ONE I600",
-      "subtitle": "A Compact PC...",
-      "asset": "CORSAIR_ONE_i600_WOOD_DARK_PHOTO_17",
-      "ai_prompt": "Add a dark gradient overlay..."
-    },
-    {
-      "image_number": 2,
-      "variant": "METAL DARK",
-      "title": "DUAL 240MM LIQUID COOLING",
-      "subtitle": "Modern liquid cooling...",
-      "asset": "CORSAIR_ONE_i600_DARK_METAL_17",
-      "ai_prompt": "Add a dark gradient overlay..."
-    }
-  ]`
+Example for document with variants and logo requests:
+[
+  {
+    "image_number": 1,
+    "variant": "METAL DARK",
+    "title": "CORSAIR ONE I600",
+    "subtitle": "Premium Small Form Factor Gaming PC",
+    "asset": "CORSAIR_ONE_i600_DARK_METAL_RENDER_01",
+    "logo_requested": false,
+    "logo_name": null,
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 2,
+    "variant": null,
+    "title": "INTEL CORE",
+    "subtitle": "Intel Core Ultra 9 processor",
+    "asset": "PC_INTERIOR_SHOT_01",
+    "logo_requested": true,
+    "logo_name": "Intel Core",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 3,
+    "variant": null,
+    "title": "AMD RYZEN",
+    "subtitle": "AMD Ryzen 9000-series processor",
+    "asset": "PC_AMD_VARIANT_01",
+    "logo_requested": true,
+    "logo_name": "AMD Ryzen",
+    "ai_prompt": "Add a dark gradient overlay..."
+  }
+]`
         },
         {
           role: 'user',
@@ -212,10 +291,71 @@ const MIN_IMAGE_SIZE = 50000; // 50KB minimum - logos are usually much smaller
 const productImages = extractedImages.filter(img => img.buffer.length >= MIN_IMAGE_SIZE);
 console.log(`[DOCX Extraction] After size filtering (>=${MIN_IMAGE_SIZE} bytes): ${productImages.length} images`);
 
-// Second, only take the number of images we need for the specs
-const imagesToProcess = productImages.slice(0, imageSpecs.length);
+    console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
+    console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
 
-console.log(`[DOCX Extraction] Final image count: ${imagesToProcess.length} (matching ${imageSpecs.length} specs)`);
+    // Separate logos from product images based on size
+    // Logos are typically smaller (under 50KB), product images are larger
+    const LOGO_SIZE_THRESHOLD = 50000; // 50KB threshold
+    
+    const logoImages = [];
+    const productImages = [];
+    
+    for (const img of extractedImages) {
+      if (img.buffer.length < LOGO_SIZE_THRESHOLD) {
+        // Convert logo to base64 for later use
+        const base64Data = img.buffer.toString('base64');
+        logoImages.push({
+          buffer: img.buffer,
+          contentType: img.contentType,
+          base64: `data:${img.contentType};base64,${base64Data}`,
+          size: img.buffer.length
+        });
+        console.log(`[DOCX Extraction] Detected logo image: ${img.buffer.length} bytes`);
+      } else {
+        productImages.push(img);
+      }
+    }
+    
+    console.log(`[DOCX Extraction] Separated: ${productImages.length} product images, ${logoImages.length} logo images`);
+    
+    // Only take the number of product images we need for the specs
+    const imagesToProcess = productImages.slice(0, imageSpecs.length);
+    
+    console.log(`[DOCX Extraction] Final image count: ${imagesToProcess.length} (matching ${imageSpecs.length} specs)`);
+    
+    if (imagesToProcess.length < imageSpecs.length) {
+      console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
+    }
+
+    // Attach logos to specs that request them (using AI-extracted logo_requested field)
+    if (logoImages.length > 0) {
+      let logoIndex = 0;
+      for (const spec of imageSpecs) {
+        // Check if this spec explicitly requested a logo (from AI extraction)
+        if (spec.logo_requested === true) {
+          // Assign logos in order - if multiple logos available, try to match by index
+          const logoToUse = logoImages[Math.min(logoIndex, logoImages.length - 1)];
+          spec.logoBase64 = logoToUse.base64;
+          spec.logoContentType = logoToUse.contentType;
+          console.log(`[DOCX Extraction] Attached logo to spec: "${spec.title}" (logo: ${spec.logo_name || 'unknown'})`);
+          logoIndex++;
+        }
+      }
+      console.log(`[DOCX Extraction] Attached logos to ${logoIndex} image specifications`);
+    } else {
+      // Check for logo requests without available logo images
+      const specsNeedingLogos = imageSpecs.filter(s => s.logo_requested === true);
+      if (specsNeedingLogos.length > 0) {
+        console.warn(`[DOCX Extraction] Warning: ${specsNeedingLogos.length} specs request logos but no logo images found in document`);
+      }
+    }
+
+    return {
+      imageSpecs,
+      extractedImages: imagesToProcess,
+      logoImages: logoImages
+    };
 
 if (imagesToProcess.length < imageSpecs.length) {
   console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
@@ -496,6 +636,25 @@ export async function uploadPDF(req, res) {
     }
 
     const startTime = new Date();
+    
+    let marketplacePreset = null;
+    let driveDestinationFolderId = null;
+    
+    try {
+      if (req.body && req.body.marketplacePreset) {
+        marketplacePreset = typeof req.body.marketplacePreset === 'string' 
+          ? JSON.parse(req.body.marketplacePreset) 
+          : req.body.marketplacePreset;
+        console.log('[Upload Brief] Marketplace preset:', marketplacePreset.id);
+      }
+      if (req.body && req.body.driveDestinationFolderId) {
+        driveDestinationFolderId = req.body.driveDestinationFolderId;
+        console.log('[Upload Brief] Custom drive destination:', driveDestinationFolderId);
+      }
+    } catch (parseErr) {
+      console.warn('[Upload Brief] Could not parse preset/folder settings:', parseErr.message);
+    }
+    
     createJob({
       id: jobId,
       brandId: req.brand.id,
@@ -507,7 +666,9 @@ export async function uploadPDF(req, res) {
       status: uploadedImages.length > 0 ? 'processing' : 'pdf_uploaded',
       createdAt: startTime,
       startTime: startTime,
-      imageCount: uploadedImages.length
+      imageCount: uploadedImages.length,
+      marketplacePreset: marketplacePreset,
+      driveDestinationFolderId: driveDestinationFolderId
     });
 
     console.log('[Upload Brief] Job created:', jobId);
@@ -527,9 +688,9 @@ export async function uploadPDF(req, res) {
       });
 
       // Start processing in the background
-      processImagesWithNanoBanana(jobId).catch(err => {
+      processImagesWithNanoBanana(jobId).catch(async err => {
         console.error('Background processing error:', err);
-        updateJob(jobId, {
+        await updateJob(jobId, { 
           status: 'failed',
           error: err.message
         });
@@ -601,7 +762,7 @@ export async function uploadImages(req, res) {
 
     console.log(`Uploaded ${uploadedImages.length} images, starting processing...`);
 
-    updateJob(jobId, {
+    await updateJob(jobId, {
       images: uploadedImages,
       status: 'processing',
       imageCount: uploadedImages.length
@@ -614,9 +775,9 @@ export async function uploadImages(req, res) {
       message: 'Images uploaded successfully, processing started'
     });
 
-    processImagesWithNanoBanana(jobId).catch(err => {
+    processImagesWithNanoBanana(jobId).catch(async err => {
       console.error('Background processing error:', err);
-      updateJob(jobId, {
+      await updateJob(jobId, { 
         status: 'failed',
         error: err.message
       });
@@ -642,7 +803,7 @@ async function processImagesWithNanoBanana(jobId) {
 
   if (!job.imageSpecs || job.imageSpecs.length === 0) {
     console.error('No image specifications found for job:', jobId);
-    updateJob(jobId, {
+    await updateJob(jobId, { 
       status: 'waiting_for_prompt',
       processingStep: 'Waiting for image specifications from PDF brief'
     });
@@ -656,6 +817,17 @@ async function processImagesWithNanoBanana(jobId) {
 
   console.log(`Processing ${job.images.length} images with ${job.imageSpecs.length} specifications`);
 
+  const presetModifier = job.marketplacePreset?.promptModifier || null;
+  const presetMode = job.marketplacePreset?.aiMode || 'balanced';
+  const presetId = job.marketplacePreset?.id || 'default';
+  
+  if (presetModifier && typeof presetModifier === 'string' && presetModifier.trim()) {
+    console.log(`[Marketplace Preset] Applying ${presetId} mode (${presetMode})`);
+    console.log(`[Marketplace Preset] Prompt modifier length: ${presetModifier.length} chars`);
+  } else {
+    console.log(`[Marketplace Preset] Using ${presetId} mode (no prompt modifications)`);
+  }
+
   // Match images to specifications
   // If we have more images than specs, intelligently cycle through specs
   // This handles cases like logo images or product variant images
@@ -664,19 +836,32 @@ async function processImagesWithNanoBanana(jobId) {
     const specIndex = idx % job.imageSpecs.length;
     const spec = job.imageSpecs[specIndex];
     console.log(`Image ${idx + 1}: ${img.originalName} -> "${spec?.title || 'FALLBACK'}" (spec ${specIndex + 1}/${job.imageSpecs.length})`);
-    return spec?.ai_prompt || job.imageSpecs[0].ai_prompt;
+    
+    let basePrompt = spec?.ai_prompt || job.imageSpecs[0].ai_prompt;
+    
+    if (presetModifier && typeof presetModifier === 'string' && presetModifier.trim()) {
+      basePrompt = `${presetModifier.trim()}\n\nORIGINAL INSTRUCTIONS:\n${basePrompt}`;
+    }
+    
+    return basePrompt;
   });
 
   console.log(`[Matching Strategy] ${job.images.length} images mapped to ${job.imageSpecs.length} specifications using ${job.images.length > job.imageSpecs.length ? 'cyclic' : 'direct'} matching`);
 
+  const hasActiveModifier = presetModifier && typeof presetModifier === 'string' && presetModifier.trim();
+  
   addWorkflowStep(jobId, {
     name: 'Prepare Processing',
     status: 'completed',
-    description: 'Preparing images with individual prompts for each image',
+    description: hasActiveModifier 
+      ? `Preparing images with ${job.marketplacePreset?.name || presetId} preset (${presetMode} mode)` 
+      : 'Preparing images with individual prompts for each image',
     details: {
       imageCount: job.images.length,
       specsCount: job.imageSpecs.length,
       matchingStrategy: job.images.length > job.imageSpecs.length ? 'cyclic (images > specs)' : 'direct (1:1)',
+      marketplacePreset: job.marketplacePreset?.id || 'default',
+      aiMode: presetMode,
       imagePrompts: imagePrompts.map((p, i) => {
         const specIndex = i % job.imageSpecs.length;
         return {
@@ -690,7 +875,7 @@ async function processImagesWithNanoBanana(jobId) {
     }
   });
 
-  updateJob(jobId, {
+  await updateJob(jobId, { 
     status: 'processing',
     processingStep: 'Processing images with individual prompts'
   });
@@ -722,7 +907,7 @@ async function processImagesWithNanoBanana(jobId) {
   const imageUrls = job.images.map(img => img.publicUrl);
   console.log('Image URLs to process:', imageUrls);
 
-  updateJob(jobId, {
+  await updateJob(jobId, { 
     status: 'processing',
     processingStep: 'Editing images with AI (individual prompts per image)'
   });
@@ -786,11 +971,9 @@ async function processImagesWithNanoBanana(jobId) {
         enableSyncMode: true,
         outputFormat: 'jpeg',
         numImages: 1,
-        // Gemini specific options
-        modelName: brandConfig.geminiImageModel || 'gemini-3-pro-image-preview',
-        fallbackToWavespeed: true
-      }).then(result => {
-        updateJob(jobId, {
+        wavespeedApiKey: brandConfig.wavespeedApiKey
+      }).then(async result => {
+        await updateJob(jobId, {
           processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
           progress: Math.round(((imageIndex + 1) / imageUrls.length) * 100),
           currentImageIndex: imageIndex
@@ -831,11 +1014,19 @@ async function processImagesWithNanoBanana(jobId) {
   });
 
   const editedImages = [];
-  const EDITED_IMAGES_FOLDER = brandConfig.editedResultsFolderId;
+  const DEFAULT_EDITED_IMAGES_FOLDER = brandConfig.editedResultsFolderId;
+  const EDITED_IMAGES_FOLDER = job.driveDestinationFolderId || DEFAULT_EDITED_IMAGES_FOLDER;
+  
+  if (job.driveDestinationFolderId) {
+    console.log(`[NanoBanana] Using custom drive destination: ${EDITED_IMAGES_FOLDER}`);
+  }
+  if (job.marketplacePreset) {
+    console.log(`[NanoBanana] Marketplace preset applied: ${job.marketplacePreset.id}`);
+  }
 
   console.log(`Saving ${results.length} edited images to Drive (brand: ${job.brandSlug})...`);
 
-  updateJob(jobId, {
+  await updateJob(jobId, { 
     processingStep: 'Saving edited images to cloud storage'
   });
 
@@ -850,9 +1041,10 @@ async function processImagesWithNanoBanana(jobId) {
     }
   });
 
-  for (let i = 0; i < results.length; i++) {
-    const result = results[i];
+  const saveImagePromises = results.map(async (result, i) => {
     const originalImage = job.images[i];
+    const specIndex = i % job.imageSpecs.length;
+    const spec = job.imageSpecs[specIndex];
 
     console.log(`Processing result ${i + 1}/${results.length}:`, result);
 
@@ -861,14 +1053,20 @@ async function processImagesWithNanoBanana(jobId) {
       console.log(`Downloading edited image from: ${editedImageUrl}`);
 
       const imageResponse = await fetch(editedImageUrl);
-      const imageBuffer = await imageResponse.arrayBuffer();
+      let imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+
+      // Check if this spec requires a logo overlay
+      if (spec && spec.logoBase64 && spec.logo_requested === true) {
+        console.log(`[Logo Overlay] Applying logo to image ${i + 1} (${spec.logo_name || 'brand logo'})`);
+        imageBuffer = await overlayLogoOnImage(imageBuffer, spec.logoBase64, 'bottom-left');
+      }
 
       const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
       const editedFileName = `${originalNameWithoutExt}_edited.jpg`;
 
       console.log(`Uploading ${editedFileName} to Drive...`);
       const uploadedFile = await uploadFileToDrive(
-        Buffer.from(imageBuffer),
+        imageBuffer,
         editedFileName,
         'image/jpeg',
         EDITED_IMAGES_FOLDER
@@ -876,24 +1074,31 @@ async function processImagesWithNanoBanana(jobId) {
 
       await makeFilePublic(uploadedFile.id);
 
-      editedImages.push({
+      console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
+
+      return {
         id: uploadedFile.id,
         name: editedFileName,
         editedImageId: uploadedFile.id,
         originalImageId: originalImage.driveId,
         originalName: originalImage.originalName,
-        url: getPublicImageUrl(uploadedFile.id)
-      });
-      console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
-
-      updateJob(jobId, {
-        processingStep: `Saved ${i + 1} of ${results.length} images`,
-        progress: Math.round(((i + 1) / results.length) * 100)
-      });
+        url: getPublicImageUrl(uploadedFile.id),
+        logoApplied: spec?.logo_requested === true && spec?.logoBase64 ? true : false
+      };
     } else {
       console.error(`No edited image in result ${i + 1} - Missing data.outputs`);
+      return null;
     }
-  }
+  });
+
+  const savedImages = await Promise.all(saveImagePromises);
+  const editedImagesResult = savedImages.filter(img => img !== null);
+  editedImages.push(...editedImagesResult);
+
+  await updateJob(jobId, {
+    processingStep: `Exported ${editedImages.length} images`,
+    progress: 95
+  });
 
   addWorkflowStep(jobId, {
     name: 'Saving Complete',
@@ -907,7 +1112,7 @@ async function processImagesWithNanoBanana(jobId) {
   });
 
   console.log(`Successfully processed ${editedImages.length} images`);
-  updateJob(jobId, {
+  await updateJob(jobId, { 
     status: 'completed',
     editedImages,
     processingStep: 'Complete',
@@ -924,11 +1129,19 @@ async function processImagesWithNanoBanana(jobId) {
       completedAt: new Date().toISOString()
     }
   });
+
+  const finalJob = getJob(jobId);
+  archiveBatchToStorage(jobId, {
+    ...finalJob,
+    editedImages
+  }).catch(err => {
+    console.error('[History Archive] Non-blocking archive error:', err.message);
+  });
 }
 
 export async function uploadTextPrompt(req, res) {
   try {
-    const { prompt } = req.body;
+    const { prompt, marketplacePreset, driveDestinationFolderId } = req.body;
 
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({ error: 'Prompt is required' });
@@ -946,6 +1159,13 @@ export async function uploadTextPrompt(req, res) {
       req.brand.briefFolderId
     );
 
+    if (marketplacePreset) {
+      console.log('[Text Prompt] Marketplace preset:', marketplacePreset.id);
+    }
+    if (driveDestinationFolderId) {
+      console.log('[Text Prompt] Custom drive destination:', driveDestinationFolderId);
+    }
+
     const startTime = new Date();
     createJob({
       id: jobId,
@@ -957,7 +1177,9 @@ export async function uploadTextPrompt(req, res) {
       status: 'prompt_uploaded',
       createdAt: startTime,
       startTime: startTime,
-      imageCount: 0
+      imageCount: 0,
+      marketplacePreset: marketplacePreset || null,
+      driveDestinationFolderId: driveDestinationFolderId || null
     });
 
     res.json({
