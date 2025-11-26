@@ -692,6 +692,17 @@ async function processImagesWithNanoBanana(jobId) {
 
   console.log(`Processing ${job.images.length} images with ${job.imageSpecs.length} specifications`);
 
+  const presetModifier = job.marketplacePreset?.promptModifier || null;
+  const presetMode = job.marketplacePreset?.aiMode || 'balanced';
+  const presetId = job.marketplacePreset?.id || 'default';
+  
+  if (presetModifier && typeof presetModifier === 'string' && presetModifier.trim()) {
+    console.log(`[Marketplace Preset] Applying ${presetId} mode (${presetMode})`);
+    console.log(`[Marketplace Preset] Prompt modifier length: ${presetModifier.length} chars`);
+  } else {
+    console.log(`[Marketplace Preset] Using ${presetId} mode (no prompt modifications)`);
+  }
+
   // Match images to specifications
   // If we have more images than specs, intelligently cycle through specs
   // This handles cases like logo images or product variant images
@@ -700,19 +711,32 @@ async function processImagesWithNanoBanana(jobId) {
     const specIndex = idx % job.imageSpecs.length;
     const spec = job.imageSpecs[specIndex];
     console.log(`Image ${idx + 1}: ${img.originalName} -> "${spec?.title || 'FALLBACK'}" (spec ${specIndex + 1}/${job.imageSpecs.length})`);
-    return spec?.ai_prompt || job.imageSpecs[0].ai_prompt;
+    
+    let basePrompt = spec?.ai_prompt || job.imageSpecs[0].ai_prompt;
+    
+    if (presetModifier && typeof presetModifier === 'string' && presetModifier.trim()) {
+      basePrompt = `${presetModifier.trim()}\n\nORIGINAL INSTRUCTIONS:\n${basePrompt}`;
+    }
+    
+    return basePrompt;
   });
 
   console.log(`[Matching Strategy] ${job.images.length} images mapped to ${job.imageSpecs.length} specifications using ${job.images.length > job.imageSpecs.length ? 'cyclic' : 'direct'} matching`);
 
+  const hasActiveModifier = presetModifier && typeof presetModifier === 'string' && presetModifier.trim();
+  
   addWorkflowStep(jobId, {
     name: 'Prepare Processing',
     status: 'completed',
-    description: 'Preparing images with individual prompts for each image',
+    description: hasActiveModifier 
+      ? `Preparing images with ${job.marketplacePreset?.name || presetId} preset (${presetMode} mode)` 
+      : 'Preparing images with individual prompts for each image',
     details: {
       imageCount: job.images.length,
       specsCount: job.imageSpecs.length,
       matchingStrategy: job.images.length > job.imageSpecs.length ? 'cyclic (images > specs)' : 'direct (1:1)',
+      marketplacePreset: job.marketplacePreset?.id || 'default',
+      aiMode: presetMode,
       imagePrompts: imagePrompts.map((p, i) => {
         const specIndex = i % job.imageSpecs.length;
         return {
