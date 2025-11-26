@@ -195,12 +195,13 @@ For each image specification, extract:
 - logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", etc.)
 - logo_name: If logo_requested is true, extract the brand/logo name (e.g., "Intel Core", "AMD Ryzen", "NVIDIA GeForce"). Set to null if no logo requested.
 
-For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO font names, NO pixel values, NO CSS, NO technical specifications):
+For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS, NO technical specifications):
 
-"Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in large bold uppercase white letters near the top left. Below the title, add the subtitle '{subtitle}' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
+"Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in a clean, modern, geometric sans-serif font style (like Saira), bold white uppercase letters near the top left. Below the title, add the subtitle '{subtitle}' in the same geometric sans-serif font, smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image with modern geometric typography."
 
 CRITICAL PROMPT RULES:
 - Use ONLY natural language descriptions - NO technical specs
+- Request Saira-style geometric sans-serif font for all text
 - NEVER include font names like 'Montserrat' or 'Arial'
 - NEVER include pixel values like '52px' or '18px'
 - NEVER include CSS values like 'rgba()' or '#FFFFFF'
@@ -463,11 +464,11 @@ Extract ALL images mentioned in the brief (IMAGE 1, IMAGE 2, IMAGE 3, etc.). For
 - subtitle: The COPY text (keep as written)
 - asset: The ASSET filename (if mentioned)
 
-For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO font names, NO pixel values, NO CSS):
+For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS):
 
-"Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in large bold uppercase white letters near the top left. Below the title, add the subtitle '{subtitle}' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
+"Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in a clean, modern, geometric sans-serif font style (like Saira), bold white uppercase letters near the top left. Below the title, add the subtitle '{subtitle}' in the same geometric sans-serif font, smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image with modern geometric typography."
 
-CRITICAL: Use ONLY natural language - NO font names, NO pixel values, NO CSS colors, NO technical measurements. Just describe the visual result.
+CRITICAL: Use ONLY natural language - NO pixel values, NO CSS colors, NO technical measurements. Request Saira-style geometric sans-serif font for all text.
 
 Replace {title} and {subtitle} with the actual extracted values for EACH image.
 

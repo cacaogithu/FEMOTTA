@@ -17,30 +17,32 @@
  * OPTION A: MAXIMUM STANDARDIZATION
  * Use this for: Product catalogs, strict brand consistency
  * Structure: Edit instruction → Text placement → Style → Preservation
+ * Font: Saira (geometric sans-serif, clean, modern, slightly condensed)
  */
 export const PROMPT_TEMPLATE_FIXED = `Edit this product photo to add marketing text overlay.
 
 EDITING INSTRUCTIONS:
 - Add a subtle dark gradient at the top edge that fades to fully transparent
-- The headline text '{title}' should be rendered in bold, white, uppercase letters at the top-left area
-- Below the headline, add '{subtitle}' in smaller white text
+- The headline text '{title}' should be rendered in a clean, modern, geometric sans-serif font style (like Saira), bold, white, uppercase letters at the top-left area
+- Below the headline, add '{subtitle}' in the same clean geometric sans-serif font, smaller, white, regular weight
 
-STYLE: Professional product marketing photography with clean text overlay.
+STYLE: Professional product marketing photography with clean text overlay. Use a modern geometric sans-serif font similar to Saira.
 IMPORTANT: Preserve all original product details, lighting, colors, and image quality. Generate the edited image.`;
 
 /**
  * OPTION B: SMART ADAPTIVE STANDARDIZATION  
  * Use this for: Mixed content, varied aspect ratios, complex layouts
+ * Font: Saira (geometric sans-serif, clean, modern, slightly condensed)
  */
 export const PROMPT_TEMPLATE_ADAPTIVE = `Edit this product image to create a professional marketing graphic.
 
 EDITING INSTRUCTIONS:
 - Apply a gentle dark gradient overlay at the top that fades to transparent
-- Render the headline '{title}' in bold white uppercase letters, positioned at the top
-- Add the subtitle '{subtitle}' in smaller white text below the headline
+- Render the headline '{title}' in a clean, modern, geometric sans-serif font style (like Saira), bold white uppercase letters, positioned at the top
+- Add the subtitle '{subtitle}' in the same geometric sans-serif font, smaller white text below the headline
 - Add subtle drop shadows to both text elements for readability
 
-STYLE: Clean, professional product photography aesthetic.
+STYLE: Clean, professional product photography aesthetic. Use modern geometric sans-serif typography similar to Saira font.
 IMPORTANT: Keep all original product details and image quality intact. Generate the edited image.`;
 
 /**
