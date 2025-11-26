@@ -4,6 +4,194 @@
   import { writePsdBuffer } from 'ag-psd';
   import { createCanvas, Image } from 'canvas';
 
+  // ag-psd DOES support real editable text layers
+  const SUPPORTS_TEXT_LAYERS = true;
+
+  // Helper function to extract text specs for a specific image
+  function getTextSpecsForImage(job, imageIndex) {
+    const specs = { title: null, subtitle: null };
+    
+    // Priority 1: Check editedImages directly (added during processing)
+    if (job.editedImages && job.editedImages[imageIndex]) {
+      const editedImage = job.editedImages[imageIndex];
+      if (editedImage.title) specs.title = editedImage.title;
+      if (editedImage.subtitle) specs.subtitle = editedImage.subtitle;
+    }
+    
+    // Priority 2: Try to get from imageSpecs array (extracted from brief)
+    if (!specs.title && job.imageSpecs && Array.isArray(job.imageSpecs)) {
+      const spec = job.imageSpecs[imageIndex] || 
+                   job.imageSpecs.find(s => s.image_number === imageIndex + 1);
+      if (spec) {
+        if (!specs.title) specs.title = spec.title || null;
+        if (!specs.subtitle) specs.subtitle = spec.subtitle || null;
+      }
+    }
+    
+    // Priority 3: Fallback - try to extract from the prompt used
+    if (!specs.title && job.editedImages && job.editedImages[imageIndex]) {
+      const editedImage = job.editedImages[imageIndex];
+      if (editedImage.promptUsed) {
+        // Try to parse title/subtitle from prompt text
+        const titleMatch = editedImage.promptUsed.match(/title[:\s]+["']?([^"'\n,]+)["']?/i) ||
+                          editedImage.promptUsed.match(/headline[:\s]+["']?([^"'\n,]+)["']?/i);
+        const subtitleMatch = editedImage.promptUsed.match(/subtitle[:\s]+["']?([^"'\n,]+)["']?/i) ||
+                              editedImage.promptUsed.match(/copy[:\s]+["']?([^"'\n,]+)["']?/i);
+        if (titleMatch && !specs.title) specs.title = titleMatch[1].trim();
+        if (subtitleMatch && !specs.subtitle) specs.subtitle = subtitleMatch[1].trim();
+      }
+    }
+    
+    console.log(`[PSD Download] Text specs for image ${imageIndex}:`, specs);
+    return specs;
+  }
+
+  // Calculate text positioning and font sizes based on image dimensions
+  function calculateTextLayout(width, height, textSpecs) {
+    // Calculate responsive font sizes based on image dimensions
+    const titleFontSize = Math.max(36, Math.min(72, Math.floor(width * 0.045)));
+    const subtitleFontSize = Math.max(16, Math.min(32, Math.floor(width * 0.02)));
+    
+    // Position text in the top portion of the image (matching AI placement)
+    const topMargin = Math.floor(height * 0.08);
+    const leftMargin = Math.floor(width * 0.05);
+    
+    const layout = {
+      title: null,
+      subtitle: null
+    };
+    
+    if (textSpecs.title) {
+      layout.title = {
+        text: textSpecs.title.toUpperCase(),
+        x: leftMargin,
+        y: topMargin + titleFontSize,
+        fontSize: titleFontSize,
+        fontFamily: 'Montserrat',
+        fontWeight: 'ExtraBold',
+        fontPostScriptName: 'Montserrat-ExtraBold',
+        color: { r: 255, g: 255, b: 255 },
+        alignment: 'left'
+      };
+    }
+    
+    if (textSpecs.subtitle) {
+      const subtitleY = topMargin + titleFontSize + Math.floor(titleFontSize * 0.6);
+      layout.subtitle = {
+        text: textSpecs.subtitle,
+        x: leftMargin,
+        y: subtitleY + subtitleFontSize,
+        fontSize: subtitleFontSize,
+        fontFamily: 'Montserrat',
+        fontWeight: 'Regular',
+        fontPostScriptName: 'Montserrat-Regular',
+        color: { r: 255, g: 255, b: 255 },
+        alignment: 'left'
+      };
+    }
+    
+    return layout;
+  }
+
+  // Helper function to create editable text layers using ag-psd text layer API
+  function createTextLayers(width, height, textSpecs) {
+    const layers = [];
+    const layout = calculateTextLayout(width, height, textSpecs);
+    
+    if (layout.title) {
+      layers.push({
+        name: 'Title (Editable)',
+        text: {
+          text: layout.title.text,
+          // Transform matrix: [scaleX, skewY, skewX, scaleY, translateX, translateY]
+          transform: [1, 0, 0, 1, layout.title.x, layout.title.y],
+          antiAlias: 'smooth',
+          orientation: 'horizontal',
+          style: {
+            font: { name: layout.title.fontPostScriptName },
+            fontSize: layout.title.fontSize,
+            fillColor: layout.title.color,
+            tracking: 0,
+            autoLeading: true
+          },
+          paragraphStyle: {
+            justification: 'left'
+          }
+        },
+        blendMode: 'normal',
+        opacity: 255
+      });
+    }
+    
+    if (layout.subtitle) {
+      layers.push({
+        name: 'Subtitle (Editable)',
+        text: {
+          text: layout.subtitle.text,
+          transform: [1, 0, 0, 1, layout.subtitle.x, layout.subtitle.y],
+          antiAlias: 'smooth',
+          orientation: 'horizontal',
+          style: {
+            font: { name: layout.subtitle.fontPostScriptName },
+            fontSize: layout.subtitle.fontSize,
+            fillColor: layout.subtitle.color,
+            tracking: 0,
+            autoLeading: true
+          },
+          paragraphStyle: {
+            justification: 'left'
+          }
+        },
+        blendMode: 'normal',
+        opacity: 255
+      });
+    }
+    
+    return layers;
+  }
+
+  // Generate JSON metadata for designers (fallback if text layers don't work)
+  function generateTextMetadata(width, height, textSpecs) {
+    const layout = calculateTextLayout(width, height, textSpecs);
+    
+    return {
+      supportsTextLayers: SUPPORTS_TEXT_LAYERS,
+      canvasSize: { width, height },
+      textLayers: {
+        title: layout.title ? {
+          content: layout.title.text,
+          position: { x: layout.title.x, y: layout.title.y },
+          font: {
+            family: layout.title.fontFamily,
+            weight: layout.title.fontWeight,
+            postScriptName: layout.title.fontPostScriptName,
+            size: layout.title.fontSize
+          },
+          color: {
+            rgb: layout.title.color,
+            hex: `#${layout.title.color.r.toString(16).padStart(2, '0')}${layout.title.color.g.toString(16).padStart(2, '0')}${layout.title.color.b.toString(16).padStart(2, '0')}`
+          },
+          alignment: layout.title.alignment
+        } : null,
+        subtitle: layout.subtitle ? {
+          content: layout.subtitle.text,
+          position: { x: layout.subtitle.x, y: layout.subtitle.y },
+          font: {
+            family: layout.subtitle.fontFamily,
+            weight: layout.subtitle.fontWeight,
+            postScriptName: layout.subtitle.fontPostScriptName,
+            size: layout.subtitle.fontSize
+          },
+          color: {
+            rgb: layout.subtitle.color,
+            hex: `#${layout.subtitle.color.r.toString(16).padStart(2, '0')}${layout.subtitle.color.g.toString(16).padStart(2, '0')}${layout.subtitle.color.b.toString(16).padStart(2, '0')}`
+          },
+          alignment: layout.subtitle.alignment
+        } : null
+      }
+    };
+  }
+
   export async function downloadPsd(req, res) {
     try {
       const { jobId, imageIndex } = req.params;
@@ -81,12 +269,19 @@
       diffCtx.drawImage(originalCanvas, 0, 0);
       diffCtx.globalCompositeOperation = 'difference';
       diffCtx.drawImage(editedCanvas, 0, 0);
-      // Invert to make it easier to see (black = no change, white = max change) -> maybe better as is?
-      // Standard difference is usually black for no change. Let's keep it standard.
 
-      console.log('[PSD Download] Creating layered PSD...');
+      console.log('[PSD Download] Creating layered PSD with editable text...');
+
+      // Extract text specifications for this image
+      const textSpecs = getTextSpecsForImage(job, index);
+      
+      // Create editable text layers
+      const textLayers = createTextLayers(width, height, textSpecs);
+      
+      console.log(`[PSD Download] Created ${textLayers.length} editable text layers`);
 
       // Create PSD document with organized layers
+      // Structure: Text Group (editable) > Comparison Group (reference images)
       const psd = {
         width,
         height,
@@ -94,25 +289,34 @@
         bitsPerChannel: 8,
         colorMode: 3,
         children: [
+          // Editable Text Group - at the top for easy access
+          ...(textLayers.length > 0 ? [{
+            name: 'Editable Text',
+            opened: true,
+            children: textLayers
+          }] : []),
+          // Reference Images Group
           {
-            name: 'Comparison',
+            name: 'Reference Images',
+            opened: true,
             children: [
               {
-                name: 'Difference Highlight',
-                visible: false, // Hidden by default
-                canvas: diffCanvas,
-                blendMode: 'normal',
-                opacity: 255
-              },
-              {
-                name: 'AI Edited',
+                name: 'AI Edited (Reference)',
                 canvas: editedCanvas,
                 blendMode: 'normal',
                 opacity: 255
               },
               {
                 name: 'Original',
+                visible: false,
                 canvas: originalCanvas,
+                blendMode: 'normal',
+                opacity: 255
+              },
+              {
+                name: 'Difference Highlight',
+                visible: false,
+                canvas: diffCanvas,
                 blendMode: 'normal',
                 opacity: 255
               }
@@ -121,11 +325,15 @@
         ]
       };
 
-      // Generate PSD buffer
-      const psdArrayBuffer = writePsdBuffer(psd);
+      // Generate PSD buffer with invalidateTextLayers option for proper text rendering
+      const psdArrayBuffer = writePsdBuffer(psd, { 
+        invalidateTextLayers: true,
+        generateThumbnail: true
+      });
       const psdBuffer = Buffer.from(psdArrayBuffer);
 
       console.log('[PSD Download] PSD created successfully, size:', psdBuffer.length, 'bytes');
+      console.log('[PSD Download] Text layers included:', textLayers.length > 0 ? 'Yes' : 'No');
 
       // Send as downloadable file
       const fileName = `${imageData.originalName.replace(/\.[^/.]+$/, '')}_edited.psd`;
@@ -144,4 +352,81 @@
       });
     }
   }
+
+  // GET /api/psd/info/:jobId/:imageIndex - Get PSD metadata without downloading
+  export async function getPsdInfo(req, res) {
+    try {
+      const { jobId, imageIndex } = req.params;
+
+      const job = await getJobWithFallback(jobId);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      if (!job.editedImages || job.editedImages.length === 0) {
+        return res.status(404).json({ error: 'No edited images found for this job' });
+      }
+
+      const index = parseInt(imageIndex);
+      if (isNaN(index) || index < 0 || index >= job.editedImages.length) {
+        return res.status(400).json({ error: 'Invalid image index' });
+      }
+
+      const imageData = job.editedImages[index];
+      
+      // Extract text specifications for this image
+      const textSpecs = getTextSpecsForImage(job, index);
+      
+      // Get actual image dimensions by loading the edited image
+      let width = 1200;  // fallback
+      let height = 800;  // fallback
+      
+      try {
+        if (imageData.editedImageId) {
+          console.log('[PSD Info] Loading edited image to get actual dimensions...');
+          const editedBuffer = await downloadFileFromDrive(imageData.editedImageId);
+          
+          const img = await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = reject;
+            image.src = editedBuffer;
+          });
+          
+          width = img.width;
+          height = img.height;
+          console.log(`[PSD Info] Actual image dimensions: ${width}x${height}`);
+        }
+      } catch (dimError) {
+        console.warn('[PSD Info] Could not load image for dimensions, using fallback:', dimError.message);
+      }
+      
+      // Generate metadata with actual dimensions
+      const metadata = generateTextMetadata(width, height, textSpecs);
+      
+      res.json({
+        success: true,
+        supportsTextLayers: SUPPORTS_TEXT_LAYERS,
+        imageName: imageData.originalName,
+        imageIndex: index,
+        actualDimensions: { width, height },
+        metadata: metadata,
+        notes: {
+          photoshopWarning: 'When opening in Photoshop, click "Update" on text layers to render them properly',
+          fontRequirement: 'Montserrat font family should be installed for best results',
+          layerStructure: 'Text layers are in "Editable Text" group, reference images in "Reference Images" group'
+        }
+      });
+
+    } catch (error) {
+      console.error('[PSD Info] Error:', error);
+      res.status(500).json({
+        error: 'Failed to get PSD info',
+        details: error.message
+      });
+    }
+  }
+
+  // Export SUPPORTS_TEXT_LAYERS constant for external use
+  export { SUPPORTS_TEXT_LAYERS };
 

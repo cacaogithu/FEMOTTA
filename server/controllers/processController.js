@@ -90,13 +90,19 @@ export async function processImages(req, res) {
           console.error('[Active Learning] Quality analysis error (non-blocking):', err);
         });
 
+        // Get title/subtitle from imageSpecs if available (for PSD text layers)
+        const imageSpec = job.imageSpecs && job.imageSpecs[i] ? job.imageSpecs[i] : null;
+        
         editedImages.push({
           id: uploadedFile.id,
           name: editedFileName,
           editedImageId: uploadedFile.id,
           originalImageId: originalImage.driveId,
           originalName: originalImage.originalName,
-          url: publicEditedUrl // Use the public URL for the final output
+          url: publicEditedUrl,
+          title: imageSpec?.title || null,
+          subtitle: imageSpec?.subtitle || null,
+          promptUsed: job.promptText || null
         });
       }
     }
