@@ -1,0 +1,226 @@
+Edit images (text-and-image input)
+
+Before trying this sample, complete the Before you begin section of this guide to set up your project and app.
+In that section, you'll also click a button for your chosen Gemini API provider so that you see provider-specific content on this page.
+You can ask a Gemini model to edit images by prompting with text and one or more images.
+
+Make sure to create a GenerativeModel instance, include responseModalities: ["TEXT", "IMAGE"] in your model configuration, and call generateContent.
+
+Swift
+Kotlin
+Java
+Web
+Dart
+Unity
+
+
+import { initializeApp } from "firebase/app";
+import { getAI, getGenerativeModel, GoogleAIBackend, ResponseModality } from "firebase/ai";
+
+// TODO(developer) Replace the following with your app's Firebase configuration
+// See: https://firebase.google.com/docs/web/learn-more#config-object
+const firebaseConfig = {
+  // ...
+};
+
+// Initialize FirebaseApp
+const firebaseApp = initializeApp(firebaseConfig);
+
+// Initialize the Gemini Developer API backend service
+const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
+
+// Create a `GenerativeModel` instance with a model that supports your use case
+const model = getGenerativeModel(ai, {
+  model: "gemini-2.5-flash-image",
+  // Configure the model to respond with text and images (required)
+  generationConfig: {
+    responseModalities: [ResponseModality.TEXT, ResponseModality.IMAGE],
+  },
+});
+
+// Prepare an image for the model to edit
+async function fileToGenerativePart(file) {
+  const base64EncodedDataPromise = new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+  return {
+    inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
+  };
+}
+
+// Provide a text prompt instructing the model to edit the image
+const prompt = "Edit this image to make it look like a cartoon";
+
+const fileInputEl = document.querySelector("input[type=file]");
+const imagePart = await fileToGenerativePart(fileInputEl.files[0]);
+
+// To edit the image, call `generateContent` with the image and text input
+const result = await model.generateContent([prompt, imagePart]);
+
+// Handle the generated image
+try {
+  const inlineDataParts = result.response.inlineDataParts();
+  if (inlineDataParts?.[0]) {
+    const image = inlineDataParts[0].inlineData;
+    console.log(image.mimeType, image.data);
+  }
+} catch (err) {
+  console.error('Prompt or candidate was blocked:', err);
+}
+Iterate and edit images using multi-turn chat
+
+Before trying this sample, complete the Before you begin section of this guide to set up your project and app.
+In that section, you'll also click a button for your chosen Gemini API provider so that you see provider-specific content on this page.
+Using multi-turn chat, you can iterate with a Gemini model on the images that it generates or that you supply.
+
+Make sure to create a GenerativeModel instance, include responseModalities: ["TEXT", "IMAGE"] in your model configuration, and call startChat() and sendMessage() to send new user messages.
+
+Important: If you're not familiar with the chat capability of the SDKs, we recommend reviewing the text-only chat example.
+Swift
+Kotlin
+Java
+Web
+Dart
+Unity
+
+
+import { initializeApp } from "firebase/app";
+import { getAI, getGenerativeModel, GoogleAIBackend, ResponseModality } from "firebase/ai";
+
+// TODO(developer) Replace the following with your app's Firebase configuration
+// See: https://firebase.google.com/docs/web/learn-more#config-object
+const firebaseConfig = {
+  // ...
+};
+
+// Initialize FirebaseApp
+const firebaseApp = initializeApp(firebaseConfig);
+
+// Initialize the Gemini Developer API backend service
+const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
+
+// Create a `GenerativeModel` instance with a model that supports your use case
+const model = getGenerativeModel(ai, {
+  model: "gemini-2.5-flash-image",
+  // Configure the model to respond with text and images (required)
+  generationConfig: {
+    responseModalities: [ResponseModality.TEXT, ResponseModality.IMAGE],
+  },
+});
+
+// Prepare an image for the model to edit
+async function fileToGenerativePart(file) {
+  const base64EncodedDataPromise = new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+  return {
+    inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
+  };
+}
+
+const fileInputEl = document.querySelector("input[type=file]");
+const imagePart = await fileToGenerativePart(fileInputEl.files[0]);
+
+// Provide an initial text prompt instructing the model to edit the image
+const prompt = "Edit this image to make it look like a cartoon";
+
+// Initialize the chat
+const chat = model.startChat();
+
+// To generate an initial response, send a user message with the image and text prompt
+const result = await chat.sendMessage([prompt, imagePart]);
+
+// Request and inspect the generated image
+try {
+  const inlineDataParts = result.response.inlineDataParts();
+  if (inlineDataParts?.[0]) {
+    // Inspect the generated image
+    const image = inlineDataParts[0].inlineData;
+    console.log(image.mimeType, image.data);
+  }
+} catch (err) {
+  console.error('Prompt or candidate was blocked:', err);
+}
+
+// Follow up requests do not need to specify the image again
+const followUpResult = await chat.sendMessage("But make it old-school line drawing style");
+
+// Request and inspect the returned image
+try {
+  const followUpInlineDataParts = followUpResult.response.inlineDataParts();
+  if (followUpInlineDataParts?.[0]) {
+    // Inspect the generated image
+    const followUpImage = followUpInlineDataParts[0].inlineData;
+    console.log(followUpImage.mimeType, followUpImage.data);
+  }
+} catch (err) {
+  console.error('Prompt or candidate was blocked:', err);
+}
+
+
+Supported features, limitations, and best practices
+
+Supported modalities and capabilities
+
+The following are supported modalities and capabilities for image-generating Gemini models. Each capability shows an example prompt and has an example code sample above.
+
+Text arrow_forward Image(s) (text-only to image)
+
+Generate an image of the Eiffel tower with fireworks in the background.
+Text arrow_forward Image(s) (text rendering within image)
+
+Generate a cinematic photo of a large building with this giant text projection mapped on the front of the building.
+Text arrow_forward Image(s) & Text (interleaved)
+
+Generate an illustrated recipe for a paella. Create images alongside the text as you generate the recipe.
+Generate a story about a dog in a 3D cartoon animation style. For each scene, generate an image.
+Image(s) & Text arrow_forward Image(s) & Text (interleaved)
+
+[image of a furnished room] + What other color sofas would work in my space? Can you update the image?
+Image editing (text-and-image to image)
+
+[image of scones] + Edit this image to make it look like a cartoon
+[image of a cat] + [image of a pillow] + Create a cross stitch of my cat on this pillow.
+Multi-turn image editing (chat)
+
+[image of a blue car] + Turn this car into a convertible., then Now change the color to yellow.
+Additionally, the Gemini 3 Pro Image model supports grounding with Google Search.
+
+Limitations and best practices
+
+Firebase AI Logic does not yet support explicitly setting aspect_ratio or image_size for generated images, but you can tell the model in your prompt what settings you want. These features are coming soon!
+
+The following are limitations and best practices for image-output from a Gemini model.
+
+Image-generating Gemini models support the following:
+
+Generating PNG images with these maximum dimensions:
+gemini-3-pro-image-preview: 4K
+gemini-2.5-flash-image: 1024 px
+Generating and editing images of people.
+Using safety filters that provide a flexible and less restrictive user experience.
+Image-generating Gemini models do not support the following:
+
+Including audio or video inputs.
+Generating only images.
+The models will always return both text and images, and you must include responseModalities: ["TEXT", "IMAGE"] in your model configuration.
+For best performance, use the following languages: en, es-mx, ja-jp, zh-cn, hi-in.
+Image generation may not always trigger. Here are some known issues:
+
+The model may output text only.
+Try asking for image outputs explicitly (for example, "generate an image", "provide images as you go along", "update the image").
+The model may stop generating partway through.
+Try again or try a different prompt.
+The model may generate text as an image.
+Try asking for text outputs explicitly. For example, "generate narrative text along with illustrations."
+When generating text for an image, Gemini works best if you first generate the text and then ask for an image with the text.
+Was this helpful?
+
+Send feedback
+Except as otherwise noted, the content of this page is licensed under the Creative Commons Attribution 4.0 License, and code samples are licensed under the Apache 2.0 License. For details, see the Google Developers Site Policies. Java is a registered trademark of Oracle and/or its affiliates.
+
+Last updated 2025-11-25 UTC.

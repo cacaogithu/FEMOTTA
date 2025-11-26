@@ -1,23 +1,47 @@
 // FEMOTTA - Standardized Image Editing Prompts
-// Version: 3.0
+// Version: 4.0
 // Last Updated: 2025-11-26
-// Purpose: Natural language prompts only - NO technical specifications
+// Purpose: Optimized for Gemini/Nano Banana Pro based on official prompting tips
+
+/**
+ * GEMINI NANO BANANA PRO PROMPTING BEST PRACTICES (from official docs):
+ * 
+ * 1. EDITING INSTRUCTIONS: Be direct and specific (e.g., "change X to Y", "add X at location")
+ * 2. TEXT INTEGRATION: Clearly state what text should appear and how
+ * 3. COMPOSITION: Define the framing (close-up, wide shot, etc.)
+ * 4. STYLE: Specify the aesthetic (photorealistic, professional product photography)
+ * 5. Keep original image: Explicitly state to preserve product details
+ */
 
 /**
  * OPTION A: MAXIMUM STANDARDIZATION
  * Use this for: Product catalogs, strict brand consistency
- * Characteristics: Nearly identical results, minimal variance
- * 
- * CRITICAL: Uses ONLY natural language - no font names, pixel values, or CSS
+ * Structure: Edit instruction → Text placement → Style → Preservation
  */
-export const PROMPT_TEMPLATE_FIXED = `Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in large bold uppercase white letters near the top left. Below the title, add the subtitle '{subtitle}' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image.`;
+export const PROMPT_TEMPLATE_FIXED = `Edit this product photo to add marketing text overlay.
+
+EDITING INSTRUCTIONS:
+- Add a subtle dark gradient at the top edge that fades to fully transparent
+- The headline text '{title}' should be rendered in bold, white, uppercase letters at the top-left area
+- Below the headline, add '{subtitle}' in smaller white text
+
+STYLE: Professional product marketing photography with clean text overlay.
+IMPORTANT: Preserve all original product details, lighting, colors, and image quality. Generate the edited image.`;
 
 /**
  * OPTION B: SMART ADAPTIVE STANDARDIZATION  
  * Use this for: Mixed content, varied aspect ratios, complex layouts
- * Characteristics: Consistent style with intelligent adaptation
  */
-export const PROMPT_TEMPLATE_ADAPTIVE = `Edit this product image to create a professional marketing graphic. Add a gentle dark gradient at the top that fades to transparent. Place the title '{title}' in large bold uppercase white letters near the top. Below it, add '{subtitle}' in smaller white text. Use subtle text shadows for readability. Preserve all original product details and image quality.`;
+export const PROMPT_TEMPLATE_ADAPTIVE = `Edit this product image to create a professional marketing graphic.
+
+EDITING INSTRUCTIONS:
+- Apply a gentle dark gradient overlay at the top that fades to transparent
+- Render the headline '{title}' in bold white uppercase letters, positioned at the top
+- Add the subtitle '{subtitle}' in smaller white text below the headline
+- Add subtle drop shadows to both text elements for readability
+
+STYLE: Clean, professional product photography aesthetic.
+IMPORTANT: Keep all original product details and image quality intact. Generate the edited image.`;
 
 /**
  * DEPRECATED: OLD TEMPLATE WITH TECHNICAL SPECS
