@@ -246,11 +246,18 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
             console.log("Photopea: Title error:", e.message);
           }
           
-          // Try to add drop shadow to title via layer style
+          // Create title shadow layer (behind text, independently editable)
           try {
-            app.activeDocument.activeLayer = titleLayer;
-            titleLayer.layerEffects.dropShadow.enabled = true;
-          } catch(e) { console.log("Photopea: Title shadow skipped:", e.message); }
+            var titleShadowLayer = doc.artLayers.add();
+            titleShadowLayer.name = "Title Shadow";
+            titleShadowLayer.kind = LayerKind.SOLIDFILL;
+            titleShadowLayer.opacity = 50;
+            // Move shadow layer behind the text layer
+            if (doc.artLayers.length > 1) {
+              titleShadowLayer.move(titleLayer, ElementPlacement.PLACEBEFORE);
+            }
+            console.log("Photopea: Title shadow layer added");
+          } catch(e) { console.log("Photopea: Title shadow layer skipped:", e.message); }
           ` : ''}
           
           // Always export PSD regardless of any styling errors above
