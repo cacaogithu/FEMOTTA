@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../utils/api';
+import { generateAndDownloadPSD, initPhotopea } from '../services/photopeaService';
 import './HistoryPanel.css';
 
 function HistoryPanel({ onSelectBatch }) {
@@ -10,6 +11,7 @@ function HistoryPanel({ onSelectBatch }) {
   const [batchDetails, setBatchDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [psdGenerating, setPsdGenerating] = useState({});
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -19,6 +21,7 @@ function HistoryPanel({ onSelectBatch }) {
   });
 
   useEffect(() => {
+    initPhotopea();
     fetchHistory();
   }, [pagination.page]);
 
@@ -128,28 +131,33 @@ function HistoryPanel({ onSelectBatch }) {
   };
 
   const handleDownloadPsd = async (imageIndex) => {
-    if (!selectedBatch) return;
+    if (!selectedBatch || !batchDetails) return;
+    if (psdGenerating[imageIndex]) return;
+    
+    setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
     
     try {
-      const response = await authenticatedFetch(
-        `/api/history/${selectedBatch}/psd/${imageIndex}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('PSD download failed');
+      const image = batchDetails.editedImages?.[imageIndex];
+      if (!image) {
+        throw new Error('Image not found');
       }
       
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `image_${imageIndex}.psd`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const editedImageId = image.editedImageId || image.id;
+      const imageUrl = `/api/images/${editedImageId}?t=${Date.now()}`;
+      const fullImageUrl = `${window.location.origin}${imageUrl}`;
+      
+      const spec = batchDetails.imageSpecs?.[imageIndex % (batchDetails.imageSpecs?.length || 1)] || {};
+      
+      console.log('[History PSD] Generating layered PSD with Photopea');
+      
+      const filename = image.originalName?.replace(/\.[^/.]+$/, '') || `image_${imageIndex}`;
+      
+      await generateAndDownloadPSD(fullImageUrl, spec, filename);
+      
     } catch (err) {
-      setError('Failed to download PSD: ' + err.message);
+      setError('Failed to generate PSD: ' + err.message);
+    } finally {
+      setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
     }
   };
 
@@ -327,9 +335,10 @@ function HistoryPanel({ onSelectBatch }) {
                         <button 
                           className="action-btn"
                           onClick={() => handleDownloadPsd(index)}
+                          disabled={psdGenerating[index]}
                           title="Download PSD"
                         >
-                          PSD
+                          {psdGenerating[index] ? '...' : 'PSD'}
                         </button>
                       </div>
                     </div>

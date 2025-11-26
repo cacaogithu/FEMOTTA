@@ -5,6 +5,7 @@ import ImagePreview from './ImagePreview';
 import ChatWidget from './ChatWidget';
 import FeedbackWidget from './FeedbackWidget';
 import WorkflowViewer from './WorkflowViewer';
+import { generateAndDownloadPSD, initPhotopea } from '../services/photopeaService';
 import './ResultsPage.css';
 
 function TimeMetricsPanel({ jobId }) {
@@ -63,10 +64,25 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
   const [results, setResults] = useState(initialResults);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshToken, setRefreshToken] = useState(Date.now());
+  const [imageSpecs, setImageSpecs] = useState([]);
+  const [psdGenerating, setPsdGenerating] = useState({});
 
   useEffect(() => {
     setResults(initialResults);
   }, [initialResults]);
+
+  useEffect(() => {
+    initPhotopea();
+    
+    authenticatedFetch(`/api/upload/job/${jobId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.job?.imageSpecs) {
+          setImageSpecs(data.job.imageSpecs);
+        }
+      })
+      .catch(err => console.error('Failed to load image specs:', err));
+  }, [jobId]);
 
   const handleRefreshImages = async () => {
     setIsRefreshing(true);
@@ -120,54 +136,30 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
     }
   };
 
-  const handleDownloadPsd = (imageIndex, originalName) => {
-    // Open PSD download in new tab to bypass iframe download restrictions
-    const url = `/api/psd/${jobId}/${imageIndex}`;
+  const handleDownloadPsd = async (imageIndex, originalName, editedImageId) => {
+    if (psdGenerating[imageIndex]) return;
     
-    // Opening in new window works better in iframe environments (Replit webview)
-    // The Content-Disposition header will trigger download automatically
-    const downloadWindow = window.open(url, '_blank');
+    setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
     
-    // Fallback: if popup blocked, use fetch + blob approach
-    if (!downloadWindow) {
-      handleDownloadPsdFallback(imageIndex, originalName);
-    }
-  };
-
-  const handleDownloadPsdFallback = async (imageIndex, originalName) => {
     try {
-      console.log('Using fallback PSD download method...');
-      const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
+      const spec = imageSpecs[imageIndex % imageSpecs.length] || {};
+      const imageUrl = `/api/images/${editedImageId}?t=${Date.now()}`;
+      const fullImageUrl = `${window.location.origin}${imageUrl}`;
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        if (errorData) {
-          console.error('PSD download error:', errorData);
-          if (errorData.jobStatus === 'processing') {
-            alert('⏳ Images are still processing. Please wait for processing to complete before downloading PSD files.');
-          } else if (errorData.details) {
-            alert(`❌ ${errorData.error}\n\n${errorData.details}`);
-          } else {
-            alert(`❌ ${errorData.error || 'Failed to download PSD'}`);
-          }
-        } else {
-          alert('❌ Failed to download PSD file. Please try again.');
-        }
-        return;
-      }
+      console.log('[PSD] Generating layered PSD with Photopea for:', originalName);
+      console.log('[PSD] Image URL:', fullImageUrl);
+      console.log('[PSD] Spec:', spec);
       
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${originalName.replace(/\.[^/.]+$/, '')}.psd`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const filename = originalName.replace(/\.[^/.]+$/, '');
+      
+      await generateAndDownloadPSD(fullImageUrl, spec, filename);
+      
+      console.log('[PSD] Download complete');
     } catch (error) {
-      console.error('PSD download error:', error);
-      alert('❌ Failed to download PSD file. Please try again.');
+      console.error('[PSD] Generation error:', error);
+      alert('Failed to generate PSD. Please try again.');
+    } finally {
+      setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
     }
   };
 
@@ -225,9 +217,10 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
                   </button>
                   <button 
                     className="button button-secondary download-btn"
-                    onClick={() => handleDownloadPsd(idx, image.originalName)}
+                    onClick={() => handleDownloadPsd(idx, image.originalName, image.editedImageId)}
+                    disabled={psdGenerating[idx]}
                   >
-                    Download PSD
+                    {psdGenerating[idx] ? 'Generating...' : 'Download PSD'}
                   </button>
                 </div>
               </div>

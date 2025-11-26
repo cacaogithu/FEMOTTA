@@ -1,0 +1,92 @@
+
+Environment
+Live Messaging
+Plugins
+Playground
+Accounts
+Passing data to Photopea
+
+Photopea can be configured using a parameter after a hash sign.
+
+https://www.photopea.com#STRING_VALUE
+Such URL can be opened directly, or used as a src of an iframe. String value is encoded into the URL using classic encoding of query parameters (space as %20 etc.). It corresponds to encodeURIComponent() in Javascript or urlencode() in PHP. This string contains a JSON object.
+
+JSON configuration object
+
+JSON object must have the following structure:
+
+{
+	"files" : [
+		"https://www.mysite.com/images/design.psd",
+		"https://www.mysite.com/images/button.png",
+		"data:image/png;base64,iVBORw0KGgoAAAAN..."
+	],
+	"resources" : [
+		"https://www.xyz.com/brushes/Nature.ABR",
+		"https://www.xyz.com/grads/Gradients.GRD",
+		"https://www.xyz.com/fonts/NewFont.otf"
+	],
+	"server" : {
+		"version" : 1,
+		"url"     : "https://www.myserver.com/saveImage.php",
+		"formats" : [ "psd:true", "png", "jpg:0.5" ]
+	},
+	"environment" : {...},
+	"apis"   : { "dezgo": "d4e5f6"  },
+	"script" : "app.activeDocument.rotateCanvas(90);"
+}
+All parameters are optional. Data URIs can be used - file can be passed inside a request (test).
+
+Parameters
+
+files - array of files, that are loaded when Photopea starts
+resources - array of resources (gradients, brushes, fonts ...)
+server - parameters for saving documents back to a server
+version - the version of the API
+url - URL address of a server
+formats - formats, in which a document should be sent to a server. The string format corresponds to saveToOE.
+environment - parameters of the environment, see Environment
+apis - some features are done by third parties. Enter your own API keys to use them.
+dezgo - unlock the Magic Replace and "Remove BG" with Dezgo
+script - the script, that should be executed after loading each file (can be long)
+Saving to server
+
+When server parameter is specified in a request to Photopea.com, every document opened in Photopea will have the File - Save option. After a user clicks it, document data are sent to your server in a HTTP request using POST method.
+
+Photopea will send binary data (a sequence of bytes) to your server, which has two parts:
+
+2000 Bytes - JSON data
+the rest - one or more image files
+The JSON will have a following structure:
+
+{
+	"source" : "https://www.mysite.com/images/button.png",
+	"versions" : [
+		{"format":"psd", "start":      0, "size": 700000 },
+		{"format":"jpg", "start": 700000, "size": 100000 },
+		...
+	]
+}
+source - if the file was loaded from your server, the value is the URL of this document. Otherwise (opening a local file, creating an empty file), it contains "local,X,NAME", where X is the integer ID of the document, and NAME is the name of the document
+versions different versions of your document
+format - format of the file, exported from Photopea
+start, size - file offset and the size (relative, from the end of JSON)
+Here is a short PHP example, which accepts files from Photopea.
+
+$fi = fopen("php://input", "rb");  $p = JSON_decode(fread($fi, 2000));
+// getting file name from "source"
+$fname = substr ($p->source, strrpos($p->source,"/")+1);  
+$fo = fopen("img/".$fname,"wb");  while($buf=fread($fi,50000)) fwrite($fo,$buf);
+fclose($fi);  fclose($fo);
+Your Response
+
+After the server receives a file, it can send back a JSON response with optional String parameters:
+
+message - when specified, will be displayed to the user for a moment
+script - when specified, will be executed (e.g. you can call app.echoToOE("saved");)
+newSource - when specified, will be used as a new value of "source" for saving to a server in the future (can be useful, when a file was created within Photopea: "source" was "local,...")
+Cross-Origin Resource Sharing
+
+For security reasons, webapps can access only files from the same domain. In order to let Photopea load your file, the response of your server must contain the following header:
+
+Access-Control-Allow-Origin: *
