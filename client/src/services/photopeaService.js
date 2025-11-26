@@ -18,7 +18,7 @@ export function initPhotopea() {
       if (event.source === iframe.contentWindow && event.data === 'done') {
         photopeaReady = true;
         window.removeEventListener('message', readyHandler);
-        console.log('[Photopea] Ready');
+        console.log('[PHOTOPEA] ✅ Initialized and ready');
         resolve();
       }
     };
@@ -26,12 +26,12 @@ export function initPhotopea() {
     window.addEventListener('message', readyHandler);
     
     iframe.onload = () => {
-      console.log('[Photopea] Iframe loaded, waiting for ready signal');
+      console.log('[PHOTOPEA] Iframe loaded, waiting for ready signal...');
       setTimeout(() => {
         if (!photopeaReady) {
           photopeaReady = true;
           window.removeEventListener('message', readyHandler);
-          console.log('[Photopea] Assuming ready after timeout');
+          console.log('[PHOTOPEA] ✅ Ready (assumed after 3s timeout)');
           resolve();
         }
       }, 3000);
@@ -41,38 +41,53 @@ export function initPhotopea() {
 
 function runScript(script) {
   if (!photopeaFrame) {
-    console.error('[Photopea] Not initialized');
+    console.error('[PHOTOPEA] ❌ ERROR: Not initialized');
     return;
   }
+  console.log('[PHOTOPEA] 📤 Sending script to Photopea...');
   photopeaFrame.contentWindow.postMessage(script, 'https://www.photopea.com');
 }
 
 async function fetchImageAsDataUrl(imageUrl) {
+  console.log('[PHOTOPEA] 🔄 Fetching image:', imageUrl.substring(0, 80) + '...');
   try {
     const token = localStorage.getItem('authToken') || localStorage.getItem('brandToken');
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
     const response = await fetch(imageUrl, { headers });
-    if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
     
     const blob = await response.blob();
+    console.log('[PHOTOPEA] ✅ Image fetched:', Math.round(blob.size / 1024), 'KB');
+    
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
+      reader.onloadend = () => {
+        console.log('[PHOTOPEA] ✅ Converted to data URL');
+        resolve(reader.result);
+      };
+      reader.onerror = (err) => {
+        console.error('[PHOTOPEA] ❌ FileReader error:', err);
+        reject(err);
+      };
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error('[Photopea] Failed to fetch image as data URL:', error);
+    console.error('[PHOTOPEA] ❌ Fetch failed:', error.message);
     throw error;
   }
 }
 
 function waitForPsdData(timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
+    console.log('[PHOTOPEA] ⏳ Waiting for PSD data (timeout:', timeoutMs/1000, 's)...');
+    
     const timeout = setTimeout(() => {
       window.removeEventListener('message', handler);
-      reject(new Error('Photopea timeout - no response received'));
+      console.error('[PHOTOPEA] ❌ TIMEOUT: No response after', timeoutMs/1000, 'seconds');
+      reject(new Error('Photopea timeout - no response received after ' + timeoutMs/1000 + 's'));
     }, timeoutMs);
     
     const handler = (event) => {
@@ -81,12 +96,16 @@ function waitForPsdData(timeoutMs = 60000) {
       if (event.data instanceof ArrayBuffer) {
         clearTimeout(timeout);
         window.removeEventListener('message', handler);
+        console.log('[PHOTOPEA] ✅ Received PSD data:', Math.round(event.data.byteLength / 1024), 'KB');
         resolve(event.data);
       } else if (typeof event.data === 'string') {
+        console.log('[PHOTOPEA] 📨 Received message:', event.data.substring(0, 100));
         if (event.data.startsWith('error:')) {
           clearTimeout(timeout);
           window.removeEventListener('message', handler);
-          reject(new Error(event.data.substring(6)));
+          const errorMsg = event.data.substring(6);
+          console.error('[PHOTOPEA] ❌ Script error:', errorMsg);
+          reject(new Error(errorMsg));
         }
       }
     };
@@ -99,6 +118,7 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
   await initPhotopea();
   
   if (isProcessing) {
+    console.log('[PHOTOPEA] ⏳ Queued - waiting for previous operation...');
     await new Promise(resolve => messageQueue.push(resolve));
   }
   isProcessing = true;
@@ -106,12 +126,13 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
   try {
     const {
       title = spec?.title || '',
-      subtitle = spec?.subtitle || '',
-      width = 1024,
-      height = 1024
+      subtitle = spec?.subtitle || ''
     } = options;
     
-    console.log('[Photopea] Generating PSD for:', title || 'image');
+    console.log('[PHOTOPEA] 🎨 GENERATING LAYERED PSD');
+    console.log('[PHOTOPEA] → Title:', title || '(none)');
+    console.log('[PHOTOPEA] → Subtitle:', subtitle || '(none)');
+    console.log('[PHOTOPEA] → Image size:', Math.round(editedImageDataUrl.length / 1024), 'KB base64');
     
     const cleanTitle = (title || '').replace(/"/g, '\\"').replace(/\n/g, ' ').trim();
     const cleanSubtitle = (subtitle || '').replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\(Logo\)/gi, '').trim();
@@ -119,48 +140,63 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
     const script = `
       (async function() {
         try {
-          // Open the image from data URL
+          console.log("Photopea: Opening image...");
           await app.open("${editedImageDataUrl}");
           var doc = app.activeDocument;
-          doc.resizeCanvas(doc.width, doc.height);
+          console.log("Photopea: Document opened, size:", doc.width, "x", doc.height);
           
-          // Rename the layer
           if (doc.artLayers.length > 0) {
             doc.artLayers[0].name = "Background Image";
           }
           
           ${cleanTitle ? `
-          // Add title text layer
           try {
+            console.log("Photopea: Adding title layer...");
             var titleLayer = doc.artLayers.add();
             titleLayer.kind = LayerKind.TEXT;
             titleLayer.name = "Title";
             titleLayer.textItem.contents = "${cleanTitle}";
             titleLayer.textItem.size = 48;
             titleLayer.textItem.position = [40, 80];
+            titleLayer.textItem.color = new SolidColor();
+            titleLayer.textItem.color.rgb.red = 255;
+            titleLayer.textItem.color.rgb.green = 255;
+            titleLayer.textItem.color.rgb.blue = 255;
+            console.log("Photopea: Title layer added");
           } catch(e) {
-            console.log("Title layer error: " + e.message);
+            console.log("Photopea: Title error:", e.message);
+            app.echoToOE("error:Title layer failed: " + e.message);
+            return;
           }
           ` : ''}
           
           ${cleanSubtitle ? `
-          // Add subtitle text layer
           try {
+            console.log("Photopea: Adding subtitle layer...");
             var subtitleLayer = doc.artLayers.add();
             subtitleLayer.kind = LayerKind.TEXT;
             subtitleLayer.name = "Subtitle";
             subtitleLayer.textItem.contents = "${cleanSubtitle}";
             subtitleLayer.textItem.size = 24;
             subtitleLayer.textItem.position = [40, 140];
+            subtitleLayer.textItem.color = new SolidColor();
+            subtitleLayer.textItem.color.rgb.red = 255;
+            subtitleLayer.textItem.color.rgb.green = 255;
+            subtitleLayer.textItem.color.rgb.blue = 255;
+            console.log("Photopea: Subtitle layer added");
           } catch(e) {
-            console.log("Subtitle layer error: " + e.message);
+            console.log("Photopea: Subtitle error:", e.message);
+            app.echoToOE("error:Subtitle layer failed: " + e.message);
+            return;
           }
           ` : ''}
           
-          // Export as PSD
+          console.log("Photopea: Exporting PSD...");
           app.activeDocument.saveToOE("psd");
+          console.log("Photopea: Export complete");
           
         } catch(e) {
+          console.log("Photopea: Main error:", e.message);
           app.echoToOE("error:" + e.message);
         }
       })();
@@ -170,9 +206,17 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
     
     const result = await waitForPsdData(60000);
     
-    console.log('[Photopea] PSD generated successfully, size:', result.byteLength);
+    console.log('[PHOTOPEA] ✅ PSD GENERATED SUCCESSFULLY');
+    console.log('[PHOTOPEA] → File size:', Math.round(result.byteLength / 1024), 'KB');
+    console.log('[PHOTOPEA] → Layers: Background Image' + (cleanTitle ? ', Title' : '') + (cleanSubtitle ? ', Subtitle' : ''));
+    
     return result;
     
+  } catch (error) {
+    console.error('[PHOTOPEA] ❌ PSD GENERATION FAILED');
+    console.error('[PHOTOPEA] → Error:', error.message || error.toString());
+    console.error('[PHOTOPEA] → Stack:', error.stack);
+    throw error;
   } finally {
     isProcessing = false;
     if (messageQueue.length > 0) {
@@ -183,6 +227,7 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
 }
 
 export function downloadPSD(arrayBuffer, filename) {
+  console.log('[PHOTOPEA] 📥 Downloading PSD:', filename);
   const blob = new Blob([arrayBuffer], { type: 'application/vnd.adobe.photoshop' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -192,13 +237,21 @@ export function downloadPSD(arrayBuffer, filename) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  console.log('[PHOTOPEA] ✅ Download triggered');
 }
 
 export async function generateAndDownloadPSD(imageUrl, spec, filename) {
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('[PHOTOPEA] 🚀 STARTING PSD GENERATION');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('[PHOTOPEA] Filename:', filename);
+  console.log('[PHOTOPEA] Title:', spec?.title || '(none)');
+  console.log('[PHOTOPEA] Subtitle:', spec?.subtitle || '(none)');
+  console.log('[PHOTOPEA] Image URL:', imageUrl.substring(0, 100) + '...');
+  
   try {
-    console.log('[Photopea] Fetching image as data URL...');
     const imageDataUrl = await fetchImageAsDataUrl(imageUrl);
-    console.log('[Photopea] Image fetched, generating PSD...');
     
     const psdData = await generateLayeredPSD(imageDataUrl, spec, {
       title: spec?.title || '',
@@ -206,10 +259,18 @@ export async function generateAndDownloadPSD(imageUrl, spec, filename) {
     });
     
     downloadPSD(psdData, filename);
-    console.log('[Photopea] Download complete');
+    
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('[PHOTOPEA] ✅ PSD COMPLETE:', filename);
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('');
+    
     return true;
   } catch (error) {
-    console.error('[Photopea] PSD generation failed:', error);
+    console.log('═══════════════════════════════════════════════════════');
+    console.error('[PHOTOPEA] ❌ PSD FAILED:', error.message || 'Unknown error');
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('');
     throw error;
   }
 }

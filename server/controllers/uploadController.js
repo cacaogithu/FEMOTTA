@@ -12,8 +12,16 @@ import mammoth from 'mammoth';
 import sharp from 'sharp';
 
 async function editImageUnified(imageUrl, prompt, options = {}) {
-  console.log('[EditUnified] Using Nano Banana API');
-  console.log('[EditUnified] Prompt:', prompt.substring(0, 150) + '...');
+  console.log('');
+  console.log('╔═══════════════════════════════════════════════════════════════╗');
+  console.log('║               NANO BANANA API REQUEST                          ║');
+  console.log('╠═══════════════════════════════════════════════════════════════╣');
+  console.log('║ FULL PROMPT:');
+  console.log('╠───────────────────────────────────────────────────────────────╣');
+  prompt.split('\n').forEach(line => console.log('║ ' + line));
+  console.log('╠───────────────────────────────────────────────────────────────╣');
+  console.log('║ Image URL:', imageUrl.substring(0, 60) + '...');
+  console.log('╚═══════════════════════════════════════════════════════════════╝');
   
   try {
     const result = await editImageWithNanoBanana(imageUrl, prompt, {
@@ -24,10 +32,10 @@ async function editImageUnified(imageUrl, prompt, options = {}) {
       retries: 3
     });
     
-    console.log('[EditUnified] Nano Banana success');
+    console.log('[NANO BANANA] ✅ Success - Image edited');
     return result;
   } catch (error) {
-    console.error('[EditUnified] Nano Banana failed:', error.message);
+    console.error('[NANO BANANA] ❌ Failed:', error.message);
     throw error;
   }
 }
