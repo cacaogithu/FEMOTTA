@@ -9,6 +9,69 @@ import fetch from 'node-fetch';
 import OpenAI from 'openai';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
+import sharp from 'sharp';
+
+// Helper function to overlay a logo on an edited image
+async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-left') {
+  try {
+    // Extract base64 data from data URL
+    const base64Data = logoBase64.replace(/^data:image\/\w+;base64,/, '');
+    const logoBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Get image metadata
+    const imageMetadata = await sharp(imageBuffer).metadata();
+    const { width, height } = imageMetadata;
+    
+    // Resize logo to be proportional (max 15% of image width)
+    const maxLogoWidth = Math.floor(width * 0.15);
+    const resizedLogo = await sharp(logoBuffer)
+      .resize(maxLogoWidth, null, { fit: 'inside', withoutEnlargement: true })
+      .toBuffer();
+    
+    const logoMetadata = await sharp(resizedLogo).metadata();
+    
+    // Calculate position based on option
+    let left, top;
+    const margin = Math.floor(width * 0.03); // 3% margin
+    
+    switch (position) {
+      case 'top-left':
+        left = margin;
+        top = margin;
+        break;
+      case 'top-right':
+        left = width - logoMetadata.width - margin;
+        top = margin;
+        break;
+      case 'bottom-right':
+        left = width - logoMetadata.width - margin;
+        top = height - logoMetadata.height - margin;
+        break;
+      case 'bottom-left':
+      default:
+        left = margin;
+        top = height - logoMetadata.height - margin;
+        break;
+    }
+    
+    // Composite the logo onto the image
+    const resultBuffer = await sharp(imageBuffer)
+      .composite([{
+        input: resizedLogo,
+        left: Math.round(left),
+        top: Math.round(top)
+      }])
+      .jpeg({ quality: 95 })
+      .toBuffer();
+    
+    console.log(`[Logo Overlay] Successfully overlaid logo at ${position} (${logoMetadata.width}x${logoMetadata.height})`);
+    return resultBuffer;
+  } catch (error) {
+    console.error('[Logo Overlay] Failed to overlay logo:', error.message);
+    // Return original image if overlay fails
+    return imageBuffer;
+  }
+}
 
 // Helper to get brand-specific OpenAI client
 function getBrandOpenAI(brand) {
@@ -98,8 +161,10 @@ For each image specification, extract:
 - image_number: The sequential number from the brief (1, 2, 3, etc.)
 - variant: The variant name if specified (e.g., "METAL DARK", "WOOD DARK", or null if not applicable)
 - title: The HEADLINE text EXACTLY as written (convert to uppercase). Do NOT append variant names unless already in the document.
-- subtitle: The COPY text EXACTLY as written (keep original case)
+- subtitle: The COPY text EXACTLY as written (keep original case). IMPORTANT: If a logo annotation like "(Logo)" appears, extract the subtitle WITHOUT the "(Logo)" text - the logo will be overlaid separately.
 - asset: The ASSET filename (if mentioned)
+- logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", etc.)
+- logo_name: If logo_requested is true, extract the brand/logo name (e.g., "Intel Core", "AMD Ryzen", "NVIDIA GeForce"). Set to null if no logo requested.
 
 For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this template:
 
@@ -109,7 +174,7 @@ Replace {title} and {subtitle} with the actual extracted values for EACH image v
 
 Return ONLY a valid JSON array with ALL image variant specifications, no additional text.
 
-Example for document with variants (assuming the document titles are written without variant suffixes):
+Example for document with variants and logo requests:
 [
   {
     "image_number": 1,
@@ -117,30 +182,28 @@ Example for document with variants (assuming the document titles are written wit
     "title": "CORSAIR ONE I600",
     "subtitle": "Premium Small Form Factor Gaming PC",
     "asset": "CORSAIR_ONE_i600_DARK_METAL_RENDER_01",
-    "ai_prompt": "Add a dark gradient overlay..."
-  },
-  {
-    "image_number": 1,
-    "variant": "WOOD DARK",
-    "title": "CORSAIR ONE I600",
-    "subtitle": "Premium Small Form Factor Gaming PC",
-    "asset": "CORSAIR_ONE_i600_WOOD_DARK_RENDER_01",
+    "logo_requested": false,
+    "logo_name": null,
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
     "image_number": 2,
-    "variant": "METAL DARK",
-    "title": "DUAL 240MM LIQUID COOLING",
-    "subtitle": "Stay cool under pressure",
-    "asset": "CORSAIR_ONE_i600_DARK_METAL_12",
+    "variant": null,
+    "title": "INTEL CORE",
+    "subtitle": "Intel Core Ultra 9 processor",
+    "asset": "PC_INTERIOR_SHOT_01",
+    "logo_requested": true,
+    "logo_name": "Intel Core",
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
-    "image_number": 2,
-    "variant": "WOOD DARK",
-    "title": "DUAL 240MM LIQUID COOLING",
-    "subtitle": "Stay cool under pressure",
-    "asset": "CORSAIR_ONE_i600_WOOD_DARK_PHOTO_17",
+    "image_number": 3,
+    "variant": null,
+    "title": "AMD RYZEN",
+    "subtitle": "AMD Ryzen 9000-series processor",
+    "asset": "PC_AMD_VARIANT_01",
+    "logo_requested": true,
+    "logo_name": "AMD Ryzen",
     "ai_prompt": "Add a dark gradient overlay..."
   }
 ]`
@@ -219,15 +282,32 @@ ${docxText}`
     console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
     console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
 
-    // Filter out logos and non-product images
-    // Strategy: Remove small images (logos are typically smaller) and only keep images needed for specs
-    const MIN_IMAGE_SIZE = 50000; // 50KB minimum - logos are usually much smaller
+    // Separate logos from product images based on size
+    // Logos are typically smaller (under 50KB), product images are larger
+    const LOGO_SIZE_THRESHOLD = 50000; // 50KB threshold
     
-    // First, filter by size to remove obvious logos/icons
-    const productImages = extractedImages.filter(img => img.buffer.length >= MIN_IMAGE_SIZE);
-    console.log(`[DOCX Extraction] After size filtering (>=${MIN_IMAGE_SIZE} bytes): ${productImages.length} images`);
+    const logoImages = [];
+    const productImages = [];
     
-    // Second, only take the number of images we need for the specs
+    for (const img of extractedImages) {
+      if (img.buffer.length < LOGO_SIZE_THRESHOLD) {
+        // Convert logo to base64 for later use
+        const base64Data = img.buffer.toString('base64');
+        logoImages.push({
+          buffer: img.buffer,
+          contentType: img.contentType,
+          base64: `data:${img.contentType};base64,${base64Data}`,
+          size: img.buffer.length
+        });
+        console.log(`[DOCX Extraction] Detected logo image: ${img.buffer.length} bytes`);
+      } else {
+        productImages.push(img);
+      }
+    }
+    
+    console.log(`[DOCX Extraction] Separated: ${productImages.length} product images, ${logoImages.length} logo images`);
+    
+    // Only take the number of product images we need for the specs
     const imagesToProcess = productImages.slice(0, imageSpecs.length);
     
     console.log(`[DOCX Extraction] Final image count: ${imagesToProcess.length} (matching ${imageSpecs.length} specs)`);
@@ -235,14 +315,34 @@ ${docxText}`
     if (imagesToProcess.length < imageSpecs.length) {
       console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
     }
-    
-    if (extractedImages.length > imagesToProcess.length) {
-      console.log(`[DOCX Extraction] Filtered out ${extractedImages.length - imagesToProcess.length} images (likely logos/icons)`);
+
+    // Attach logos to specs that request them (using AI-extracted logo_requested field)
+    if (logoImages.length > 0) {
+      let logoIndex = 0;
+      for (const spec of imageSpecs) {
+        // Check if this spec explicitly requested a logo (from AI extraction)
+        if (spec.logo_requested === true) {
+          // Assign logos in order - if multiple logos available, try to match by index
+          const logoToUse = logoImages[Math.min(logoIndex, logoImages.length - 1)];
+          spec.logoBase64 = logoToUse.base64;
+          spec.logoContentType = logoToUse.contentType;
+          console.log(`[DOCX Extraction] Attached logo to spec: "${spec.title}" (logo: ${spec.logo_name || 'unknown'})`);
+          logoIndex++;
+        }
+      }
+      console.log(`[DOCX Extraction] Attached logos to ${logoIndex} image specifications`);
+    } else {
+      // Check for logo requests without available logo images
+      const specsNeedingLogos = imageSpecs.filter(s => s.logo_requested === true);
+      if (specsNeedingLogos.length > 0) {
+        console.warn(`[DOCX Extraction] Warning: ${specsNeedingLogos.length} specs request logos but no logo images found in document`);
+      }
     }
 
     return {
       imageSpecs,
-      extractedImages: imagesToProcess
+      extractedImages: imagesToProcess,
+      logoImages: logoImages
     };
 
   } catch (error) {
@@ -915,6 +1015,8 @@ async function processImagesWithNanoBanana(jobId) {
 
   const saveImagePromises = results.map(async (result, i) => {
     const originalImage = job.images[i];
+    const specIndex = i % job.imageSpecs.length;
+    const spec = job.imageSpecs[specIndex];
 
     console.log(`Processing result ${i + 1}/${results.length}:`, result);
 
@@ -923,14 +1025,20 @@ async function processImagesWithNanoBanana(jobId) {
       console.log(`Downloading edited image from: ${editedImageUrl}`);
 
       const imageResponse = await fetch(editedImageUrl);
-      const imageBuffer = await imageResponse.arrayBuffer();
+      let imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+
+      // Check if this spec requires a logo overlay
+      if (spec && spec.logoBase64 && spec.logo_requested === true) {
+        console.log(`[Logo Overlay] Applying logo to image ${i + 1} (${spec.logo_name || 'brand logo'})`);
+        imageBuffer = await overlayLogoOnImage(imageBuffer, spec.logoBase64, 'bottom-left');
+      }
 
       const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
       const editedFileName = `${originalNameWithoutExt}_edited.jpg`;
 
       console.log(`Uploading ${editedFileName} to Drive...`);
       const uploadedFile = await uploadFileToDrive(
-        Buffer.from(imageBuffer),
+        imageBuffer,
         editedFileName,
         'image/jpeg',
         EDITED_IMAGES_FOLDER
@@ -946,7 +1054,8 @@ async function processImagesWithNanoBanana(jobId) {
         editedImageId: uploadedFile.id,
         originalImageId: originalImage.driveId,
         originalName: originalImage.originalName,
-        url: getPublicImageUrl(uploadedFile.id)
+        url: getPublicImageUrl(uploadedFile.id),
+        logoApplied: spec?.logo_requested === true && spec?.logoBase64 ? true : false
       };
     } else {
       console.error(`No edited image in result ${i + 1} - Missing data.outputs`);
