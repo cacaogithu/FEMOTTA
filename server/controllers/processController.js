@@ -43,7 +43,16 @@ export async function processImages(req, res) {
       processingStep: 'Saving edited images to Google Drive'
     });
 
-    const EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
+    const DEFAULT_EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
+    const targetFolderId = job.driveDestinationFolderId || DEFAULT_EDITED_IMAGES_FOLDER;
+    
+    if (job.driveDestinationFolderId) {
+      console.log(`[Process] Using custom drive destination: ${targetFolderId}`);
+    }
+    
+    if (job.marketplacePreset) {
+      console.log(`[Process] Marketplace preset applied: ${job.marketplacePreset.id}`);
+    }
 
     const editedImages = [];
     for (let i = 0; i < results.length; i++) {
@@ -65,7 +74,7 @@ export async function processImages(req, res) {
           stream,
           editedFileName,
           'image/jpeg',
-          EDITED_IMAGES_FOLDER
+          targetFolderId
         );
 
         // Get the public URL for the uploaded file

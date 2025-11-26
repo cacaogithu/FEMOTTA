@@ -510,6 +510,25 @@ export async function uploadPDF(req, res) {
     }
 
     const startTime = new Date();
+    
+    let marketplacePreset = null;
+    let driveDestinationFolderId = null;
+    
+    try {
+      if (req.body && req.body.marketplacePreset) {
+        marketplacePreset = typeof req.body.marketplacePreset === 'string' 
+          ? JSON.parse(req.body.marketplacePreset) 
+          : req.body.marketplacePreset;
+        console.log('[Upload Brief] Marketplace preset:', marketplacePreset.id);
+      }
+      if (req.body && req.body.driveDestinationFolderId) {
+        driveDestinationFolderId = req.body.driveDestinationFolderId;
+        console.log('[Upload Brief] Custom drive destination:', driveDestinationFolderId);
+      }
+    } catch (parseErr) {
+      console.warn('[Upload Brief] Could not parse preset/folder settings:', parseErr.message);
+    }
+    
     createJob({
       id: jobId,
       brandId: req.brand.id,
@@ -521,7 +540,9 @@ export async function uploadPDF(req, res) {
       status: uploadedImages.length > 0 ? 'processing' : 'pdf_uploaded',
       createdAt: startTime,
       startTime: startTime,
-      imageCount: uploadedImages.length
+      imageCount: uploadedImages.length,
+      marketplacePreset: marketplacePreset,
+      driveDestinationFolderId: driveDestinationFolderId
     });
 
     console.log('[Upload Brief] Job created:', jobId);
@@ -937,7 +958,7 @@ async function processImagesWithNanoBanana(jobId) {
 
 export async function uploadTextPrompt(req, res) {
   try {
-    const { prompt } = req.body;
+    const { prompt, marketplacePreset, driveDestinationFolderId } = req.body;
 
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({ error: 'Prompt is required' });
@@ -955,6 +976,13 @@ export async function uploadTextPrompt(req, res) {
       req.brand.briefFolderId
     );
 
+    if (marketplacePreset) {
+      console.log('[Text Prompt] Marketplace preset:', marketplacePreset.id);
+    }
+    if (driveDestinationFolderId) {
+      console.log('[Text Prompt] Custom drive destination:', driveDestinationFolderId);
+    }
+
     const startTime = new Date();
     createJob({
       id: jobId,
@@ -966,7 +994,9 @@ export async function uploadTextPrompt(req, res) {
       status: 'prompt_uploaded',
       createdAt: startTime,
       startTime: startTime,
-      imageCount: 0
+      imageCount: 0,
+      marketplacePreset: marketplacePreset || null,
+      driveDestinationFolderId: driveDestinationFolderId || null
     });
 
     res.json({ 
