@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../utils/api';
-import { generateAndDownloadPSD, initPhotopea } from '../services/photopeaService';
 import './HistoryPanel.css';
 
 function HistoryPanel({ onSelectBatch }) {
@@ -142,17 +141,25 @@ function HistoryPanel({ onSelectBatch }) {
         throw new Error('Image not found');
       }
       
-      const editedImageId = image.editedImageId || image.id;
-      const imageUrl = `/api/images/${editedImageId}?t=${Date.now()}`;
-      const fullImageUrl = `${window.location.origin}${imageUrl}`;
+      console.log('[History PSD] Downloading from backend');
       
-      const spec = batchDetails.imageSpecs?.[imageIndex % (batchDetails.imageSpecs?.length || 1)] || {};
+      // Use the backend PSD endpoint which generates proper editable text layers
+      const response = await authenticatedFetch(`/api/psd/${selectedBatch}/${imageIndex}`);
       
-      console.log('[History PSD] Generating layered PSD with Photopea');
+      if (!response.ok) {
+        throw new Error('Failed to generate PSD');
+      }
       
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
       const filename = image.originalName?.replace(/\.[^/.]+$/, '') || `image_${imageIndex}`;
-      
-      await generateAndDownloadPSD(fullImageUrl, spec, filename);
+      a.href = url;
+      a.download = `${filename}_edited.psd`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
     } catch (err) {
       setError('Failed to generate PSD: ' + err.message);

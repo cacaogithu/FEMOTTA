@@ -73,7 +73,7 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
 
   useEffect(() => {
     initPhotopea();
-    
+
     authenticatedFetch(`/api/upload/job/${jobId}`)
       .then(res => res.json())
       .then(data => {
@@ -89,7 +89,7 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
     try {
       const response = await authenticatedFetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
       const data = await response.json();
-      
+
       if (data.status === 'completed' && data.results) {
         const newRefreshToken = Date.now();
         setResults({ ...data.results, _refreshTimestamp: newRefreshToken });
@@ -138,22 +138,29 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
 
   const handleDownloadPsd = async (imageIndex, originalName, editedImageId) => {
     if (psdGenerating[imageIndex]) return;
-    
+
     setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
-    
+
     try {
-      const spec = imageSpecs[imageIndex % imageSpecs.length] || {};
-      const imageUrl = `/api/images/${editedImageId}?t=${Date.now()}`;
-      const fullImageUrl = `${window.location.origin}${imageUrl}`;
-      
-      console.log('[PSD] Generating layered PSD with Photopea for:', originalName);
-      console.log('[PSD] Image URL:', fullImageUrl);
-      console.log('[PSD] Spec:', spec);
-      
-      const filename = originalName.replace(/\.[^/.]+$/, '');
-      
-      await generateAndDownloadPSD(fullImageUrl, spec, filename);
-      
+      console.log('[PSD] Downloading from backend for:', originalName);
+
+      // Use the backend PSD endpoint which generates proper editable text layers
+      const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PSD');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${originalName.replace(/\.[^/.]+$/, '')}_edited.psd`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
       console.log('[PSD] Download complete');
     } catch (error) {
       console.error('[PSD] Generation error:', error);
