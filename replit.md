@@ -76,6 +76,8 @@ The platform includes a CRM system for managing subaccounts with features like:
 - **bcrypt**: Password hashing.
 
 ## Recent Changes (November 2025)
+- **Nov 26**: Added marketplace-specific presets (Default, Amazon, Alibaba, Website) with aspect ratio, max dimensions, margin rules, background padding, and accepted formats. Added custom Google Drive destination URL field with validation for output uploads.
+- **Nov 26**: Implemented PSD text layers with real editable text (Montserrat fonts), exact XY positioning based on actual image dimensions, and JSON metadata API endpoints (/api/psd/capabilities, /api/psd/info/:jobId/:imageIndex).
 - **Nov 10**: Fixed re-edit workflow to enable true iterative refinement. Re-edits now download the edited image (not original) to build on previous AI work instead of resetting to the source. This enables commands like "remove title from image 12" to preserve all previous branding/overlays while applying the new change.
 - **Nov 9**: Integrated Gemini Batch API for 50% cost savings on bulk operations. Brand-aware API key resolution with global fallback. Production-ready batch endpoints for brief analysis, quality checks, and prompt optimization.
 - **Nov 9**: Enhanced AI chat with GPT-4o vision capabilities - AI can now see referenced images and generate precise prompts based on visual analysis (e.g., "copy title from image 12" now works perfectly).

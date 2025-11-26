@@ -861,7 +861,15 @@ async function processImagesWithNanoBanana(jobId) {
   });
 
   const editedImages = [];
-  const EDITED_IMAGES_FOLDER = brandConfig.editedResultsFolderId;
+  const DEFAULT_EDITED_IMAGES_FOLDER = brandConfig.editedResultsFolderId;
+  const EDITED_IMAGES_FOLDER = job.driveDestinationFolderId || DEFAULT_EDITED_IMAGES_FOLDER;
+  
+  if (job.driveDestinationFolderId) {
+    console.log(`[NanoBanana] Using custom drive destination: ${EDITED_IMAGES_FOLDER}`);
+  }
+  if (job.marketplacePreset) {
+    console.log(`[NanoBanana] Marketplace preset applied: ${job.marketplacePreset.id}`);
+  }
 
   console.log(`Saving ${results.length} edited images to Drive (brand: ${job.brandSlug})...`);
 
