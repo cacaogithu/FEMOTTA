@@ -171,50 +171,85 @@ export async function generateLayeredPSD(editedImageDataUrl, spec, options = {})
           console.log("Photopea: Opening image...");
           await app.open("${editedImageDataUrl}");
           var doc = app.activeDocument;
-          console.log("Photopea: Document opened, size:", doc.width, "x", doc.height);
+          var docWidth = doc.width;
+          var docHeight = doc.height;
+          console.log("Photopea: Document opened, size:", docWidth, "x", docHeight);
           
+          // Calculate responsive font sizes based on image width
+          var titleSize = Math.max(36, Math.min(72, Math.round(docWidth * 0.04)));
+          var subtitleSize = Math.max(18, Math.min(36, Math.round(titleSize * 0.5)));
+          var marginLeft = Math.round(docWidth * 0.03);
+          var marginTop = Math.round(docHeight * 0.06);
+          
+          // Rename base layer
           if (doc.artLayers.length > 0) {
             doc.artLayers[0].name = "Background Image";
           }
           
-          ${cleanTitle ? `
-          try {
-            console.log("Photopea: Adding title layer...");
-            var titleLayer = doc.artLayers.add();
-            titleLayer.kind = LayerKind.TEXT;
-            titleLayer.name = "Title";
-            titleLayer.textItem.contents = "${cleanTitle}";
-            titleLayer.textItem.size = 48;
-            titleLayer.textItem.position = [40, 80];
-            titleLayer.textItem.color = new SolidColor();
-            titleLayer.textItem.color.rgb.red = 255;
-            titleLayer.textItem.color.rgb.green = 255;
-            titleLayer.textItem.color.rgb.blue = 255;
-            console.log("Photopea: Title layer added");
-          } catch(e) {
-            console.log("Photopea: Title error:", e.message);
-            app.echoToOE("error:Title layer failed: " + e.message);
-            return;
-          }
-          ` : ''}
-          
           ${cleanSubtitle ? `
           try {
-            console.log("Photopea: Adding subtitle layer...");
+            console.log("Photopea: Adding subtitle layer with shadow...");
             var subtitleLayer = doc.artLayers.add();
             subtitleLayer.kind = LayerKind.TEXT;
-            subtitleLayer.name = "Subtitle";
+            subtitleLayer.name = "Subtitle (Editable)";
             subtitleLayer.textItem.contents = "${cleanSubtitle}";
-            subtitleLayer.textItem.size = 24;
-            subtitleLayer.textItem.position = [40, 140];
+            subtitleLayer.textItem.font = "Saira-Regular";
+            subtitleLayer.textItem.size = new UnitValue(subtitleSize, "px");
+            subtitleLayer.textItem.position = [marginLeft, marginTop + titleSize + 20];
             subtitleLayer.textItem.color = new SolidColor();
             subtitleLayer.textItem.color.rgb.red = 255;
             subtitleLayer.textItem.color.rgb.green = 255;
             subtitleLayer.textItem.color.rgb.blue = 255;
-            console.log("Photopea: Subtitle layer added");
+            
+            // Add drop shadow to subtitle
+            var subtitleShadow = subtitleLayer.layerEffects.dropShadow;
+            subtitleShadow.enabled = true;
+            subtitleShadow.opacity = 60;
+            subtitleShadow.distance = 2;
+            subtitleShadow.blur = 4;
+            subtitleShadow.color = new SolidColor();
+            subtitleShadow.color.rgb.red = 0;
+            subtitleShadow.color.rgb.green = 0;
+            subtitleShadow.color.rgb.blue = 0;
+            
+            console.log("Photopea: Subtitle layer added with shadow");
           } catch(e) {
             console.log("Photopea: Subtitle error:", e.message);
-            app.echoToOE("error:Subtitle layer failed: " + e.message);
+            // Continue anyway - shadow might not be supported in all cases
+          }
+          ` : ''}
+          
+          ${cleanTitle ? `
+          try {
+            console.log("Photopea: Adding title layer with shadow...");
+            var titleLayer = doc.artLayers.add();
+            titleLayer.kind = LayerKind.TEXT;
+            titleLayer.name = "Title (Editable)";
+            titleLayer.textItem.contents = "${cleanTitle}";
+            titleLayer.textItem.font = "Saira-Bold";
+            titleLayer.textItem.size = new UnitValue(titleSize, "px");
+            titleLayer.textItem.position = [marginLeft, marginTop];
+            titleLayer.textItem.color = new SolidColor();
+            titleLayer.textItem.color.rgb.red = 255;
+            titleLayer.textItem.color.rgb.green = 255;
+            titleLayer.textItem.color.rgb.blue = 255;
+            titleLayer.textItem.capitalization = TextCase.ALLCAPS;
+            
+            // Add drop shadow to title
+            var titleShadow = titleLayer.layerEffects.dropShadow;
+            titleShadow.enabled = true;
+            titleShadow.opacity = 70;
+            titleShadow.distance = 3;
+            titleShadow.blur = 6;
+            titleShadow.color = new SolidColor();
+            titleShadow.color.rgb.red = 0;
+            titleShadow.color.rgb.green = 0;
+            titleShadow.color.rgb.blue = 0;
+            
+            console.log("Photopea: Title layer added with shadow");
+          } catch(e) {
+            console.log("Photopea: Title error:", e.message);
+            app.echoToOE("error:Title layer failed: " + e.message);
             return;
           }
           ` : ''}

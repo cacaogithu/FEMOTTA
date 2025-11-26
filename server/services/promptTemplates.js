@@ -14,12 +14,26 @@
  */
 
 /**
- * OPTION A: MAXIMUM STANDARDIZATION
- * Use this for: Product catalogs, strict brand consistency
- * Structure: Edit instruction → Text placement → Style → Preservation
- * Font: Saira (geometric sans-serif, clean, modern, slightly condensed)
+ * OPTION A: BACKGROUND ENHANCEMENT ONLY (NO TEXT)
+ * Use this for: When text will be added as editable layers in PSD
+ * The AI only adds gradient and enhances the background - text is added later via Photopea
+ * Font: N/A - text added separately by Photopea for editability
  */
-export const PROMPT_TEMPLATE_FIXED = `Edit this product photo to add marketing text overlay.
+export const PROMPT_TEMPLATE_FIXED = `Edit this product photo to prepare it for marketing text overlay.
+
+EDITING INSTRUCTIONS:
+- Add a subtle dark gradient at the top edge (covering top 20-25% of image) that fades to fully transparent
+- Slightly enhance contrast and clarity of the product
+- DO NOT add any text or typography - leave space clear at the top for text to be added later
+
+STYLE: Professional product marketing photography, clean and ready for text overlay.
+IMPORTANT: Preserve all original product details, lighting, colors, and image quality. DO NOT add any text. Generate the edited image.`;
+
+/**
+ * OPTION A-TEXT: WITH TEXT BAKED IN (legacy, not for PSD editing)
+ * Use this only when editable text is NOT needed
+ */
+export const PROMPT_TEMPLATE_WITH_TEXT = `Edit this product photo to add marketing text overlay.
 
 EDITING INSTRUCTIONS:
 - Add a subtle dark gradient at the top edge that fades to fully transparent
