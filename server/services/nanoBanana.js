@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import pLimit from 'p-limit';
+import { GeminiImageService } from './geminiService.js';
 
 const NANO_BANANA_EDIT_URL = 'https://api.wavespeed.ai/api/v3/google/nano-banana/edit';
 const NANO_BANANA_RESULT_URL = 'https://api.wavespeed.ai/api/v3/predictions';
@@ -157,4 +158,65 @@ export async function pollNanoBananaResult(requestId) {
 
 export async function reEditImage(originalImageUrl, editedImageUrl, newPrompt, options = {}) {
   return editImageWithNanoBanana(editedImageUrl || originalImageUrl, newPrompt, options);
+}
+
+/**
+ * Unified image editing function supporting both Wavespeed and Native Gemini
+ * @param {string} imageUrlOrBase64 - Image input
+ * @param {string} prompt - Editing prompt
+ * @param {Object} options - Configuration options including provider
+ */
+export async function editImageUnified(imageUrlOrBase64, prompt, options = {}) {
+  const provider = options.provider || 'wavespeed';
+
+  if (provider === 'gemini') {
+    if (!options.geminiApiKey) {
+      console.warn('Gemini provider selected but no API key provided. Falling back to Wavespeed.');
+      // Fallback to Wavespeed if key missing
+    } else {
+      try {
+        const geminiService = new GeminiImageService(options.geminiApiKey);
+
+        // Map options to Gemini format
+        const geminiOptions = {
+          modelName: options.modelName,
+          aspectRatio: options.aspectRatio,
+          imageSize: options.imageSize || '2K',
+          numImages: options.numImages || 1
+        };
+
+        const result = await geminiService.editImage(imageUrlOrBase64, prompt, geminiOptions);
+
+        // Normalize response to match Wavespeed structure for compatibility
+        // Wavespeed returns: { data: { outputs: [url] }, status: 'success' }
+        // Gemini returns: { images: [{ mimeType, data }] } (base64)
+
+        // We need to handle the base64 output from Gemini
+        // If the caller expects URLs, we might need to upload this or return base64
+        // For now, we'll return a structure that indicates it's base64 data
+
+        const outputs = result.images.map(img => `data:${img.mimeType};base64,${img.data}`);
+
+        return {
+          status: 'success',
+          data: {
+            outputs,
+            provider: 'gemini',
+            model: geminiOptions.modelName
+          }
+        };
+      } catch (error) {
+        console.error('Gemini native editing failed:', error);
+        if (options.fallbackToWavespeed !== false) {
+          console.log('Falling back to Wavespeed...');
+          // Fall through to Wavespeed
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
+  // Default / Fallback to Wavespeed
+  return editImageWithNanoBanana(imageUrlOrBase64, prompt, options);
 }
