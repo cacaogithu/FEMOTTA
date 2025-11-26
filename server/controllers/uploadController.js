@@ -2,7 +2,6 @@ import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/g
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
 import { editMultipleImages, editImageWithNanoBanana } from '../services/nanoBanana.js';
-import { editImageWithGemini } from '../services/geminiImage.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { Readable } from 'stream';
@@ -13,46 +12,22 @@ import mammoth from 'mammoth';
 import sharp from 'sharp';
 
 async function editImageUnified(imageUrl, prompt, options = {}) {
-  const { provider = 'gemini' } = options;
-  
-  console.log(`[EditUnified] Using provider: ${provider}`);
+  console.log('[EditUnified] Using Nano Banana API');
+  console.log('[EditUnified] Prompt:', prompt.substring(0, 150) + '...');
   
   try {
-    if (provider === 'gemini' && process.env.GEMINI_API_KEY) {
-      console.log('[EditUnified] Using Gemini 3 Pro Image model');
-      const result = await editImageWithGemini(imageUrl, prompt, {
-        geminiApiKey: options.geminiApiKey || process.env.GEMINI_API_KEY,
-        retries: 3
-      });
-      return result;
-    } else {
-      console.log('[EditUnified] Using Wavespeed Nano Banana');
-      const result = await editImageWithNanoBanana(imageUrl, prompt, {
-        wavespeedApiKey: options.wavespeedApiKey,
-        enableSyncMode: options.enableSyncMode !== false,
-        outputFormat: options.outputFormat || 'jpeg',
-        numImages: options.numImages || 1
-      });
-      return result;
-    }
-  } catch (error) {
-    console.error(`[EditUnified] ${provider} failed:`, error.message);
+    const result = await editImageWithNanoBanana(imageUrl, prompt, {
+      wavespeedApiKey: options.wavespeedApiKey,
+      enableSyncMode: true,
+      outputFormat: 'jpeg',
+      numImages: 1,
+      retries: 3
+    });
     
-    if (provider === 'gemini') {
-      console.log('[EditUnified] Falling back to Wavespeed Nano Banana');
-      try {
-        const fallbackResult = await editImageWithNanoBanana(imageUrl, prompt, {
-          wavespeedApiKey: options.wavespeedApiKey,
-          enableSyncMode: true,
-          outputFormat: 'jpeg',
-          numImages: 1
-        });
-        return fallbackResult;
-      } catch (fallbackError) {
-        console.error('[EditUnified] Fallback also failed:', fallbackError.message);
-        throw fallbackError;
-      }
-    }
+    console.log('[EditUnified] Nano Banana success');
+    return result;
+  } catch (error) {
+    console.error('[EditUnified] Nano Banana failed:', error.message);
     throw error;
   }
 }
@@ -212,16 +187,18 @@ For each image specification, extract:
 - logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", etc.)
 - logo_name: If logo_requested is true, extract the brand/logo name (e.g., "Intel Core", "AMD Ryzen", "NVIDIA GeForce"). Set to null if no logo requested.
 
-For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this EXACT template with FIXED values for consistency:
+For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO font names, NO pixel values, NO CSS, NO technical specifications):
 
-"Apply a linear gradient overlay at the top 22% of the image, transitioning from rgba(20,20,20,0.35) at the top edge to fully transparent. Position text 32px from the top edge and 40px from the left edge. Render the title text '{title}' using Montserrat Extra Bold font at exactly 52px, uppercase, white color (#FFFFFF), with line-height 1.1 and max-width 85% of image width. Position subtitle text '{subtitle}' exactly 8px below the title, using Montserrat Regular font at exactly 18px, white color, line-height 1.3. Apply text shadow to both texts: 0px 1.5px 3px rgba(0,0,0,0.25). CRITICAL: Preserve ALL original image details, product features, colors, and textures - this is a minimal professional overlay, not heavy editing. Output as high-resolution JPEG."
+"Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in large bold uppercase white letters near the top left. Below the title, add the subtitle '{subtitle}' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
 
-IMPORTANT PROMPT RULES:
-- Use EXACT values (22%, 32px, 52px, 18px) - never use ranges like "20-25%" or "44-56px"
-- Always specify rgba colors with exact opacity values
-- Always preserve original image quality and product details
-
-Replace { title } and { subtitle } with the actual extracted values for EACH image variant.
+CRITICAL PROMPT RULES:
+- Use ONLY natural language descriptions - NO technical specs
+- NEVER include font names like 'Montserrat' or 'Arial'
+- NEVER include pixel values like '52px' or '18px'
+- NEVER include CSS values like 'rgba()' or '#FFFFFF'
+- NEVER include measurements like '22%' or '32px from top'
+- Describe the VISUAL RESULT, not technical implementation
+- Replace {title} and {subtitle} with the actual extracted values
 
 Return ONLY a valid JSON array with ALL image variant specifications, no additional text.
 
@@ -478,11 +455,11 @@ Extract ALL images mentioned in the brief (IMAGE 1, IMAGE 2, IMAGE 3, etc.). For
 - subtitle: The COPY text (keep as written)
 - asset: The ASSET filename (if mentioned)
 
-For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this EXACT template with FIXED values for consistency:
+For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO font names, NO pixel values, NO CSS):
 
-"Apply a linear gradient overlay at the top 22% of the image, transitioning from rgba(20,20,20,0.35) at the top edge to fully transparent. Position text 32px from the top edge and 40px from the left edge. Render the title text '{title}' using Montserrat Extra Bold font at exactly 52px, uppercase, white color (#FFFFFF), with line-height 1.1 and max-width 85% of image width. Position subtitle text '{subtitle}' exactly 8px below the title, using Montserrat Regular font at exactly 18px, white color, line-height 1.3. Apply text shadow to both texts: 0px 1.5px 3px rgba(0,0,0,0.25). CRITICAL: Preserve ALL original image details, product features, colors, and textures - this is a minimal professional overlay, not heavy editing. Output as high-resolution JPEG."
+"Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in large bold uppercase white letters near the top left. Below the title, add the subtitle '{subtitle}' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
 
-IMPORTANT: Use EXACT values (22%, 32px, 52px, 18px) - never use ranges like "20-25%" or "44-56px".
+CRITICAL: Use ONLY natural language - NO font names, NO pixel values, NO CSS colors, NO technical measurements. Just describe the visual result.
 
 Replace {title} and {subtitle} with the actual extracted values for EACH image.
 

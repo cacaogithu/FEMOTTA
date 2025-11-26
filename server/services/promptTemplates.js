@@ -1,42 +1,29 @@
 // FEMOTTA - Standardized Image Editing Prompts
-// Version: 2.0
+// Version: 3.0
 // Last Updated: 2025-11-26
-// Purpose: Fixed prompts with consistent parameters and smart adaptability
+// Purpose: Natural language prompts only - NO technical specifications
 
 /**
  * OPTION A: MAXIMUM STANDARDIZATION
  * Use this for: Product catalogs, strict brand consistency
  * Characteristics: Nearly identical results, minimal variance
+ * 
+ * CRITICAL: Uses ONLY natural language - no font names, pixel values, or CSS
  */
-export const PROMPT_TEMPLATE_FIXED = `CRITICAL: Do NOT render any font names, sizes, CSS values, or technical parameters as visible text on the image. These are styling instructions only.
-
-Apply a linear gradient overlay at the top 22% of the image, transitioning from dark semi-transparent to fully transparent. Position and render ONLY these text elements:
-
-Title: '{title}' (large, bold, uppercase, white)
-Subtitle: '{subtitle}' (smaller, regular weight, white, positioned below title)
-
-Use clean, professional typography with subtle drop shadow for readability. Preserve all original image details and product features. Output as high-resolution JPEG.`;
+export const PROMPT_TEMPLATE_FIXED = `Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in large bold uppercase white letters near the top left. Below the title, add the subtitle '{subtitle}' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image.`;
 
 /**
  * OPTION B: SMART ADAPTIVE STANDARDIZATION  
  * Use this for: Mixed content, varied aspect ratios, complex layouts
  * Characteristics: Consistent style with intelligent adaptation
  */
-export const PROMPT_TEMPLATE_ADAPTIVE = `CRITICAL: Do NOT render any font names, sizes, pixel values, CSS parameters, or technical specifications as visible text on the image. These are styling instructions only.
-
-Apply a subtle dark gradient overlay at the top portion of the image. Position and render ONLY these text elements:
-
-Title: '{title}' (large, bold, uppercase, white, positioned at top)
-Subtitle: '{subtitle}' (smaller, regular weight, white, positioned below title)
-
-Adapt text size and positioning based on image dimensions while maintaining professional appearance. Use clean typography with subtle drop shadow. Preserve all original image details and product features. Output as high-resolution JPEG.`;
+export const PROMPT_TEMPLATE_ADAPTIVE = `Edit this product image to create a professional marketing graphic. Add a gentle dark gradient at the top that fades to transparent. Place the title '{title}' in large bold uppercase white letters near the top. Below it, add '{subtitle}' in smaller white text. Use subtle text shadows for readability. Preserve all original product details and image quality.`;
 
 /**
- * DEPRECATED: OLD TEMPLATE WITH EXCESSIVE RANGES
- * DO NOT USE - Kept for reference only
- * Problem: Too many variable ranges causing inconsistent results
+ * DEPRECATED: OLD TEMPLATE WITH TECHNICAL SPECS
+ * DO NOT USE - Technical specifications were being rendered as text
  */
-export const PROMPT_TEMPLATE_OLD_DEPRECATED = `Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: {title} in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add {subtitle} in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image.`;
+export const PROMPT_TEMPLATE_OLD_DEPRECATED = `[DEPRECATED - DO NOT USE]`;
 
 /**
  * DESIGN PARAMETERS (for reference and ML learning)
