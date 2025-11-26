@@ -93,58 +93,168 @@
     return layout;
   }
 
+  // Helper function to create a complete, Photoshop-compatible text layer
+  function createEditableTextLayer(name, textContent, x, y, fontSize, fontName, color, isBold = false) {
+    const textLength = textContent.length;
+    
+    return {
+      name: name,
+      blendMode: 'normal',
+      opacity: 1,
+      left: x,
+      top: y - fontSize,
+      right: x + (fontSize * textLength * 0.6),
+      bottom: y + Math.floor(fontSize * 0.3),
+      text: {
+        text: textContent,
+        transform: [1, 0, 0, 1, x, y],
+        antiAlias: 'smooth',
+        orientation: 'horizontal',
+        warp: {
+          style: 'none',
+          value: 0,
+          perspective: 0,
+          perspectiveOther: 0,
+          rotate: 'horizontal'
+        },
+        gridAndGuideInfo: {
+          gridIsOn: false,
+          showGrid: false,
+          gridSize: 18,
+          gridLeading: 22,
+          gridColor: { r: 0, g: 0, b: 0 },
+          gridLeadingFillColor: { r: 0, g: 0, b: 0 },
+          alignLineHeightToGridFlags: false
+        },
+        useFractionalGlyphWidths: true,
+        style: {
+          font: { name: fontName },
+          fontSize: fontSize,
+          fauxBold: isBold,
+          fauxItalic: false,
+          autoLeading: true,
+          leading: 0,
+          horizontalScale: 1,
+          verticalScale: 1,
+          tracking: 0,
+          autoKerning: true,
+          kerning: 0,
+          baselineShift: 0,
+          fontCaps: 0,
+          fontBaseline: 0,
+          underline: false,
+          strikethrough: false,
+          ligatures: true,
+          dLigatures: false,
+          baselineDirection: 2,
+          tsume: 0,
+          styleRunAlignment: 2,
+          language: 0,
+          noBreak: false,
+          fillColor: color,
+          strokeColor: { r: 0, g: 0, b: 0 },
+          fillFlag: true,
+          strokeFlag: false,
+          fillFirst: true,
+          yUnderline: 1,
+          outlineWidth: 1,
+          characterDirection: 0,
+          hindiNumbers: false,
+          kashida: 1,
+          diacriticPos: 2
+        },
+        styleRuns: [{
+          length: textLength,
+          style: {
+            font: { name: fontName },
+            fontSize: fontSize,
+            fauxBold: isBold,
+            fauxItalic: false,
+            autoLeading: true,
+            leading: 0,
+            horizontalScale: 1,
+            verticalScale: 1,
+            tracking: 0,
+            autoKerning: true,
+            kerning: 0,
+            baselineShift: 0,
+            fillColor: color,
+            strokeColor: { r: 0, g: 0, b: 0 },
+            fillFlag: true,
+            strokeFlag: false
+          }
+        }],
+        paragraphStyle: {
+          justification: 'left',
+          firstLineIndent: 0,
+          startIndent: 0,
+          endIndent: 0,
+          spaceBefore: 0,
+          spaceAfter: 0,
+          autoHyphenate: true,
+          hyphenatedWordSize: 6,
+          preHyphen: 2,
+          postHyphen: 2,
+          consecutiveHyphens: 8,
+          zone: 36,
+          wordSpacing: [0.8, 1, 1.33],
+          letterSpacing: [0, 0, 0],
+          glyphSpacing: [1, 1, 1],
+          autoLeading: 1.2,
+          leadingType: 0,
+          hanging: false,
+          burasagari: false,
+          kinsokuOrder: 0,
+          everyLineComposer: false
+        },
+        paragraphStyleRuns: [{
+          length: textLength,
+          style: {
+            justification: 'left',
+            firstLineIndent: 0,
+            startIndent: 0,
+            endIndent: 0,
+            spaceBefore: 0,
+            spaceAfter: 0,
+            autoLeading: 1.2,
+            leadingType: 0,
+            autoHyphenate: true,
+            everyLineComposer: false
+          }
+        }]
+      }
+    };
+  }
+
   // Helper function to create editable text layers using ag-psd text layer API
   function createTextLayers(width, height, textSpecs) {
     const layers = [];
     const layout = calculateTextLayout(width, height, textSpecs);
     
     if (layout.title) {
-      layers.push({
-        name: 'Title (Editable)',
-        text: {
-          text: layout.title.text,
-          // Transform matrix: [scaleX, skewY, skewX, scaleY, translateX, translateY]
-          transform: [1, 0, 0, 1, layout.title.x, layout.title.y],
-          antiAlias: 'smooth',
-          orientation: 'horizontal',
-          style: {
-            font: { name: layout.title.fontPostScriptName },
-            fontSize: layout.title.fontSize,
-            fillColor: layout.title.color,
-            tracking: 0,
-            autoLeading: true
-          },
-          paragraphStyle: {
-            justification: 'left'
-          }
-        },
-        blendMode: 'normal',
-        opacity: 255
-      });
+      layers.push(createEditableTextLayer(
+        'Title - Editable Text',
+        layout.title.text,
+        layout.title.x,
+        layout.title.y,
+        layout.title.fontSize,
+        layout.title.fontPostScriptName,
+        layout.title.color,
+        true
+      ));
     }
     
     if (layout.subtitle) {
-      layers.push({
-        name: 'Subtitle (Editable)',
-        text: {
-          text: layout.subtitle.text,
-          transform: [1, 0, 0, 1, layout.subtitle.x, layout.subtitle.y],
-          antiAlias: 'smooth',
-          orientation: 'horizontal',
-          style: {
-            font: { name: layout.subtitle.fontPostScriptName },
-            fontSize: layout.subtitle.fontSize,
-            fillColor: layout.subtitle.color,
-            tracking: 0,
-            autoLeading: true
-          },
-          paragraphStyle: {
-            justification: 'left'
-          }
-        },
-        blendMode: 'normal',
-        opacity: 255
-      });
+      layers.push(createEditableTextLayer(
+        'Subtitle - Editable Text',
+        layout.subtitle.text,
+        layout.subtitle.x,
+        layout.subtitle.y,
+        layout.subtitle.fontSize,
+        layout.subtitle.fontPostScriptName,
+        layout.subtitle.color,
+        false
+      ));
     }
     
     return layers;
