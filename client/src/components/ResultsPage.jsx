@@ -142,29 +142,52 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
     setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
 
     try {
-      console.log('[PSD] Downloading from backend for:', originalName);
+      console.log('[PSD] Starting download for:', originalName, 'index:', imageIndex);
 
       // Use the backend PSD endpoint which generates proper editable text layers
       const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
 
+      console.log('[PSD] Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error('Failed to generate PSD');
+        const errorText = await response.text();
+        console.error('[PSD] Server error:', errorText);
+        throw new Error(`Failed to generate PSD: ${response.status}`);
       }
 
+      console.log('[PSD] Response OK, creating blob...');
       const blob = await response.blob();
+      console.log('[PSD] Blob created, size:', blob.size, 'bytes');
+
+      if (blob.size === 0) {
+        throw new Error('PSD file is empty');
+      }
+
+      const fileName = `${(originalName || `image_${imageIndex}`).replace(/\.[^/.]+$/, '')}_edited.psd`;
+      console.log('[PSD] Triggering download:', fileName);
+
+      // Create download link
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.style.display = 'none';
       a.href = url;
-      a.download = `${originalName.replace(/\.[^/.]+$/, '')}_edited.psd`;
+      a.download = fileName;
       document.body.appendChild(a);
+      
+      // Trigger download
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      
+      // Cleanup after a delay to ensure download starts
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        console.log('[PSD] Cleanup complete');
+      }, 1000);
 
-      console.log('[PSD] Download complete');
+      console.log('[PSD] Download initiated successfully');
     } catch (error) {
       console.error('[PSD] Generation error:', error);
-      alert('Failed to generate PSD. Please try again.');
+      alert(`Failed to generate PSD: ${error.message}`);
     } finally {
       setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
     }
