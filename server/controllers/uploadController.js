@@ -1,4 +1,3 @@
-```javascript
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
@@ -167,9 +166,14 @@ For each image specification, extract:
 - logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", etc.)
 - logo_name: If logo_requested is true, extract the brand/logo name (e.g., "Intel Core", "AMD Ryzen", "NVIDIA GeForce"). Set to null if no logo requested.
 
-For the ai_prompt field, generate a plain text instruction(no markdown, no line breaks) using this template:
+For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this EXACT template with FIXED values for consistency:
 
-"Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: {title} in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add {subtitle} in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+"Apply a linear gradient overlay at the top 22% of the image, transitioning from rgba(20,20,20,0.35) at the top edge to fully transparent. Position text 32px from the top edge and 40px from the left edge. Render the title text '{title}' using Montserrat Extra Bold font at exactly 52px, uppercase, white color (#FFFFFF), with line-height 1.1 and max-width 85% of image width. Position subtitle text '{subtitle}' exactly 8px below the title, using Montserrat Regular font at exactly 18px, white color, line-height 1.3. Apply text shadow to both texts: 0px 1.5px 3px rgba(0,0,0,0.25). CRITICAL: Preserve ALL original image details, product features, colors, and textures - this is a minimal professional overlay, not heavy editing. Output as high-resolution JPEG."
+
+IMPORTANT PROMPT RULES:
+- Use EXACT values (22%, 32px, 52px, 18px) - never use ranges like "20-25%" or "44-56px"
+- Always specify rgba colors with exact opacity values
+- Always preserve original image quality and product details
 
 Replace { title } and { subtitle } with the actual extracted values for EACH image variant.
 
@@ -282,17 +286,6 @@ if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
 
 console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
 console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
-
-// Filter out logos and non-product images
-// Strategy: Remove small images (logos are typically smaller) and only keep images needed for specs
-const MIN_IMAGE_SIZE = 50000; // 50KB minimum - logos are usually much smaller
-
-// First, filter by size to remove obvious logos/icons
-const productImages = extractedImages.filter(img => img.buffer.length >= MIN_IMAGE_SIZE);
-console.log(`[DOCX Extraction] After size filtering (>=${MIN_IMAGE_SIZE} bytes): ${productImages.length} images`);
-
-    console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
-    console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
 
     // Separate logos from product images based on size
     // Logos are typically smaller (under 50KB), product images are larger
@@ -439,9 +432,11 @@ Extract ALL images mentioned in the brief (IMAGE 1, IMAGE 2, IMAGE 3, etc.). For
 - subtitle: The COPY text (keep as written)
 - asset: The ASSET filename (if mentioned)
 
-For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this template:
+For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this EXACT template with FIXED values for consistency:
 
-"Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: {title} in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add {subtitle} in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+"Apply a linear gradient overlay at the top 22% of the image, transitioning from rgba(20,20,20,0.35) at the top edge to fully transparent. Position text 32px from the top edge and 40px from the left edge. Render the title text '{title}' using Montserrat Extra Bold font at exactly 52px, uppercase, white color (#FFFFFF), with line-height 1.1 and max-width 85% of image width. Position subtitle text '{subtitle}' exactly 8px below the title, using Montserrat Regular font at exactly 18px, white color, line-height 1.3. Apply text shadow to both texts: 0px 1.5px 3px rgba(0,0,0,0.25). CRITICAL: Preserve ALL original image details, product features, colors, and textures - this is a minimal professional overlay, not heavy editing. Output as high-resolution JPEG."
+
+IMPORTANT: Use EXACT values (22%, 32px, 52px, 18px) - never use ranges like "20-25%" or "44-56px".
 
 Replace {title} and {subtitle} with the actual extracted values for EACH image.
 

@@ -17,7 +17,6 @@ import adminRoutes from './routes/admin.js';
 import subaccountsRoutes from './routes/subaccounts.js';
 import mlRoutes from './routes/ml.js';
 import userRoutes from './routes/users.js';
-import batchRoutes from './routes/batch.js';
 import historyRoutes from './routes/history.js';
 
 dotenv.config();
