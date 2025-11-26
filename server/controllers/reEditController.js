@@ -25,7 +25,7 @@ export async function reEditImages(req, res) {
     }
 
     // Match by editedImageId (Google Drive ID) which is what the AI provides
-    const imagesToReEdit = imageIds 
+    const imagesToReEdit = imageIds
       ? job.editedImages.filter(img => imageIds.includes(img.editedImageId) || imageIds.includes(img.id))
       : job.editedImages;
 
@@ -34,25 +34,25 @@ export async function reEditImages(req, res) {
       const foundEditedIds = imagesToReEdit.map(img => img.editedImageId);
       const foundInternalIds = imagesToReEdit.map(img => img.id);
       const invalidIds = imageIds.filter(id => !foundEditedIds.includes(id) && !foundInternalIds.includes(id));
-      
+
       if (invalidIds.length > 0) {
         console.warn('[Re-edit] Invalid image IDs provided:', invalidIds);
         console.log('[Re-edit] Available editedImageIds:', job.editedImages.map(img => img.editedImageId));
         console.log('[Re-edit] Available internal IDs:', job.editedImages.map(img => img.id));
       }
-      
+
       if (imagesToReEdit.length === 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'No valid images found to re-edit',
           invalidIds,
-          availableIds: job.editedImages.map(img => ({ 
-            id: img.id, 
+          availableIds: job.editedImages.map(img => ({
+            id: img.id,
             editedImageId: img.editedImageId,
-            name: img.name 
+            name: img.name
           }))
         });
       }
-      
+
       console.log(`[Re-edit] Editing ${imagesToReEdit.length} of ${imageIds.length} requested images`);
     } else if (imagesToReEdit.length === 0) {
       return res.status(400).json({ error: 'No edited images found for this job' });
@@ -101,7 +101,7 @@ export async function reEditImages(req, res) {
         });
         continue;
       }
-      
+
       // Convert buffer to base64 for Wavespeed API
       const base64Image = `data:image/jpeg;base64,${editedImageBuffer.toString('base64')}`;
       const imageSizeKB = Math.round(base64Image.length / 1024);
@@ -232,9 +232,9 @@ export async function reEditImages(req, res) {
 
   } catch (error) {
     console.error('Re-edit error:', error);
-    res.status(500).json({ 
-      error: 'Failed to re-edit images', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Failed to re-edit images',
+      details: error.message
     });
   }
 }

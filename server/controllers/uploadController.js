@@ -1,3 +1,4 @@
+```javascript
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
@@ -143,7 +144,7 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
 Your task is to carefully READ the document layout and extract ALL image specifications into structured JSON format.
 
 CRITICAL INSTRUCTIONS:
-1. Extract EVERY image variant mentioned in the brief (IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
+1. Extract EVERY image variant mentioned in the brief(IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
 2. If a brief mentions BOTH "Metal Dark" AND "Wood Dark" variants, create SEPARATE specifications for EACH variant
 3. Create one JSON object per variant, even if they share the same image number
 4. The total number of specifications should match the total number of product variant images described
@@ -166,11 +167,11 @@ For each image specification, extract:
 - logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", etc.)
 - logo_name: If logo_requested is true, extract the brand/logo name (e.g., "Intel Core", "AMD Ryzen", "NVIDIA GeForce"). Set to null if no logo requested.
 
-For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this template:
+For the ai_prompt field, generate a plain text instruction(no markdown, no line breaks) using this template:
 
 "Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: {title} in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add {subtitle} in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
 
-Replace {title} and {subtitle} with the actual extracted values for EACH image variant.
+Replace { title } and { subtitle } with the actual extracted values for EACH image variant.
 
 Return ONLY a valid JSON array with ALL image variant specifications, no additional text.
 
@@ -210,12 +211,12 @@ Example for document with variants and logo requests:
         },
         {
           role: 'user',
-          content: `Extract ALL image specifications from this document brief. 
+          content: `Extract ALL image specifications from this document brief.
 
-IMPORTANT: If the brief describes multiple variants (like "Metal Dark" and "Wood Dark") for the same image number, create SEPARATE specifications for EACH variant. Count all variants to ensure the specification count matches the number of product images described.
+  IMPORTANT: If the brief describes multiple variants(like "Metal Dark" and "Wood Dark") for the same image number, create SEPARATE specifications for EACH variant.Count all variants to ensure the specification count matches the number of product images described.
 
 Document Content:
-${docxText}`
+${ docxText } `
         }
       ],
       temperature: 0.3,
@@ -231,53 +232,64 @@ ${docxText}`
     let jsonText = responseText.trim();
 
     console.log('[DOCX Extraction] Extracting JSON from response...');
-    jsonText = jsonText.replace(/^```json\s*/im, '');
-    jsonText = jsonText.replace(/\s*```\s*$/m, '');
-    jsonText = jsonText.trim();
+    jsonText = jsonText.replace(/^```json\s */im, '');
+jsonText = jsonText.replace(/\s*```\s*$/m, '');
+jsonText = jsonText.trim();
 
-    console.log('[DOCX Extraction] After markdown removal, length:', jsonText.length);
-    console.log('[DOCX Extraction] After markdown removal (first 200 chars):', jsonText.substring(0, 200));
+console.log('[DOCX Extraction] After markdown removal, length:', jsonText.length);
+console.log('[DOCX Extraction] After markdown removal (first 200 chars):', jsonText.substring(0, 200));
 
-    // Find the first [ and last ] to extract just the JSON array
-    const startMarker = jsonText.indexOf('[');
-    const endMarker = jsonText.lastIndexOf(']');
+// Find the first [ and last ] to extract just the JSON array
+const startMarker = jsonText.indexOf('[');
+const endMarker = jsonText.lastIndexOf(']');
 
-    console.log('[DOCX Extraction] Array markers - start:', startMarker, 'end:', endMarker);
+console.log('[DOCX Extraction] Array markers - start:', startMarker, 'end:', endMarker);
 
-    if (startMarker === -1 || endMarker === -1 || endMarker <= startMarker) {
-      console.error('[DOCX Extraction] Full response text:', responseText);
-      throw new Error('No valid JSON array found in AI response');
-    }
+if (startMarker === -1 || endMarker === -1 || endMarker <= startMarker) {
+  console.error('[DOCX Extraction] Full response text:', responseText);
+  throw new Error('No valid JSON array found in AI response');
+}
 
-    // Extract only the JSON array content
-    jsonText = jsonText.substring(startMarker, endMarker + 1);
+// Extract only the JSON array content
+jsonText = jsonText.substring(startMarker, endMarker + 1);
 
-    console.log('[DOCX Extraction] Cleaned JSON length:', jsonText.length);
-    console.log('[DOCX Extraction] Cleaned JSON (first 500 chars):', jsonText.substring(0, 500));
-    console.log('[DOCX Extraction] Cleaned JSON (last 500 chars):', jsonText.substring(Math.max(0, jsonText.length - 500)));
+console.log('[DOCX Extraction] Cleaned JSON length:', jsonText.length);
+console.log('[DOCX Extraction] Cleaned JSON (first 500 chars):', jsonText.substring(0, 500));
+console.log('[DOCX Extraction] Cleaned JSON (last 500 chars):', jsonText.substring(Math.max(0, jsonText.length - 500)));
 
-    // Parse the JSON array of image specifications
-    let imageSpecs;
-    try {
-      imageSpecs = JSON.parse(jsonText);
-    } catch (parseError) {
-      console.error('[DOCX Extraction] JSON parse error:', parseError.message);
-      console.error('[DOCX Extraction] Problematic JSON around position', parseError.message.match(/\d+/)?.[0] || 'unknown');
+// Parse the JSON array of image specifications
+let imageSpecs;
+try {
+  imageSpecs = JSON.parse(jsonText);
+} catch (parseError) {
+  console.error('[DOCX Extraction] JSON parse error:', parseError.message);
+  console.error('[DOCX Extraction] Problematic JSON around position', parseError.message.match(/\d+/)?.[0] || 'unknown');
 
-      // Log the area around the error for debugging
-      const errorPos = parseInt(parseError.message.match(/\d+/)?.[0] || '0');
-      if (errorPos > 0) {
-        const start = Math.max(0, errorPos - 100);
-        const end = Math.min(jsonText.length, errorPos + 100);
-        console.error('[DOCX Extraction] Context around error:', jsonText.substring(start, end));
-      }
+  // Log the area around the error for debugging
+  const errorPos = parseInt(parseError.message.match(/\d+/)?.[0] || '0');
+  if (errorPos > 0) {
+    const start = Math.max(0, errorPos - 100);
+    const end = Math.min(jsonText.length, errorPos + 100);
+    console.error('[DOCX Extraction] Context around error:', jsonText.substring(start, end));
+  }
 
-      throw new Error('Failed to parse AI response - the response may contain invalid characters');
-    }
+  throw new Error('Failed to parse AI response - the response may contain invalid characters');
+}
 
-    if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
-      throw new Error('Invalid image specifications - expected array with at least one image');
-    }
+if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
+  throw new Error('Invalid image specifications - expected array with at least one image');
+}
+
+console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
+console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
+
+// Filter out logos and non-product images
+// Strategy: Remove small images (logos are typically smaller) and only keep images needed for specs
+const MIN_IMAGE_SIZE = 50000; // 50KB minimum - logos are usually much smaller
+
+// First, filter by size to remove obvious logos/icons
+const productImages = extractedImages.filter(img => img.buffer.length >= MIN_IMAGE_SIZE);
+console.log(`[DOCX Extraction] After size filtering (>=${MIN_IMAGE_SIZE} bytes): ${productImages.length} images`);
 
     console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
     console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
@@ -345,15 +357,28 @@ ${docxText}`
       logoImages: logoImages
     };
 
+if (imagesToProcess.length < imageSpecs.length) {
+  console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
+}
+
+if (extractedImages.length > imagesToProcess.length) {
+  console.log(`[DOCX Extraction] Filtered out ${extractedImages.length - imagesToProcess.length} images (likely logos/icons)`);
+}
+
+return {
+  imageSpecs,
+  extractedImages: imagesToProcess
+};
+
   } catch (error) {
-    console.error('[DOCX Extraction] Error:', error.message);
+  console.error('[DOCX Extraction] Error:', error.message);
 
-    if (error.message.includes('OpenAI') || error.message.includes('API')) {
-      throw new Error('AI service temporarily unavailable - please try again');
-    }
-
-    throw new Error(`DOCX processing failed: ${error.message}`);
+  if (error.message.includes('OpenAI') || error.message.includes('API')) {
+    throw new Error('AI service temporarily unavailable - please try again');
   }
+
+  throw new Error(`DOCX processing failed: ${error.message}`);
+}
 }
 
 async function extractPromptFromPDF(pdfBuffer, brand) {
@@ -535,11 +560,11 @@ export async function uploadPDF(req, res) {
     }
 
     // Check file type by MIME type and file extension
-    const isPDF = req.file.mimetype === 'application/pdf' || 
-                  req.file.originalname.toLowerCase().endsWith('.pdf');
+    const isPDF = req.file.mimetype === 'application/pdf' ||
+      req.file.originalname.toLowerCase().endsWith('.pdf');
     const isDOCX = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-                   (req.file.mimetype === 'application/octet-stream' && req.file.originalname.toLowerCase().endsWith('.docx')) ||
-                   req.file.originalname.toLowerCase().endsWith('.docx');
+      (req.file.mimetype === 'application/octet-stream' && req.file.originalname.toLowerCase().endsWith('.docx')) ||
+      req.file.originalname.toLowerCase().endsWith('.docx');
 
     if (!isPDF && !isDOCX) {
       console.log('[Upload Brief] Invalid file type:', req.file.mimetype, 'for file:', req.file.originalname);
@@ -652,14 +677,14 @@ export async function uploadPDF(req, res) {
     if (uploadedImages.length > 0) {
       console.log('[Upload Brief] Starting automatic processing with embedded images...');
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         jobId,
         fileId: result.id,
         fileName: result.name,
         imageCount: imageSpecs.length,
         embeddedImageCount: uploadedImages.length,
-        message: `Brief uploaded with ${uploadedImages.length} embedded images. Processing started automatically.` 
+        message: `Brief uploaded with ${uploadedImages.length} embedded images. Processing started automatically.`
       });
 
       // Start processing in the background
@@ -671,13 +696,13 @@ export async function uploadPDF(req, res) {
         });
       });
     } else {
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         jobId,
         fileId: result.id,
         fileName: result.name,
         imageCount: imageSpecs.length,
-        message: `Brief uploaded and ${imageSpecs.length} image specifications extracted successfully` 
+        message: `Brief uploaded and ${imageSpecs.length} image specifications extracted successfully`
       });
     }
 
@@ -686,9 +711,9 @@ export async function uploadPDF(req, res) {
 
     // Return user-friendly error messages
     const statusCode = error.message.includes('No brief') ? 400 : 500;
-    res.status(statusCode).json({ 
-      error: 'Brief upload failed', 
-      details: error.message 
+    res.status(statusCode).json({
+      error: 'Brief upload failed',
+      details: error.message
     });
   }
 }
@@ -743,11 +768,11 @@ export async function uploadImages(req, res) {
       imageCount: uploadedImages.length
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       count: uploadedImages.length,
       images: uploadedImages,
-      message: 'Images uploaded successfully, processing started' 
+      message: 'Images uploaded successfully, processing started'
     });
 
     processImagesWithNanoBanana(jobId).catch(async err => {
@@ -939,7 +964,10 @@ async function processImagesWithNanoBanana(jobId) {
       const specTitle = job.imageSpecs[specIndex]?.title || 'N/A';
       console.log(`  Image ${imageIndex + 1}: Using prompt for "${specTitle}"`);
 
-      return editImageWithNanoBanana(url, prompt, {
+      return editImageUnified(url, prompt, {
+        provider: brandConfig.preferredImageApi || 'wavespeed',
+        geminiApiKey: brandConfig.geminiApiKey,
+        wavespeedApiKey: brandConfig.wavespeedApiKey,
         enableSyncMode: true,
         outputFormat: 'jpeg',
         numImages: 1,
@@ -972,7 +1000,7 @@ async function processImagesWithNanoBanana(jobId) {
 
   // Continue with existing result processing (remove old editMultipleImages call)
   const unusedProgressCallback = (progressInfo) => {
-      // This callback is no longer used
+    // This callback is no longer used
   };
 
   addWorkflowStep(jobId, {
@@ -1154,12 +1182,12 @@ export async function uploadTextPrompt(req, res) {
       driveDestinationFolderId: driveDestinationFolderId || null
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       jobId,
       fileId: result.id,
       fileName: result.name,
-      message: 'Prompt uploaded successfully' 
+      message: 'Prompt uploaded successfully'
     });
   } catch (error) {
     console.error('Prompt upload error:', error);

@@ -52,3 +52,5 @@ export class GeminiService {
     };
   }
 }
+
+export { GeminiImageService } from './geminiImageService.js';
