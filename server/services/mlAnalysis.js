@@ -2,15 +2,18 @@ import OpenAI from 'openai';
 import { db } from '../db.js';
 import { feedback, editedImages, promptVersions, subaccountPrompts, jobs } from '../../shared/schema.js';
 import { eq, desc, and, gte } from 'drizzle-orm';
+import { GeminiService } from './geminiService.js';
 
 export class MLAnalysisService {
-  constructor(openaiApiKey) {
+  constructor(openaiApiKey, geminiApiKey) {
     this.openai = new OpenAI({ apiKey: openaiApiKey });
+    this.gemini = new GeminiService(geminiApiKey);
+    this.preferredProvider = process.env.AI_PROVIDER || 'openai'; // 'openai' or 'gemini'
   }
 
   async analyzePromptPerformance(subaccountId, options = {}) {
     const { daysBack = 30, minFeedbackCount = 5 } = options;
-    
+
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
 
@@ -30,10 +33,10 @@ export class MLAnalysisService {
 
       for (const version of versions) {
         const versionFeedback = await this.getVersionFeedback(version.id, cutoffDate);
-        
+
         if (versionFeedback.length >= minFeedbackCount) {
           const analysis = this.analyzeVersionPerformance(versionFeedback);
-          
+
           promptAnalysis.push({
             promptId: prompt.id,
             promptName: prompt.name,
@@ -78,7 +81,7 @@ export class MLAnalysisService {
 
   analyzeVersionPerformance(feedbackData) {
     const totalFeedback = feedbackData.length;
-    
+
     const avgRating = feedbackData.reduce((sum, fb) => sum + fb.rating, 0) / totalFeedback;
     const avgGoalAlignment = feedbackData.reduce((sum, fb) => sum + (fb.goalAlignment || 0), 0) / totalFeedback;
     const avgCreativity = feedbackData.reduce((sum, fb) => sum + (fb.creativityScore || 0), 0) / totalFeedback;
@@ -124,7 +127,7 @@ export class MLAnalysisService {
 
     for (const analysis of promptAnalysis) {
       if (analysis.averageRating < 3.5 || analysis.lowRatedFeedback.length > 0) {
-        const suggestion = await this.askGPTForImprovement(analysis);
+        const suggestion = await this.askAIForImprovement(analysis);
         suggestions.push({
           promptId: analysis.promptId,
           promptName: analysis.promptName,
@@ -142,7 +145,7 @@ export class MLAnalysisService {
     return suggestions;
   }
 
-  async askGPTForImprovement(analysis) {
+  async askAIForImprovement(analysis) {
     const systemPrompt = `You are an AI expert in prompt engineering for image editing. Your task is to analyze feedback on AI-generated marketing images and suggest improvements to the prompt template.
 
 Focus on:
@@ -164,16 +167,16 @@ Focus on:
 - Technical Quality: ${analysis.averageTechnical}/5
 
 **Low-Rated Feedback (${analysis.lowRatedFeedback.length} instances):**
-${analysis.lowRatedFeedback.slice(0, 5).map((fb, i) => 
-  `${i + 1}. Rating: ${fb.rating}/5
+${analysis.lowRatedFeedback.slice(0, 5).map((fb, i) =>
+      `${i + 1}. Rating: ${fb.rating}/5
      Feedback: ${fb.text || 'No text'}
      Suggestions: ${fb.suggestions || 'None'}`
-).join('\n\n')}
+    ).join('\n\n')}
 
 **High-Rated Feedback (${analysis.highRatedFeedback.length} instances):**
-${analysis.highRatedFeedback.slice(0, 3).map((fb, i) => 
-  `${i + 1}. Rating: ${fb.rating}/5 - ${fb.text || 'No text'}`
-).join('\n')}
+${analysis.highRatedFeedback.slice(0, 3).map((fb, i) =>
+      `${i + 1}. Rating: ${fb.rating}/5 - ${fb.text || 'No text'}`
+    ).join('\n')}
 
 Please provide:
 1. **Problem Analysis**: What's causing the low ratings?
@@ -182,28 +185,32 @@ Please provide:
 4. **Expected Impact**: How this should improve the ratings`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500
-      });
+      let responseText;
+      if (this.preferredProvider === 'gemini' && this.gemini.genAI) {
+        responseText = await this.gemini.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+      } else {
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 1500
+        });
+        responseText = response.choices[0].message.content;
+      }
 
-      const gptResponse = response.choices[0].message.content;
-      
       return {
-        analysis: this.extractSection(gptResponse, 'Problem Analysis'),
-        improvedPrompt: this.extractSection(gptResponse, 'Improved Prompt'),
-        keyChanges: this.extractSection(gptResponse, 'Key Changes'),
-        expectedImpact: this.extractSection(gptResponse, 'Expected Impact'),
-        rawResponse: gptResponse,
+        analysis: this.extractSection(responseText, 'Problem Analysis'),
+        improvedPrompt: this.extractSection(responseText, 'Improved Prompt'),
+        keyChanges: this.extractSection(responseText, 'Key Changes'),
+        expectedImpact: this.extractSection(responseText, 'Expected Impact'),
+        rawResponse: responseText,
         generatedAt: new Date()
       };
     } catch (error) {
-      console.error('GPT analysis error:', error);
+      console.error('AI analysis error:', error);
       return {
         error: error.message,
         analysis: 'Failed to generate AI analysis',
@@ -222,7 +229,7 @@ Please provide:
 
   async generateInsightsSummary(subaccountId, options = {}) {
     const promptAnalysis = await this.analyzePromptPerformance(subaccountId, options);
-    
+
     if (promptAnalysis.length === 0) {
       return {
         summary: 'Not enough feedback data to generate insights. Need at least 5 feedback entries per prompt.',
@@ -236,10 +243,10 @@ Please provide:
       totalPromptsAnalyzed: promptAnalysis.length,
       averageRating: promptAnalysis.reduce((sum, p) => sum + p.averageRating, 0) / promptAnalysis.length,
       totalFeedback: promptAnalysis.reduce((sum, p) => sum + p.feedbackCount, 0),
-      bestPerformingPrompt: promptAnalysis.reduce((best, p) => 
+      bestPerformingPrompt: promptAnalysis.reduce((best, p) =>
         p.averageRating > (best?.averageRating || 0) ? p : best, null
       ),
-      worstPerformingPrompt: promptAnalysis.reduce((worst, p) => 
+      worstPerformingPrompt: promptAnalysis.reduce((worst, p) =>
         p.averageRating < (worst?.averageRating || 5) ? p : worst, null
       )
     };
