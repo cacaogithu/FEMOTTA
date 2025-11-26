@@ -10,6 +10,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "archiver": "^6.0.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -17,6 +18,7 @@
     "googleapis": "^163.0.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
-    "openai": "^6.4.0"
+    "openai": "^6.4.0",
+    "p-limit": "^7.2.0"
   }
 }
