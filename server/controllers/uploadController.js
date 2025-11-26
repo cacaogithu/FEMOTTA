@@ -1094,10 +1094,13 @@ async function processImagesWithNanoBanana(jobId) {
     const specIndex = i % job.imageSpecs.length;
     const spec = job.imageSpecs[specIndex];
 
-    console.log(`Processing result ${i + 1}/${results.length}:`, result);
+    console.log(`Processing result ${i + 1}/${results.length}:`, JSON.stringify(result, null, 2).substring(0, 300));
 
-    if (result.data && result.data.outputs && result.data.outputs.length > 0) {
-      const editedImageUrl = result.data.outputs[0];
+    // Handle both formats: result.outputs (direct API response) or result.data.outputs (wrapped)
+    const outputs = result.outputs || (result.data && result.data.outputs);
+    
+    if (outputs && outputs.length > 0) {
+      const editedImageUrl = outputs[0];
       console.log(`Downloading edited image from: ${editedImageUrl}`);
 
       const imageResponse = await fetch(editedImageUrl);
@@ -1134,7 +1137,7 @@ async function processImagesWithNanoBanana(jobId) {
         logoApplied: spec?.logo_requested === true && spec?.logoBase64 ? true : false
       };
     } else {
-      console.error(`No edited image in result ${i + 1} - Missing data.outputs`);
+      console.error(`No edited image in result ${i + 1} - Missing outputs. Result keys:`, Object.keys(result || {}));
       return null;
     }
   });
