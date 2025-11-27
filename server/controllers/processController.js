@@ -1,4 +1,4 @@
-import { editMultipleImages } from '../services/nanoBanana.js';
+import { editMultipleImagesWithGemini } from '../services/geminiImage.js';
 import { getJob, updateJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, getPublicImageUrl } from '../utils/googleDrive.js';
 import { Readable } from 'stream';
@@ -29,14 +29,12 @@ export async function processImages(req, res) {
 
     await updateJob(jobId, {
       status: 'processing',
-      processingStep: 'Editing images with Nano Banana AI',
+      processingStep: 'Editing images with Gemini AI',
       imageUrls
     });
 
-    const results = await editMultipleImages(imageUrls, job.promptText, {
-      enableSyncMode: true,
-      outputFormat: 'jpeg',
-      numImages: 1
+    const results = await editMultipleImagesWithGemini(imageUrls, job.promptText, {
+      retries: 3
     });
 
     await updateJob(jobId, {

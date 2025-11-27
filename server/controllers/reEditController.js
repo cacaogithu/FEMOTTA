@@ -1,4 +1,4 @@
-import { editImageWithNanoBanana } from '../services/nanoBanana.js';
+import { editImageWithGemini } from '../services/geminiImage.js';
 import { getJobWithFallback, updateJob, getJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
@@ -102,36 +102,34 @@ export async function reEditImages(req, res) {
         continue;
       }
 
-      // Convert buffer to base64 for Wavespeed API
+      // Convert buffer to base64 for Gemini API
       const base64Image = `data:image/jpeg;base64,${editedImageBuffer.toString('base64')}`;
       const imageSizeKB = Math.round(base64Image.length / 1024);
       console.log(`[Re-edit] Converted EDITED image to base64: ${imageSizeKB} KB`);
       
-      // Send base64 image + new prompt to Wavespeed API
-      console.log(`[Re-edit] Calling Wavespeed API with prompt: "${newPrompt}"`);
+      // Send base64 image + new prompt to Gemini API
+      console.log(`[Re-edit] Calling Gemini API with prompt: "${newPrompt}"`);
       console.log(`[Re-edit] This may take 60-120 seconds for complex edits...`);
       
       let result;
       try {
-        result = await editImageWithNanoBanana(base64Image, newPrompt, {
-          enableSyncMode: true,
-          outputFormat: 'jpeg',
-          wavespeedApiKey: brandConfig.wavespeedApiKey,
-          isBase64: true  // Flag to indicate we're sending base64
+        result = await editImageWithGemini(base64Image, newPrompt, {
+          geminiApiKey: brandConfig.geminiApiKey,
+          retries: 3
         });
-        console.log(`[Re-edit] Wavespeed API completed successfully`);
-      } catch (wavespeedError) {
-        console.error(`[Re-edit] Wavespeed API error:`, wavespeedError.message);
+        console.log(`[Re-edit] Gemini API completed successfully`);
+      } catch (geminiError) {
+        console.error(`[Re-edit] Gemini API error:`, geminiError.message);
         reEditedResults.push({
           error: true,
           name: image.name,
-          message: `Wavespeed API failed: ${wavespeedError.message}`
+          message: `Gemini API failed: ${geminiError.message}`
         });
         continue;
       }
 
       if (result.data && result.data.outputs && result.data.outputs.length > 0) {
-        console.log(`[Re-edit] Received result from Wavespeed, downloading edited image...`);
+        console.log(`[Re-edit] Received result from Gemini, downloading edited image...`);
         const reEditedImageUrl = result.data.outputs[0];
         
         const imageResponse = await fetch(reEditedImageUrl);

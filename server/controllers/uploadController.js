@@ -1,7 +1,7 @@
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
-import { editMultipleImages, editImageWithNanoBanana } from '../services/nanoBanana.js';
+import { editMultipleImagesWithGemini } from '../services/geminiImage.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { Readable } from 'stream';
@@ -14,7 +14,7 @@ import sharp from 'sharp';
 async function editImageUnified(imageUrl, prompt, options = {}) {
   console.log('');
   console.log('╔═══════════════════════════════════════════════════════════════╗');
-  console.log('║               NANO BANANA API REQUEST                          ║');
+  console.log('║                  GEMINI IMAGE EDIT REQUEST                    ║');
   console.log('╠═══════════════════════════════════════════════════════════════╣');
   console.log('║ FULL PROMPT:');
   console.log('╠───────────────────────────────────────────────────────────────╣');
@@ -24,18 +24,15 @@ async function editImageUnified(imageUrl, prompt, options = {}) {
   console.log('╚═══════════════════════════════════════════════════════════════╝');
   
   try {
-    const result = await editImageWithNanoBanana(imageUrl, prompt, {
-      wavespeedApiKey: options.wavespeedApiKey,
-      enableSyncMode: true,
-      outputFormat: 'png',
-      numImages: 1,
+    const result = await editMultipleImagesWithGemini([imageUrl], prompt, {
+      geminiApiKey: options.geminiApiKey,
       retries: 3
     });
     
-    console.log('[NANO BANANA] ✅ Success - Image edited');
-    return result;
+    console.log('[GEMINI] ✅ Success - Image edited');
+    return result[0];
   } catch (error) {
-    console.error('[NANO BANANA] ❌ Failed:', error.message);
+    console.error('[GEMINI] ❌ Failed:', error.message);
     throw error;
   }
 }
