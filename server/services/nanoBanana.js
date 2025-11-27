@@ -15,7 +15,7 @@
               async editImage(imageUrlOrBase64, prompt, options = {}) {
                 const {
                   enableSyncMode = true,
-                  outputFormat = 'jpeg',
+                  outputFormat = 'png',
                   enableBase64Output = false,
                   numImages = 1,
                   isBase64 = false,

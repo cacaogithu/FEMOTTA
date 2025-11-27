@@ -27,7 +27,7 @@ async function editImageUnified(imageUrl, prompt, options = {}) {
     const result = await editImageWithNanoBanana(imageUrl, prompt, {
       wavespeedApiKey: options.wavespeedApiKey,
       enableSyncMode: true,
-      outputFormat: 'jpeg',
+      outputFormat: 'png',
       numImages: 1,
       retries: 3
     });

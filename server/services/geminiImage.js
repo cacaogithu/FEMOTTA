@@ -45,7 +45,7 @@ class GeminiImageService {
         const config = {
           responseModalities: ['IMAGE', 'TEXT'],
           imageConfig: {
-            imageSize: '1K',
+            imageSize: '2K',
           },
         };
 
