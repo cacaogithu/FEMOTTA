@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../utils/api';
 import { generateAndDownloadPSD, initPhotopea } from '../services/photopeaService';
+import BeforeAfterSlider from './BeforeAfterSlider';
+import ImagePreview from './ImagePreview';
+import ChatWidget from './ChatWidget';
 import './HistoryPanel.css';
 
 function HistoryPanel({ onSelectBatch }) {
@@ -12,6 +15,9 @@ function HistoryPanel({ onSelectBatch }) {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [psdGenerating, setPsdGenerating] = useState({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(Date.now());
+  const [imageSpecs, setImageSpecs] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -58,6 +64,9 @@ function HistoryPanel({ onSelectBatch }) {
       
       if (data.success) {
         setBatchDetails(data.batch);
+        if (data.batch?.imageSpecs) {
+          setImageSpecs(data.batch.imageSpecs);
+        }
       } else {
         setError(data.error || 'Failed to load batch details');
       }
@@ -65,6 +74,23 @@ function HistoryPanel({ onSelectBatch }) {
       setError('Failed to load batch details: ' + err.message);
     } finally {
       setDetailsLoading(false);
+    }
+  };
+
+  const handleRefreshImages = async () => {
+    if (!selectedBatch) return;
+    setIsRefreshing(true);
+    try {
+      const response = await authenticatedFetch(`/api/history/${selectedBatch}?t=${Date.now()}`);
+      const data = await response.json();
+      if (data.success) {
+        setBatchDetails(data.batch);
+        setRefreshToken(Date.now());
+      }
+    } catch (error) {
+      console.error('[HistoryPanel] Refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -272,92 +298,70 @@ function HistoryPanel({ onSelectBatch }) {
         <div className="history-details">
           {!selectedBatch ? (
             <div className="history-details-empty">
-              <p>Select a batch to view details</p>
+              <p>Select a batch to view and edit</p>
             </div>
           ) : detailsLoading ? (
             <div className="history-details-loading">
               <div className="spinner"></div>
-              <p>Loading batch details...</p>
+              <p>Loading batch...</p>
             </div>
           ) : batchDetails ? (
-            <>
-              <div className="details-header">
-                <h3>Batch Details</h3>
-                <button
-                  className="download-all-btn"
-                  onClick={handleDownloadZip}
-                  disabled={downloadingZip}
-                >
-                  {downloadingZip ? 'Preparing...' : 'Download All (ZIP)'}
-                </button>
-              </div>
-
-              <div className="details-meta">
-                <div className="meta-row">
-                  <span className="meta-label">Created:</span>
-                  <span className="meta-value">{formatDate(batchDetails.timestamps.created)}</span>
-                </div>
-                <div className="meta-row">
-                  <span className="meta-label">Processing Time:</span>
-                  <span className="meta-value">{formatDuration(batchDetails.metrics.processingTimeSeconds)}</span>
-                </div>
-                <div className="meta-row">
-                  <span className="meta-label">Time Saved:</span>
-                  <span className="meta-value highlight">{batchDetails.metrics.estimatedManualTimeMinutes || 0} minutes</span>
-                </div>
-                <div className="meta-row">
-                  <span className="meta-label">Images:</span>
-                  <span className="meta-value">{batchDetails.metrics.outputCount} edited</span>
-                </div>
-              </div>
-
-              <div className="details-prompt">
-                <h4>Prompt Used</h4>
-                <p>{batchDetails.promptText || batchDetails.briefText || 'No prompt available'}</p>
-              </div>
-
-              <div className="details-images">
-                <h4>Edited Images</h4>
-                <div className="images-grid">
-                  {batchDetails.variants.map((variant, index) => (
-                    <div key={index} className="image-card">
-                      <div className="image-preview">
-                        <img 
-                          src={variant.editedUrl} 
-                          alt={variant.editedName}
-                          onError={(e) => {
-                            e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23333"/><text x="50%" y="50%" text-anchor="middle" fill="%23666">Error</text></svg>';
-                          }}
+            <div className="history-editor">
+              <ChatWidget jobId={selectedBatch} onImageUpdated={handleRefreshImages} />
+              <div className="editor-container">
+                <header className="editor-header">
+                  <div>
+                    <h2>Batch from {formatDate(batchDetails.timestamps.created)}</h2>
+                    <p>{batchDetails.variants?.length || 0} images {isRefreshing && <span style={{marginLeft: '10px', color: '#ffa500'}}>⚡ Refreshing...</span>}</p>
+                  </div>
+                  <button className="download-all-btn" onClick={handleDownloadZip} disabled={downloadingZip}>
+                    {downloadingZip ? 'Preparing...' : 'Download All (ZIP)'}
+                  </button>
+                </header>
+                <div className="editor-grid">
+                  {batchDetails.variants?.map((variant, idx) => (
+                    <div key={`${variant.editedDriveId || idx}-${refreshToken}`} className="result-card">
+                      {variant.originalImageId && variant.editedUrl ? (
+                        <BeforeAfterSlider 
+                          key={`slider-${variant.editedDriveId}-${refreshToken}`}
+                          beforeImageId={variant.originalImageId}
+                          afterImageId={variant.editedDriveId}
+                          name={variant.editedName}
+                          refreshToken={refreshToken}
                         />
-                      </div>
-                      <div className="image-info">
-                        <span className="image-name">{variant.editedName}</span>
-                        {variant.title && (
-                          <span className="image-title">{variant.title}</span>
-                        )}
-                      </div>
-                      <div className="image-actions">
-                        <button 
-                          className="action-btn"
-                          onClick={() => handleDownloadImage(index, 'edited')}
-                          title="Download edited"
-                        >
-                          JPG
-                        </button>
-                        <button 
-                          className="action-btn"
-                          onClick={() => handleDownloadPsd(index)}
-                          disabled={psdGenerating[index]}
-                          title="Download PSD"
-                        >
-                          {psdGenerating[index] ? '...' : 'PSD'}
-                        </button>
+                      ) : (
+                        <div className="image-container">
+                          <img 
+                            src={variant.editedUrl} 
+                            alt={variant.editedName}
+                            className="result-image"
+                            onError={(e) => {e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23333"/></svg>';}}
+                          />
+                        </div>
+                      )}
+                      <div className="card-info">
+                        <h3>{variant.editedName}</h3>
+                        <div className="download-buttons">
+                          <button 
+                            className="button button-primary download-btn"
+                            onClick={() => handleDownloadImage(idx, 'edited')}
+                          >
+                            Download JPG
+                          </button>
+                          <button 
+                            className="button button-secondary download-btn"
+                            onClick={() => handleDownloadPsd(idx)}
+                            disabled={psdGenerating[idx]}
+                          >
+                            {psdGenerating[idx] ? 'Generating...' : 'Download PSD'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-            </>
+            </div>
           ) : null}
         </div>
       </div>
