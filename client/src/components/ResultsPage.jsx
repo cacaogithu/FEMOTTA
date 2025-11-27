@@ -142,40 +142,29 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
     setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
 
     try {
-      console.log('[PSD] Starting download for:', originalName, 'index:', imageIndex);
+      console.log('[PSD] Starting Photopea PSD generation for:', originalName, 'index:', imageIndex);
 
-      // Step 1: Get a signed download URL from the server
-      const response = await authenticatedFetch(`/api/psd/signed-url/${jobId}/${imageIndex}`, {
-        method: 'POST'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to get download URL: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // Get image specs for this image (title/subtitle)
+      const spec = imageSpecs[imageIndex] || {};
       
-      if (!data.success || !data.downloadUrl) {
-        throw new Error('Invalid response from server');
-      }
+      // Build the image URL for the edited image
+      const imageUrl = `/api/images/${editedImageId}?t=${Date.now()}`;
+      
+      // Generate filename from original name
+      const filename = originalName.replace(/\.[^/.]+$/, '') + '_editable.psd';
+      
+      console.log('[PSD] Using Photopea for TRUE editable text layers');
+      console.log('[PSD] Spec:', spec);
+      
+      // Use Photopea client-side generation for true editable text layers
+      await generateAndDownloadPSD(imageUrl, spec, filename);
 
-      console.log('[PSD] Got signed URL, initiating browser download...');
-
-      // Step 2: Navigate to the signed URL - browser will handle the download directly
-      // This bypasses the fetch/blob memory issues with large files
-      window.location.assign(data.downloadUrl);
-
-      console.log('[PSD] Download initiated via browser');
-
-      // Reset the button state after a short delay (download is in progress)
-      setTimeout(() => {
-        setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
-      }, 2000);
+      console.log('[PSD] Photopea PSD generated and downloaded successfully');
 
     } catch (error) {
       console.error('[PSD] Generation error:', error);
       alert(`Failed to generate PSD: ${error.message}`);
+    } finally {
       setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
     }
   };
