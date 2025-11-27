@@ -4,6 +4,7 @@ import { archiveBatchToStorage } from '../services/historyService.js';
 import { editMultipleImagesWithGemini } from '../services/geminiImage.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
+import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
@@ -12,19 +13,23 @@ import mammoth from 'mammoth';
 import sharp from 'sharp';
 
 async function editImageUnified(imageUrl, prompt, options = {}) {
+  // Inject curated Saira typography and image preservation guidelines
+  const sairaGuidelines = getCompleteOverlayGuidelines();
+  const enhancedPrompt = `${sairaGuidelines}\n\nSPECIFIC IMAGE INSTRUCTIONS:\n${prompt}`;
+  
   console.log('');
   console.log('╔═══════════════════════════════════════════════════════════════╗');
   console.log('║                  GEMINI IMAGE EDIT REQUEST                    ║');
   console.log('╠═══════════════════════════════════════════════════════════════╣');
-  console.log('║ FULL PROMPT:');
+  console.log('║ ENHANCED PROMPT (with Saira guidelines):');
   console.log('╠───────────────────────────────────────────────────────────────╣');
-  prompt.split('\n').forEach(line => console.log('║ ' + line));
+  enhancedPrompt.split('\n').forEach(line => console.log('║ ' + line));
   console.log('╠───────────────────────────────────────────────────────────────╣');
   console.log('║ Image URL:', imageUrl.substring(0, 60) + '...');
   console.log('╚═══════════════════════════════════════════════════════════════╝');
   
   try {
-    const result = await editMultipleImagesWithGemini([imageUrl], prompt, {
+    const result = await editMultipleImagesWithGemini([imageUrl], enhancedPrompt, {
       geminiApiKey: options.geminiApiKey,
       retries: 3
     });
@@ -194,12 +199,33 @@ For each image specification, extract:
 
 For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS, NO technical specifications):
 
-"Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in a clean, modern, geometric sans-serif font style (like Saira), bold white uppercase letters near the top left. Below the title, add the subtitle '{subtitle}' in the same geometric sans-serif font, smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image with modern geometric typography."
+"CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.
+
+Add a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.
+
+Overlay the title '{title}' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:
+- UPPERCASE white letters
+- Positioned near the top left corner
+- Bold weight
+- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters
+
+Below the title, add the subtitle '{subtitle}' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:
+- Smaller than the title
+- White text with subtle drop shadow for readability
+- Same geometric Saira font family as title
+
+ABSOLUTE REQUIREMENTS:
+1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements
+2. ONLY add: subtle top gradient + title text + subtitle text
+3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)
+4. All text must be white with subtle shadow
+5. Professional marketing aesthetic - minimal and clean"
 
 CRITICAL PROMPT RULES:
 - Use ONLY natural language descriptions - NO technical specs
-- Request Saira-style geometric sans-serif font for all text
-- NEVER include font names like 'Montserrat' or 'Arial'
+- ALWAYS specify Saira font family by name (Saira Bold for titles, Saira Regular for subtitles)
+- EMPHASIZE that the original image must NOT be modified - only add overlays
+- NEVER include font names like 'Montserrat' or 'Arial' - ONLY Saira
 - NEVER include pixel values like '52px' or '18px'
 - NEVER include CSS values like 'rgba()' or '#FFFFFF'
 - NEVER include measurements like '22%' or '32px from top'
@@ -712,7 +738,7 @@ export async function uploadPDF(req, res) {
       });
 
       // Start processing in the background
-      processImagesWithNanoBanana(jobId).catch(async err => {
+      processImagesWithGemini(jobId).catch(async err => {
         console.error('Background processing error:', err);
         console.error('Error stack:', err.stack);
         await updateJob(jobId, { 
@@ -800,7 +826,7 @@ export async function uploadImages(req, res) {
       message: 'Images uploaded successfully, processing started'
     });
 
-    processImagesWithNanoBanana(jobId).catch(async err => {
+    processImagesWithGemini(jobId).catch(async err => {
       console.error('Background processing error:', err);
       console.error('Error stack:', err.stack);
       await updateJob(jobId, { 
@@ -815,7 +841,7 @@ export async function uploadImages(req, res) {
   }
 }
 
-async function processImagesWithNanoBanana(jobId) {
+async function processImagesWithGemini(jobId) {
   const job = getJob(jobId);
 
   if (!job) {
@@ -919,12 +945,11 @@ async function processImagesWithNanoBanana(jobId) {
           preview: p.substring(0, 100) + '...'
         };
       }),
-      api: 'Wavespeed Nano Banana',
-      endpoint: '/api/v3/google/nano-banana/edit',
+      api: 'Google Gemini',
+      endpoint: 'gemini-2.0-flash-exp-image-generation',
       parameters: {
-        enable_sync_mode: true,
-        output_format: 'jpeg',
-        num_images: 1,
+        imageSize: '2K',
+        outputFormat: 'png',
         batch_size: 15
       }
     }
@@ -950,7 +975,7 @@ async function processImagesWithNanoBanana(jobId) {
     }
   });
 
-  console.log('Calling Nano Banana API with individual prompts per image...');
+  console.log('Calling Gemini API with individual prompts per image...');
 
   // Process images with their individual prompts
   const results = [];
@@ -991,13 +1016,7 @@ async function processImagesWithNanoBanana(jobId) {
       console.log(`  Image ${imageIndex + 1}: Using prompt for "${specTitle}"`);
 
       return editImageUnified(url, prompt, {
-        provider: brandConfig.preferredImageApi || 'wavespeed',
-        geminiApiKey: brandConfig.geminiApiKey,
-        wavespeedApiKey: brandConfig.wavespeedApiKey,
-        enableSyncMode: true,
-        outputFormat: 'jpeg',
-        numImages: 1,
-        wavespeedApiKey: brandConfig.wavespeedApiKey
+        geminiApiKey: brandConfig.geminiApiKey
       }).then(async result => {
         try {
           await updateJob(jobId, {
@@ -1054,7 +1073,7 @@ async function processImagesWithNanoBanana(jobId) {
     description: `Successfully edited ${results.length} images`,
     details: {
       totalProcessed: results.length,
-      apiResponse: 'Received edited images from Wavespeed API'
+      apiResponse: 'Received edited images from Gemini API'
     }
   });
 
@@ -1063,10 +1082,10 @@ async function processImagesWithNanoBanana(jobId) {
   const EDITED_IMAGES_FOLDER = job.driveDestinationFolderId || DEFAULT_EDITED_IMAGES_FOLDER;
   
   if (job.driveDestinationFolderId) {
-    console.log(`[NanoBanana] Using custom drive destination: ${EDITED_IMAGES_FOLDER}`);
+    console.log(`[Gemini] Using custom drive destination: ${EDITED_IMAGES_FOLDER}`);
   }
   if (job.marketplacePreset) {
-    console.log(`[NanoBanana] Marketplace preset applied: ${job.marketplacePreset.id}`);
+    console.log(`[Gemini] Marketplace preset applied: ${job.marketplacePreset.id}`);
   }
 
   console.log(`Saving ${results.length} edited images to Drive (brand: ${job.brandSlug})...`);

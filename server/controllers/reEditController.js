@@ -2,6 +2,7 @@ import { editImageWithGemini } from '../services/geminiImage.js';
 import { getJobWithFallback, updateJob, getJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
+import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
 import fetch from 'node-fetch';
 
 export async function reEditImages(req, res) {
@@ -108,12 +109,16 @@ export async function reEditImages(req, res) {
       console.log(`[Re-edit] Converted EDITED image to base64: ${imageSizeKB} KB`);
       
       // Send base64 image + new prompt to Gemini API
-      console.log(`[Re-edit] Calling Gemini API with prompt: "${newPrompt}"`);
+      // Inject Saira typography and image preservation guidelines for consistency
+      const sairaGuidelines = getCompleteOverlayGuidelines();
+      const enhancedPrompt = `${sairaGuidelines}\n\nUSER RE-EDIT REQUEST:\n${newPrompt}`;
+      
+      console.log(`[Re-edit] Calling Gemini API with enhanced prompt (includes Saira guidelines)`);
       console.log(`[Re-edit] This may take 60-120 seconds for complex edits...`);
       
       let result;
       try {
-        result = await editImageWithGemini(base64Image, newPrompt, {
+        result = await editImageWithGemini(base64Image, enhancedPrompt, {
           geminiApiKey: brandConfig.geminiApiKey,
           retries: 3
         });
@@ -167,11 +172,11 @@ export async function reEditImages(req, res) {
           url: getPublicImageUrl(uploadedFile.id)
         });
       } else {
-        console.error(`[Re-edit] No images returned from Wavespeed API`);
+        console.error(`[Re-edit] No images returned from Gemini API`);
         reEditedResults.push({
           error: true,
           name: image.name,
-          message: 'Wavespeed API returned no edited images'
+          message: 'Gemini API returned no edited images'
         });
       }
     }
