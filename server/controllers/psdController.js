@@ -3,6 +3,11 @@
   import 'ag-psd/initialize-canvas.js'; // Required for Node.js
   import { writePsdBuffer } from 'ag-psd';
   import { createCanvas, Image } from 'canvas';
+  import jwt from 'jsonwebtoken';
+  import crypto from 'crypto';
+
+  // Secret for signing download tokens (generate random if not set)
+  const PSD_TOKEN_SECRET = process.env.PSD_TOKEN_SECRET || crypto.randomBytes(32).toString('hex');
 
   // ag-psd DOES support real editable text layers
   const SUPPORTS_TEXT_LAYERS = true;
@@ -67,9 +72,9 @@
         x: leftMargin,
         y: topMargin + titleFontSize,
         fontSize: titleFontSize,
-        fontFamily: 'Montserrat',
-        fontWeight: 'ExtraBold',
-        fontPostScriptName: 'Montserrat-ExtraBold',
+        fontFamily: 'Saira',
+        fontWeight: 'Bold',
+        fontPostScriptName: 'Saira-Bold',
         color: { r: 255, g: 255, b: 255 },
         alignment: 'left'
       };
@@ -82,9 +87,9 @@
         x: leftMargin,
         y: subtitleY + subtitleFontSize,
         fontSize: subtitleFontSize,
-        fontFamily: 'Montserrat',
+        fontFamily: 'Saira',
         fontWeight: 'Regular',
-        fontPostScriptName: 'Montserrat-Regular',
+        fontPostScriptName: 'Saira-Regular',
         color: { r: 255, g: 255, b: 255 },
         alignment: 'left'
       };
@@ -532,6 +537,184 @@
       console.error('[PSD Info] Error:', error);
       res.status(500).json({
         error: 'Failed to get PSD info',
+        details: error.message
+      });
+    }
+  }
+
+  // Generate a signed download URL for PSD files (bypasses fetch/blob browser issues)
+  export async function generatePsdSignedUrl(req, res) {
+    try {
+      const { jobId, imageIndex } = req.params;
+      const brandId = req.brand?.id || req.user?.brandId || 'default';
+
+      // Validate job and image exist
+      const job = await getJobWithFallback(jobId);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      if (!job.editedImages || job.editedImages.length === 0) {
+        return res.status(404).json({ error: 'No edited images found for this job' });
+      }
+
+      const index = parseInt(imageIndex);
+      if (isNaN(index) || index < 0 || index >= job.editedImages.length) {
+        return res.status(400).json({ error: 'Invalid image index' });
+      }
+
+      // Create a short-lived token (60 seconds)
+      const token = jwt.sign(
+        {
+          jobId,
+          imageIndex: index,
+          brandId,
+          type: 'psd_download'
+        },
+        PSD_TOKEN_SECRET,
+        { expiresIn: '60s' }
+      );
+
+      // Return the signed URL
+      const downloadUrl = `/api/psd/file/${token}`;
+      
+      console.log(`[PSD Signed URL] Generated token for job ${jobId}, image ${index}`);
+      
+      res.json({
+        success: true,
+        downloadUrl,
+        expiresIn: 60
+      });
+
+    } catch (error) {
+      console.error('[PSD Signed URL] Error:', error);
+      res.status(500).json({
+        error: 'Failed to generate download URL',
+        details: error.message
+      });
+    }
+  }
+
+  // Stream PSD file using signed token (no auth header required)
+  export async function downloadPsdWithToken(req, res) {
+    try {
+      const { token } = req.params;
+
+      // Verify the token
+      let decoded;
+      try {
+        decoded = jwt.verify(token, PSD_TOKEN_SECRET);
+      } catch (tokenError) {
+        console.error('[PSD Token Download] Token verification failed:', tokenError.message);
+        return res.status(401).json({ error: 'Invalid or expired download link' });
+      }
+
+      if (decoded.type !== 'psd_download') {
+        return res.status(401).json({ error: 'Invalid token type' });
+      }
+
+      const { jobId, imageIndex } = decoded;
+
+      console.log(`[PSD Token Download] Valid token for job ${jobId}, image ${imageIndex}`);
+
+      const job = await getJobWithFallback(jobId);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      if (!job.editedImages || !job.editedImages[imageIndex]) {
+        return res.status(404).json({ error: 'Image not found' });
+      }
+
+      const imageData = job.editedImages[imageIndex];
+
+      console.log('[PSD Token Download] Fetching image from Google Drive...');
+
+      // Download only the edited image (skip original and difference to reduce file size)
+      const editedBuffer = await downloadFileFromDrive(imageData.editedImageId);
+
+      if (!editedBuffer) {
+        throw new Error('Failed to download image from Google Drive');
+      }
+
+      console.log('[PSD Token Download] Image downloaded, creating optimized PSD...');
+
+      // Load the image
+      const editedImg = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = (err) => reject(new Error('Failed to load image into canvas'));
+        img.src = editedBuffer;
+      });
+
+      const width = editedImg.width;
+      const height = editedImg.height;
+
+      // Create canvas for the edited image only (reduces file size significantly)
+      const editedCanvas = createCanvas(width, height);
+      const editedCtx = editedCanvas.getContext('2d');
+      editedCtx.drawImage(editedImg, 0, 0);
+
+      // Extract text specifications for this image
+      const textSpecs = getTextSpecsForImage(job, imageIndex);
+      
+      // Create editable text layers
+      const textLayers = createTextLayers(width, height, textSpecs);
+      
+      console.log(`[PSD Token Download] Created ${textLayers.length} editable text layers`);
+
+      // Create OPTIMIZED PSD document - only essential layers
+      const psd = {
+        width,
+        height,
+        channels: 3,
+        bitsPerChannel: 8,
+        colorMode: 3,
+        children: [
+          // Editable Text Group - at the top for easy access
+          ...(textLayers.length > 0 ? [{
+            name: 'Editable Text',
+            opened: true,
+            children: textLayers
+          }] : []),
+          // Single background layer (AI Edited image)
+          {
+            name: 'AI Edited Background',
+            canvas: editedCanvas,
+            blendMode: 'normal',
+            opacity: 255
+          }
+        ]
+      };
+
+      // Generate PSD buffer with compression to reduce file size
+      const psdArrayBuffer = writePsdBuffer(psd, { 
+        invalidateTextLayers: true,
+        generateThumbnail: false,  // Skip thumbnail to reduce size
+        compression: 'rle'  // RLE compression
+      });
+      const psdBuffer = Buffer.from(psdArrayBuffer);
+
+      console.log('[PSD Token Download] Optimized PSD created, size:', psdBuffer.length, 'bytes', '(' + Math.round(psdBuffer.length / 1024 / 1024) + ' MB)');
+
+      // Send as downloadable file with proper headers for browser streaming
+      const fileName = `${(imageData.originalName || `image_${imageIndex}`).replace(/\.[^/.]+$/, '')}_edited.psd`;
+      
+      res.setHeader('Content-Type', 'image/vnd.adobe.photoshop');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', psdBuffer.length);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
+      res.send(psdBuffer);
+
+      console.log('[PSD Token Download] Sent to client:', fileName);
+
+    } catch (error) {
+      console.error('[PSD Token Download] Error:', error);
+      res.status(500).json({
+        error: 'Failed to generate PSD file',
         details: error.message
       });
     }

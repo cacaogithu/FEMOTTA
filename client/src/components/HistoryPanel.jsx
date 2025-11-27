@@ -20,7 +20,6 @@ function HistoryPanel({ onSelectBatch }) {
   });
 
   useEffect(() => {
-    initPhotopea();
     fetchHistory();
   }, [pagination.page]);
 
@@ -136,34 +135,36 @@ function HistoryPanel({ onSelectBatch }) {
     setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
     
     try {
-      const image = batchDetails.editedImages?.[imageIndex];
-      if (!image) {
-        throw new Error('Image not found');
-      }
+      console.log('[History PSD] Getting signed download URL...');
       
-      console.log('[History PSD] Downloading from backend');
-      
-      // Use the backend PSD endpoint which generates proper editable text layers
-      const response = await authenticatedFetch(`/api/psd/${selectedBatch}/${imageIndex}`);
+      // Step 1: Get a signed download URL from the server
+      const response = await authenticatedFetch(`/api/psd/signed-url/${selectedBatch}/${imageIndex}`, {
+        method: 'POST'
+      });
       
       if (!response.ok) {
-        throw new Error('Failed to generate PSD');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to get download URL');
       }
       
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const filename = image.originalName?.replace(/\.[^/.]+$/, '') || `image_${imageIndex}`;
-      a.href = url;
-      a.download = `${filename}_edited.psd`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const data = await response.json();
+      
+      if (!data.success || !data.downloadUrl) {
+        throw new Error('Invalid response from server');
+      }
+      
+      console.log('[History PSD] Got signed URL, initiating browser download...');
+      
+      // Step 2: Navigate to the signed URL - browser will handle the download directly
+      window.location.assign(data.downloadUrl);
+      
+      // Reset the button state after a short delay
+      setTimeout(() => {
+        setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
+      }, 2000);
       
     } catch (err) {
       setError('Failed to generate PSD: ' + err.message);
-    } finally {
       setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
     }
   };

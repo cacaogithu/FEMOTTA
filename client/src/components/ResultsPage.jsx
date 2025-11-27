@@ -144,51 +144,38 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
     try {
       console.log('[PSD] Starting download for:', originalName, 'index:', imageIndex);
 
-      // Use the backend PSD endpoint which generates proper editable text layers
-      const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
-
-      console.log('[PSD] Response status:', response.status, response.statusText);
+      // Step 1: Get a signed download URL from the server
+      const response = await authenticatedFetch(`/api/psd/signed-url/${jobId}/${imageIndex}`, {
+        method: 'POST'
+      });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[PSD] Server error:', errorText);
-        throw new Error(`Failed to generate PSD: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to get download URL: ${response.status}`);
       }
 
-      console.log('[PSD] Response OK, creating blob...');
-      const blob = await response.blob();
-      console.log('[PSD] Blob created, size:', blob.size, 'bytes');
-
-      if (blob.size === 0) {
-        throw new Error('PSD file is empty');
+      const data = await response.json();
+      
+      if (!data.success || !data.downloadUrl) {
+        throw new Error('Invalid response from server');
       }
 
-      const fileName = `${(originalName || `image_${imageIndex}`).replace(/\.[^/.]+$/, '')}_edited.psd`;
-      console.log('[PSD] Triggering download:', fileName);
+      console.log('[PSD] Got signed URL, initiating browser download...');
 
-      // Create download link
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      
-      // Trigger download
-      a.click();
-      
-      // Cleanup after a delay to ensure download starts
+      // Step 2: Navigate to the signed URL - browser will handle the download directly
+      // This bypasses the fetch/blob memory issues with large files
+      window.location.assign(data.downloadUrl);
+
+      console.log('[PSD] Download initiated via browser');
+
+      // Reset the button state after a short delay (download is in progress)
       setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        console.log('[PSD] Cleanup complete');
-      }, 1000);
+        setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
+      }, 2000);
 
-      console.log('[PSD] Download initiated successfully');
     } catch (error) {
       console.error('[PSD] Generation error:', error);
       alert(`Failed to generate PSD: ${error.message}`);
-    } finally {
       setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
     }
   };
