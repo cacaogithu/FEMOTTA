@@ -237,17 +237,10 @@ export async function editImageWithGemini(imageUrl, prompt, apiKey, options = {}
     analysisResult = await analyzeImageForParameters(imageUrl, apiKey);
   }
 
-  // Construct prompt with analysis results if available and not overridden by specific parameters in prompt
-  let finalPrompt = prompt;
-  if (analysisResult.reasoning && !prompt.includes('productPosition')) {
-    finalPrompt = `${prompt} \n\nImage Analysis Parameters:
-    productPosition: ${analysisResult.productPosition}
-    recommendedGradientCoverage: ${analysisResult.recommendedGradientCoverage}
-    recommendedTitleSize: ${analysisResult.recommendedTitleSize}
-    recommendedMarginTop: ${analysisResult.recommendedMarginTop}
-    recommendedMarginLeft: ${analysisResult.recommendedMarginLeft}
-    reasoning: ${analysisResult.reasoning}`;
-  }
+  // Use the prompt as-is - analysis parameters are already incorporated 
+  // via generateAdaptivePrompt in the calling code
+  // DO NOT append raw parameters here as they will be rendered as text in the image
+  const finalPrompt = prompt;
 
   try {
     const result = await service.editImage(imageUrl, finalPrompt, options);

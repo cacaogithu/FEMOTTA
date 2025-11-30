@@ -128,8 +128,12 @@ Consider:
 
 /**
  * Generate final editing prompt based on AI-analyzed parameters
+ * 
+ * IMPORTANT: This prompt is carefully structured to prevent the AI from 
+ * rendering any guidance text or parameters into the image. Only the 
+ * explicit TITLE and SUBTITLE content should appear in the final image.
  */
-export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketplace = 'website') {
+export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketplace = 'website', logoInfo = null) {
   const params = analyzedParams || {
     productPosition: 'middle',
     recommendedGradientCoverage: 20,
@@ -138,36 +142,63 @@ export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketpl
     recommendedMarginLeft: 4
   };
 
-  return `CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add overlays on top of the existing image.
+  // Build the prompt with clear separation between what to render and what is guidance
+  let prompt = `You are adding text overlays to a product image. 
 
-GRADIENT OVERLAY:
-- Add a subtle dark gradient at the top edge only (covering approximately ${params.recommendedGradientCoverage}% of image height)
-- Gradient should fade from semi-transparent dark gray (30-40% opacity) to fully transparent
-- Must be barely visible - just enough to improve text readability
-- DO NOT obscure product details
+===== WHAT TO RENDER ON THE IMAGE =====
 
-TEXT OVERLAY - TITLE:
-- Text: "${title}"
-- Font: Saira Bold (geometric sans-serif, sharp modern letterforms)
-- Style: UPPERCASE white letters
-- Size: Approximately ${params.recommendedTitleSize}px (adjust proportionally to image dimensions)
-- Position: Top-left area, ${params.recommendedMarginTop}% from top, ${params.recommendedMarginLeft}% from left
-- Drop shadow: 0px 1.5px blur 3px rgba(0,0,0,0.25)
+ONLY render these THREE things on the image:
 
-TEXT OVERLAY - SUBTITLE:
-- Text: "${subtitle}"
-- Font: Saira Regular (same geometric sans-serif family, lighter weight)
-- Style: Regular case white text
-- Size: ${Math.round(params.recommendedTitleSize * 0.4)}px (40% of title size)
-- Position: Below title with ${Math.round(params.recommendedTitleSize * 0.3)}px spacing
-- Drop shadow: Same as title
+1. TITLE TEXT: ${title.toUpperCase()}
+   - White uppercase text
+   - Saira Bold font (geometric sans-serif)
+   - Position: top-left corner with margin
+   - Add subtle drop shadow for readability
 
-PRESERVATION:
-- Preserve ALL original image details, sharpness, colors, and product features
-- This should look like a minimal professional overlay, not heavy editing
-- Output as high-quality image
+2. SUBTITLE TEXT: ${subtitle}
+   - White text, sentence case
+   - Saira Regular font (same family, lighter)
+   - Position: directly below the title
+   - Smaller than title (about 40% of title size)
 
-Generate the edited image.`;
+3. SHADING: Subtle dark gradient
+   - Only at the top edge of image
+   - Semi-transparent, fading to transparent
+   - Just enough to make text readable
+   - Do NOT cover the product`;
+
+  // Add logo instructions if logo is requested
+  if (logoInfo && logoInfo.logoRequested) {
+    prompt += `
+
+4. LOGO: ${logoInfo.logoName || 'Brand logo'}
+   - Position: top-right corner with margin
+   - Size: proportional, not too large
+   - Maintain logo clarity and colors`;
+  }
+
+  prompt += `
+
+===== DO NOT RENDER =====
+
+DO NOT put any of these on the image:
+- Numbers, percentages, or measurements
+- Technical terms like "gradient", "opacity", "px"
+- Instructions or parameters
+- Any text other than the title and subtitle above
+
+===== IMAGE PRESERVATION (CRITICAL) =====
+
+The original product image MUST stay exactly as-is:
+- Do NOT modify the product
+- Do NOT change colors or lighting
+- Do NOT alter the background
+- Do NOT regenerate or replace anything
+- ONLY add the text overlays on top
+
+Output the edited image.`;
+
+  return prompt;
 }
 
 /**
