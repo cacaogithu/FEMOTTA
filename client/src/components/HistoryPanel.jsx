@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../utils/api';
-import { generateAndDownloadPSD, initPhotopea } from '../services/photopeaService';
 import BeforeAfterSlider from './BeforeAfterSlider';
 import ImagePreview from './ImagePreview';
 import ChatWidget from './ChatWidget';
@@ -74,7 +73,6 @@ function HistoryPanel({ onSelectBatch }) {
 
   useEffect(() => {
     fetchHistory();
-    initPhotopea();
   }, [pagination.page]);
 
   const fetchHistory = async () => {
@@ -216,33 +214,36 @@ function HistoryPanel({ onSelectBatch }) {
     setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
     
     try {
-      console.log('[History PSD] Starting Photopea PSD generation...');
+      console.log('[History PSD] Starting server-side PSD generation...');
       
       const variant = batchDetails.variants[imageIndex];
       if (!variant) {
         throw new Error('Image not found');
       }
       
-      const spec = batchDetails.imageSpecs?.[imageIndex] || {
-        title: variant.title || '',
-        subtitle: variant.subtitle || ''
-      };
+      // Use server-side PSD generation with ag-psd for proper editable text layers
+      // First get a signed URL to bypass fetch/blob issues
+      const signedResponse = await authenticatedFetch(`/api/psd/signed-url/${selectedBatch}/${imageIndex}`, {
+        method: 'POST'
+      });
       
-      // Always use local API endpoint to avoid CORS issues with Google Drive URLs
-      const driveId = variant.editedDriveId || variant.editedImageId;
-      if (!driveId) {
-        throw new Error('Image ID not found');
+      if (!signedResponse.ok) {
+        const errorData = await signedResponse.json();
+        throw new Error(errorData.error || 'Failed to get download URL');
       }
-      const imageUrl = `/api/images/${driveId}?t=${Date.now()}`;
+      
+      const { downloadUrl } = await signedResponse.json();
+      
+      // Download the PSD using the signed URL
+      const link = document.createElement('a');
+      link.href = downloadUrl;
       const filename = (variant.editedName || variant.originalName || `image_${imageIndex}`).replace(/\.[^/.]+$/, '') + '_editable.psd';
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
-      console.log('[History PSD] Using Photopea for TRUE editable text layers');
-      console.log('[History PSD] Spec:', spec);
-      console.log('[History PSD] Image URL:', imageUrl);
-      
-      await generateAndDownloadPSD(imageUrl, spec, filename);
-      
-      console.log('[History PSD] Photopea PSD generated and downloaded successfully');
+      console.log('[History PSD] Server-side PSD download initiated');
       
     } catch (err) {
       setError('Failed to generate PSD: ' + err.message);

@@ -35,7 +35,7 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 - **History & Archival System**: Automatic archival of jobs to local storage and PostgreSQL, with a dedicated UI tab for viewing past batches and re-downloading (ZIP, individual images, PSDs).
 - **Marketplace-Specific Presets**: Pre-configured output settings with AI behavior modifications for platforms like Amazon (Strict Compliance), Alibaba (Creative Marketing), and a general Website preset. These include AI prompt modifiers, aspect ratio, dimension limits, margins, padding, background, and color vibrance adjustments.
 - **Custom Google Drive Destinations**: Users can specify a custom Google Drive folder URL for output uploads with validation and folder ID extraction.
-- **PSD Export with Editable Text Layers**: Client-side PSD generation using Photopea API (embedded iframe with postMessage communication). Creates true layered PSDs with fully editable text layers that work natively in Adobe Photoshop. Images are fetched as data URLs to bypass CORS, then processed by Photopea to add title and subtitle text layers. Supports queued processing for multiple downloads.
+- **PSD Export with Editable Text Layers**: Server-side PSD generation using ag-psd library. Creates true layered PSDs with fully editable text layers that work natively in Adobe Photoshop. Text layers reference Saira font family (Saira-Bold for titles, Saira-Regular for subtitles). The PSD download uses signed URLs via `/api/psd/signed-url/:jobId/:imageIndex` endpoint for reliable file delivery.
 - **Smart Logo Detection & Overlay**: Automatically detects logo requests in brief text using OpenAI extraction (`logo_requested: true/false`, `logo_name`). Small embedded images (<50KB) in DOCX are classified as logos. When a spec requests a logo, the system overlays it programmatically using Sharp with proportional sizing (15% of image width) and proper margins.
 - **Triple Input Modes**: Supports PDF, DOCX (with intelligent image filtering), or text prompts.
 - **AI Chat with Vision**: GPT-4o with vision capabilities for precise re-editing based on visual analysis and natural language commands. Automatically detects image references.
@@ -49,7 +49,7 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 - **Google Drive API**: File storage for briefs, product images, and results.
 - **Google Gemini Image API**: Sole AI-powered image editing provider with 2K resolution output in PNG format.
 - **OpenAI API (GPT-4o)**: AI Chat Assistant with vision, function calling, ML feedback system.
-- **Photopea API**: Client-side PSD generation with editable text layers via iframe postMessage communication.
+- **ag-psd**: Server-side PSD generation with editable text layers.
 - **Mammoth.js**: Extracts text and images from DOCX.
 - **pdfjs-dist**: Processes PDF files.
 - **Drizzle ORM**: PostgreSQL schema management and queries.

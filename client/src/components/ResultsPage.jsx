@@ -5,7 +5,6 @@ import ImagePreview from './ImagePreview';
 import ChatWidget from './ChatWidget';
 import FeedbackWidget from './FeedbackWidget';
 import WorkflowViewer from './WorkflowViewer';
-import { generateAndDownloadPSD, initPhotopea } from '../services/photopeaService';
 import './ResultsPage.css';
 
 function TimeMetricsPanel({ jobId }) {
@@ -72,8 +71,6 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
   }, [initialResults]);
 
   useEffect(() => {
-    initPhotopea();
-
     authenticatedFetch(`/api/upload/job/${jobId}`)
       .then(res => res.json())
       .then(data => {
@@ -136,30 +133,36 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
     }
   };
 
-  const handleDownloadPsd = async (imageIndex, originalName, editedImageId) => {
+  const handleDownloadPsd = async (imageIndex, originalName) => {
     if (psdGenerating[imageIndex]) return;
 
     setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
 
     try {
-      console.log('[PSD] Starting Photopea PSD generation for:', originalName, 'index:', imageIndex);
+      console.log('[PSD] Starting server-side PSD generation for:', originalName, 'index:', imageIndex);
+      
+      // Use server-side PSD generation with ag-psd for proper editable text layers
+      // First get a signed URL to bypass fetch/blob issues
+      const signedResponse = await authenticatedFetch(`/api/psd/signed-url/${jobId}/${imageIndex}`, {
+        method: 'POST'
+      });
+      
+      if (!signedResponse.ok) {
+        const errorData = await signedResponse.json();
+        throw new Error(errorData.error || 'Failed to get download URL');
+      }
+      
+      const { downloadUrl } = await signedResponse.json();
+      
+      // Download the PSD using the signed URL (opens in new tab to trigger download)
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = originalName.replace(/\.[^/.]+$/, '') + '_editable.psd';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-      // Get image specs for this image (title/subtitle)
-      const spec = imageSpecs[imageIndex] || {};
-      
-      // Build the image URL for the edited image
-      const imageUrl = `/api/images/${editedImageId}?t=${Date.now()}`;
-      
-      // Generate filename from original name
-      const filename = originalName.replace(/\.[^/.]+$/, '') + '_editable.psd';
-      
-      console.log('[PSD] Using Photopea for TRUE editable text layers');
-      console.log('[PSD] Spec:', spec);
-      
-      // Use Photopea client-side generation for true editable text layers
-      await generateAndDownloadPSD(imageUrl, spec, filename);
-
-      console.log('[PSD] Photopea PSD generated and downloaded successfully');
+      console.log('[PSD] Server-side PSD download initiated');
 
     } catch (error) {
       console.error('[PSD] Generation error:', error);
@@ -223,7 +226,7 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
                   </button>
                   <button 
                     className="button button-secondary download-btn"
-                    onClick={() => handleDownloadPsd(idx, image.originalName, image.editedImageId)}
+                    onClick={() => handleDownloadPsd(idx, image.originalName || image.name)}
                     disabled={psdGenerating[idx]}
                   >
                     {psdGenerating[idx] ? 'Generating...' : 'Download PSD'}
