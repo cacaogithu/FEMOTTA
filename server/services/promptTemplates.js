@@ -129,9 +129,12 @@ Consider:
 /**
  * Generate final editing prompt based on AI-analyzed parameters
  * 
- * IMPORTANT: This prompt is carefully structured to prevent the AI from 
- * rendering any guidance text or parameters into the image. Only the 
- * explicit TITLE and SUBTITLE content should appear in the final image.
+ * IMPORTANT: This prompt uses strict separation between:
+ * - RENDER_TEXT: The ONLY text that should appear in the image
+ * - GUIDANCE: Instructions for HOW to render (never drawn on image)
+ * 
+ * Logo overlays are handled by post-processing (overlayLogoOnImage), 
+ * so we do NOT include logo instructions here to avoid duplication.
  */
 export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketplace = 'website', logoInfo = null) {
   const params = analyzedParams || {
@@ -142,63 +145,30 @@ export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketpl
     recommendedMarginLeft: 4
   };
 
-  // Build the prompt with clear separation between what to render and what is guidance
-  let prompt = `You are adding text overlays to a product image. 
+  // Strictly separate what text to render from how to render it
+  return `Add text overlay to this product image.
 
-===== WHAT TO RENDER ON THE IMAGE =====
+RENDER_TEXT (draw these exact strings only):
+TITLE="${title.toUpperCase()}"
+SUBTITLE="${subtitle}"
 
-ONLY render these THREE things on the image:
+GUIDANCE (do NOT draw any of this - styling instructions only):
+- Title: white, uppercase, Saira Bold font, top-left position, drop shadow
+- Subtitle: white, Saira Regular font, below title, smaller size
+- Add subtle dark gradient at top edge for text readability
+- Gradient should be barely visible, just enough for contrast
 
-1. TITLE TEXT: ${title.toUpperCase()}
-   - White uppercase text
-   - Saira Bold font (geometric sans-serif)
-   - Position: top-left corner with margin
-   - Add subtle drop shadow for readability
+FORBIDDEN (never draw these):
+- Any numbers, measurements, percentages, or technical terms
+- Words like "gradient", "opacity", "font", "position", "px", "margin"
+- Any instruction text or parameters
+- Anything except the TITLE and SUBTITLE strings above
 
-2. SUBTITLE TEXT: ${subtitle}
-   - White text, sentence case
-   - Saira Regular font (same family, lighter)
-   - Position: directly below the title
-   - Smaller than title (about 40% of title size)
-
-3. SHADING: Subtle dark gradient
-   - Only at the top edge of image
-   - Semi-transparent, fading to transparent
-   - Just enough to make text readable
-   - Do NOT cover the product`;
-
-  // Add logo instructions if logo is requested
-  if (logoInfo && logoInfo.logoRequested) {
-    prompt += `
-
-4. LOGO: ${logoInfo.logoName || 'Brand logo'}
-   - Position: top-right corner with margin
-   - Size: proportional, not too large
-   - Maintain logo clarity and colors`;
-  }
-
-  prompt += `
-
-===== DO NOT RENDER =====
-
-DO NOT put any of these on the image:
-- Numbers, percentages, or measurements
-- Technical terms like "gradient", "opacity", "px"
-- Instructions or parameters
-- Any text other than the title and subtitle above
-
-===== IMAGE PRESERVATION (CRITICAL) =====
-
-The original product image MUST stay exactly as-is:
-- Do NOT modify the product
-- Do NOT change colors or lighting
-- Do NOT alter the background
-- Do NOT regenerate or replace anything
-- ONLY add the text overlays on top
+PRESERVE IMAGE:
+- Original product, colors, lighting, and background must stay unchanged
+- Only add text overlay on top, nothing else
 
 Output the edited image.`;
-
-  return prompt;
 }
 
 /**

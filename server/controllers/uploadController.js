@@ -894,12 +894,19 @@ async function processImagesWithGemini(jobId) {
     const spec = job.imageSpecs[specIndex];
     const analysis = imageAnalyses[i]; // Use the analysis for this image
 
+    // Build logo info from spec if available
+    const logoInfo = spec.logo_requested ? {
+      logoRequested: true,
+      logoName: spec.logo_name || 'Brand logo'
+    } : null;
+
     // Generate adaptive prompt using AI-analyzed parameters
     let finalPrompt = generateAdaptivePrompt(
       spec.title,
       spec.subtitle,
       analysis, // Pass the AI-analyzed parameters
-      job.marketplacePreset?.id || 'website'
+      job.marketplacePreset?.id || 'website',
+      logoInfo // Pass logo information
     );
 
     if (presetModifier && typeof presetModifier === 'string' && presetModifier.trim()) {
