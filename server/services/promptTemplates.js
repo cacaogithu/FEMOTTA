@@ -1,209 +1,187 @@
-// FEMOTTA - Standardized Image Editing Prompts
-// Version: 4.0
-// Last Updated: 2025-11-26
-// Purpose: Optimized for Gemini/Nano Banana Pro based on official prompting tips
+
+// FEMOTTA - AI-Driven Adaptive Image Editing
+// Version: 5.0
+// Last Updated: 2025-01-29
+// Purpose: Dynamic prompt generation based on image analysis
 
 /**
- * GEMINI NANO BANANA PRO PROMPTING BEST PRACTICES (from official docs):
- * 
- * 1. EDITING INSTRUCTIONS: Be direct and specific (e.g., "change X to Y", "add X at location")
- * 2. TEXT INTEGRATION: Clearly state what text should appear and how
- * 3. COMPOSITION: Define the framing (close-up, wide shot, etc.)
- * 4. STYLE: Specify the aesthetic (photorealistic, professional product photography)
- * 5. Keep original image: Explicitly state to preserve product details
+ * MARKETPLACE RESIZE SPECIFICATIONS
+ * Define platform-specific image dimensions and requirements
  */
-
-/**
- * OPTION A: BACKGROUND ENHANCEMENT ONLY (NO TEXT)
- * Use this for: When text will be added as editable layers in PSD
- * The AI only adds gradient and enhances the background - text is added later via Photopea
- * Font: N/A - text added separately by Photopea for editability
- */
-export const PROMPT_TEMPLATE_FIXED = `Edit this product photo to prepare it for marketing text overlay.
-
-EDITING INSTRUCTIONS:
-- Add a subtle dark gradient at the top edge (covering top 20-25% of image) that fades to fully transparent
-- Slightly enhance contrast and clarity of the product
-- DO NOT add any text or typography - leave space clear at the top for text to be added later
-
-STYLE: Professional product marketing photography, clean and ready for text overlay.
-IMPORTANT: Preserve all original product details, lighting, colors, and image quality. DO NOT add any text. Generate the edited image.`;
-
-/**
- * OPTION A-TEXT: WITH TEXT BAKED IN (legacy, not for PSD editing)
- * Use this only when editable text is NOT needed
- */
-export const PROMPT_TEMPLATE_WITH_TEXT = `Edit this product photo to add marketing text overlay.
-
-EDITING INSTRUCTIONS:
-- Add a subtle dark gradient at the top edge that fades to fully transparent
-- The headline text '{title}' should be rendered in a clean, modern, geometric sans-serif font style (like Saira), bold, white, uppercase letters at the top-left area
-- Below the headline, add '{subtitle}' in the same clean geometric sans-serif font, smaller, white, regular weight
-
-STYLE: Professional product marketing photography with clean text overlay. Use a modern geometric sans-serif font similar to Saira.
-IMPORTANT: Preserve all original product details, lighting, colors, and image quality. Generate the edited image.`;
-
-/**
- * OPTION B: SMART ADAPTIVE STANDARDIZATION  
- * Use this for: Mixed content, varied aspect ratios, complex layouts
- * Font: Saira (geometric sans-serif, clean, modern, slightly condensed)
- */
-export const PROMPT_TEMPLATE_ADAPTIVE = `Edit this product image to create a professional marketing graphic.
-
-EDITING INSTRUCTIONS:
-- Apply a gentle dark gradient overlay at the top that fades to transparent
-- Render the headline '{title}' in a clean, modern, geometric sans-serif font style (like Saira), bold white uppercase letters, positioned at the top
-- Add the subtitle '{subtitle}' in the same geometric sans-serif font, smaller white text below the headline
-- Add subtle drop shadows to both text elements for readability
-
-STYLE: Clean, professional product photography aesthetic. Use modern geometric sans-serif typography similar to Saira font.
-IMPORTANT: Keep all original product details and image quality intact. Generate the edited image.`;
-
-/**
- * DEPRECATED: OLD TEMPLATE WITH TECHNICAL SPECS
- * DO NOT USE - Technical specifications were being rendered as text
- */
-export const PROMPT_TEMPLATE_OLD_DEPRECATED = `[DEPRECATED - DO NOT USE]`;
-
-/**
- * DESIGN PARAMETERS (for reference and ML learning)
- */
-export const DESIGN_PARAMETERS = {
-  // FIXED PARAMETERS - Never change these
-  FIXED: {
-    titleFont: "Montserrat Extra Bold",
-    titleCase: "UPPERCASE",
-    titleSizeStandard: "52px",
-    titleColor: "#FFFFFF",
-    titleLineHeight: "1.1",
-    
-    subtitleFont: "Montserrat Regular",
-    subtitleSizeStandard: "18px",
-    subtitleColor: "#FFFFFF", 
-    subtitleLineHeight: "1.3",
-    subtitleSpacing: "8px",
-    
-    gradientColor1: "rgba(20, 20, 20, 0.35)",
-    gradientColor2: "rgba(20, 20, 20, 0)",
-    gradientHeightStandard: "22%",
-    gradientStyle: "linear",
-    
-    shadowOffsetX: "0px",
-    shadowOffsetY: "1.5px",
-    shadowBlur: "3px",
-    shadowColor: "rgba(0, 0, 0, 0.25)",
-    
-    textPositionTopStandard: "32px",
-    textPositionLeftStandard: "40px",
-    textMaxWidth: "85%",
-    textAlign: "left"
+export const MARKETPLACE_SPECS = {
+  amazon: {
+    name: 'Amazon',
+    mainImage: { width: 2000, height: 2000, minWidth: 1000 },
+    additionalImages: { width: 1600, height: 1600, minWidth: 500 },
+    format: 'JPG',
+    maxFileSize: '10MB',
+    aspectRatio: '1:1'
   },
-  
-  // ADAPTIVE PARAMETERS - Adjust based on image characteristics
-  ADAPTIVE: {
-    // Font size based on image width
-    titleSize: {
-      small: { maxWidth: 1000, size: "48px" },
-      medium: { minWidth: 1000, maxWidth: 2000, size: "52px" },
-      large: { minWidth: 2000, size: "58px" }
-    },
-    
-    // Subtitle maintains ratio to title
-    subtitleSizeRatio: 0.346, // 18/52 = 0.346
-    
-    // Position based on aspect ratio
-    positioning: {
-      portrait: { 
-        aspectRatio: { max: 0.75 }, 
-        top: "40px", 
-        align: "center" 
-      },
-      landscape: { 
-        aspectRatio: { min: 1.5 }, 
-        top: "32px", 
-        left: "60px" 
-      },
-      standard: { 
-        aspectRatio: { min: 0.75, max: 1.5 }, 
-        top: "32px", 
-        left: "40px" 
-      }
-    },
-    
-    // Gradient position based on product detection
-    gradientAdaptive: {
-      productInTopThird: "12%",
-      productElsewhere: "22%"
-    }
+  alibaba: {
+    name: 'Alibaba',
+    mainImage: { width: 800, height: 800, minWidth: 800 },
+    additionalImages: { width: 800, height: 800, minWidth: 640 },
+    format: 'JPG',
+    maxFileSize: '5MB',
+    aspectRatio: '1:1'
   },
-  
-  // VALIDATION CRITERIA
-  VALIDATION: {
-    maxFontSizeVariance: "5%", // Across same aspect ratio
-    maxGradientOpacityVariance: "2%",
-    maxPositionVariance: "10px",
-    shadowMustMatch: "exactly",
-    targetUserSatisfaction: ">90%"
+  shopify: {
+    name: 'Shopify',
+    mainImage: { width: 2048, height: 2048 },
+    additionalImages: { width: 2048, height: 2048 },
+    format: 'JPG/PNG',
+    maxFileSize: '20MB',
+    aspectRatio: 'flexible'
+  },
+  website: {
+    name: 'Website/Generic',
+    mainImage: { width: 1920, height: 1080 },
+    additionalImages: { width: 1920, height: 1080 },
+    format: 'JPG/PNG',
+    maxFileSize: '5MB',
+    aspectRatio: 'flexible'
   }
 };
 
 /**
- * Helper function to select appropriate prompt based on image characteristics
- * @param {Object} imageMetadata - Image dimensions and characteristics
- * @param {string} templateType - 'fixed' or 'adaptive'
- * @returns {string} Prompt template with placeholders
+ * CORE EDITING PARAMETERS (consistent across all platforms)
+ * These define the visual editing style regardless of marketplace
  */
-export function getPromptTemplate(imageMetadata = {}, templateType = 'fixed') {
-  if (templateType === 'adaptive') {
-    return PROMPT_TEMPLATE_ADAPTIVE;
+export const EDITING_PARAMETERS = {
+  gradient: {
+    position: 'top',
+    coverage: { min: 15, max: 25, unit: '%' },
+    opacity: { min: 0.3, max: 0.4 },
+    fadeType: 'linear-to-transparent',
+    color: 'dark-gray'
+  },
+  text: {
+    titleFont: 'Saira-Bold',
+    titleCase: 'UPPERCASE',
+    titleColor: '#FFFFFF',
+    subtitleFont: 'Saira-Regular',
+    subtitleColor: '#FFFFFF',
+    shadow: {
+      offsetX: 0,
+      offsetY: 1.5,
+      blur: 3,
+      color: 'rgba(0, 0, 0, 0.25)'
+    }
+  },
+  preservation: {
+    productDetails: 'preserve 100%',
+    colors: 'preserve original',
+    lighting: 'preserve original',
+    background: 'preserve original'
   }
-  return PROMPT_TEMPLATE_FIXED;
-}
+};
 
 /**
- * Generate final prompt by replacing placeholders
- * @param {string} title - Title text to overlay
- * @param {string} subtitle - Subtitle text to overlay  
- * @param {string} templateType - 'fixed' or 'adaptive'
- * @returns {string} Complete prompt ready for AI
+ * ADAPTIVE PARAMETER RANGES
+ * AI will analyze the image and select values within these ranges
  */
-export function generatePrompt(title, subtitle, templateType = 'fixed') {
-  const template = getPromptTemplate({}, templateType);
-  return template
-    .replace('{title}', title)
-    .replace('{subtitle}', subtitle);
-}
-
-/**
- * Validation function to check if generated images meet consistency standards
- * @param {Array} images - Array of processed image results
- * @returns {Object} Validation results with pass/fail and metrics
- */
-export function validateConsistency(images) {
-  // TODO: Implement image analysis to measure:
-  // - Font size variance
-  // - Position variance  
-  // - Gradient opacity variance
-  // - Shadow consistency
-  
-  return {
-    passed: true,
-    metrics: {
-      fontSizeVariance: "N/A",
-      positionVariance: "N/A",
-      gradientVariance: "N/A",
-      consistencyScore: "N/A"
+export const ADAPTIVE_RANGES = {
+  gradientCoverage: {
+    productInTopThird: { min: 12, max: 18 },
+    productInMiddle: { min: 20, max: 25 },
+    productInBottom: { min: 22, max: 28 }
+  },
+  textSize: {
+    title: {
+      smallImage: { maxWidth: 1000, min: 36, max: 48 },
+      mediumImage: { minWidth: 1000, maxWidth: 2000, min: 48, max: 60 },
+      largeImage: { minWidth: 2000, min: 60, max: 72 }
     },
-    recommendations: []
-  };
+    subtitle: {
+      ratio: 0.4 // subtitle is 40% of title size
+    }
+  },
+  margins: {
+    top: { min: 3, max: 8, unit: '%' },
+    left: { min: 3, max: 6, unit: '%' }
+  }
+};
+
+/**
+ * Generate AI analysis prompt for image-specific parameters
+ */
+export function generateImageAnalysisPrompt(imageContext = {}) {
+  return `Analyze this product image and determine optimal overlay parameters.
+
+Respond with ONLY a JSON object in this exact format:
+{
+  "productPosition": "top-third" | "middle" | "bottom-third",
+  "imageComplexity": "simple" | "moderate" | "complex",
+  "recommendedGradientCoverage": 15-28,
+  "recommendedTitleSize": 36-72,
+  "recommendedMarginTop": 3-8,
+  "recommendedMarginLeft": 3-6,
+  "reasoning": "brief explanation"
 }
 
-// Export for use in uploadController.js
+Consider:
+- Where is the main product located in the frame?
+- How much visual space is available at the top for text?
+- Is the background busy or simple?
+- What gradient coverage will preserve product visibility while supporting text?`;
+}
+
+/**
+ * Generate final editing prompt based on AI-analyzed parameters
+ */
+export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketplace = 'website') {
+  const params = analyzedParams || {
+    productPosition: 'middle',
+    recommendedGradientCoverage: 20,
+    recommendedTitleSize: 52,
+    recommendedMarginTop: 5,
+    recommendedMarginLeft: 4
+  };
+
+  return `CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add overlays on top of the existing image.
+
+GRADIENT OVERLAY:
+- Add a subtle dark gradient at the top edge only (covering approximately ${params.recommendedGradientCoverage}% of image height)
+- Gradient should fade from semi-transparent dark gray (30-40% opacity) to fully transparent
+- Must be barely visible - just enough to improve text readability
+- DO NOT obscure product details
+
+TEXT OVERLAY - TITLE:
+- Text: "${title}"
+- Font: Saira Bold (geometric sans-serif, sharp modern letterforms)
+- Style: UPPERCASE white letters
+- Size: Approximately ${params.recommendedTitleSize}px (adjust proportionally to image dimensions)
+- Position: Top-left area, ${params.recommendedMarginTop}% from top, ${params.recommendedMarginLeft}% from left
+- Drop shadow: 0px 1.5px blur 3px rgba(0,0,0,0.25)
+
+TEXT OVERLAY - SUBTITLE:
+- Text: "${subtitle}"
+- Font: Saira Regular (same geometric sans-serif family, lighter weight)
+- Style: Regular case white text
+- Size: ${Math.round(params.recommendedTitleSize * 0.4)}px (40% of title size)
+- Position: Below title with ${Math.round(params.recommendedTitleSize * 0.3)}px spacing
+- Drop shadow: Same as title
+
+PRESERVATION:
+- Preserve ALL original image details, sharpness, colors, and product features
+- This should look like a minimal professional overlay, not heavy editing
+- Output as high-quality image
+
+Generate the edited image.`;
+}
+
+/**
+ * Get marketplace resize configuration
+ */
+export function getMarketplaceSpec(marketplaceId = 'website') {
+  return MARKETPLACE_SPECS[marketplaceId] || MARKETPLACE_SPECS.website;
+}
+
 export default {
-  PROMPT_TEMPLATE_FIXED,
-  PROMPT_TEMPLATE_ADAPTIVE,
-  DESIGN_PARAMETERS,
-  getPromptTemplate,
-  generatePrompt,
-  validateConsistency
+  MARKETPLACE_SPECS,
+  EDITING_PARAMETERS,
+  ADAPTIVE_RANGES,
+  generateImageAnalysisPrompt,
+  generateAdaptivePrompt,
+  getMarketplaceSpec
 };

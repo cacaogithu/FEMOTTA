@@ -1,4 +1,4 @@
-  import { getJobWithFallback } from '../utils/jobStore.js';
+import { getJobWithFallback } from '../utils/jobStore.js';
   import { downloadFileFromDrive } from '../utils/googleDrive.js';
   import 'ag-psd/initialize-canvas.js'; // Required for Node.js
   import { writePsdBuffer } from 'ag-psd';
@@ -21,14 +21,14 @@
   // Helper function to extract text specs for a specific image
   function getTextSpecsForImage(job, imageIndex) {
     const specs = { title: null, subtitle: null };
-    
+
     // Priority 1: Check editedImages directly (added during processing)
     if (job.editedImages && job.editedImages[imageIndex]) {
       const editedImage = job.editedImages[imageIndex];
       if (editedImage.title) specs.title = editedImage.title;
       if (editedImage.subtitle) specs.subtitle = editedImage.subtitle;
     }
-    
+
     // Priority 2: Try to get from imageSpecs array (extracted from brief)
     if (!specs.title && job.imageSpecs && Array.isArray(job.imageSpecs)) {
       const spec = job.imageSpecs[imageIndex] || 
@@ -38,7 +38,7 @@
         if (!specs.subtitle) specs.subtitle = spec.subtitle || null;
       }
     }
-    
+
     // Priority 3: Fallback - try to extract from the prompt used
     if (!specs.title && job.editedImages && job.editedImages[imageIndex]) {
       const editedImage = job.editedImages[imageIndex];
@@ -46,13 +46,13 @@
         // Try to parse title/subtitle from prompt text
         const titleMatch = editedImage.promptUsed.match(/title[:\s]+["']?([^"'\n,]+)["']?/i) ||
                           editedImage.promptUsed.match(/headline[:\s]+["']?([^"'\n,]+)["']?/i);
-        const subtitleMatch = editedImage.promptUsed.match(/subtitle[:\s]+["']?([^"'\n,]+)["']?/i) ||
+        const subtitleMatch = editededImage.promptUsed.match(/subtitle[:\s]+["']?([^"'\n,]+)["']?/i) ||
                               editedImage.promptUsed.match(/copy[:\s]+["']?([^"'\n,]+)["']?/i);
         if (titleMatch && !specs.title) specs.title = titleMatch[1].trim();
         if (subtitleMatch && !specs.subtitle) specs.subtitle = subtitleMatch[1].trim();
       }
     }
-    
+
     console.log(`[PSD Download] Text specs for image ${imageIndex}:`, specs);
     return specs;
   }
@@ -62,16 +62,16 @@
     // Calculate responsive font sizes based on image dimensions
     const titleFontSize = Math.max(36, Math.min(72, Math.floor(width * 0.045)));
     const subtitleFontSize = Math.max(16, Math.min(32, Math.floor(width * 0.02)));
-    
+
     // Position text in the top portion of the image (matching AI placement)
     const topMargin = Math.floor(height * 0.08);
     const leftMargin = Math.floor(width * 0.05);
-    
+
     const layout = {
       title: null,
       subtitle: null
     };
-    
+
     if (textSpecs.title) {
       layout.title = {
         text: textSpecs.title.toUpperCase(),
@@ -85,7 +85,7 @@
         alignment: 'left'
       };
     }
-    
+
     if (textSpecs.subtitle) {
       const subtitleY = topMargin + titleFontSize + Math.floor(titleFontSize * 0.6);
       layout.subtitle = {
@@ -100,7 +100,7 @@
         alignment: 'left'
       };
     }
-    
+
     return layout;
   }
 
@@ -126,7 +126,7 @@
   function createTextLayers(width, height, textSpecs) {
     const layers = [];
     const layout = calculateTextLayout(width, height, textSpecs);
-    
+
     if (layout.title) {
       layers.push(createEditableTextLayer(
         'Title - Editable Text',
@@ -138,7 +138,7 @@
         layout.title.color
       ));
     }
-    
+
     if (layout.subtitle) {
       layers.push(createEditableTextLayer(
         'Subtitle - Editable Text',
@@ -150,14 +150,14 @@
         layout.subtitle.color
       ));
     }
-    
+
     return layers;
   }
 
   // Generate JSON metadata for designers (fallback if text layers don't work)
   function generateTextMetadata(width, height, textSpecs) {
     const layout = calculateTextLayout(width, height, textSpecs);
-    
+
     return {
       supportsTextLayers: SUPPORTS_TEXT_LAYERS,
       canvasSize: { width, height },
@@ -278,14 +278,24 @@
 
       // Extract text specifications for this image
       const textSpecs = getTextSpecsForImage(job, index);
-      
+
       // Create editable text layers
       const textLayers = createTextLayers(width, height, textSpecs);
-      
+
       console.log(`[PSD Download] Created ${textLayers.length} editable text layers`);
 
-      // Create PSD document with organized layers
-      // Structure: Text Group (editable) > Comparison Group (reference images)
+      // Create gradient layer
+      const gradientCanvas = createCanvas(width, height);
+      const gradientCtx = gradientCanvas.getContext('2d');
+      const gradientHeight = Math.floor(height * 0.22); // 22% gradient coverage
+      const gradient = gradientCtx.createLinearGradient(0, 0, 0, gradientHeight);
+      gradient.addColorStop(0, 'rgba(20, 20, 20, 0.35)');
+      gradient.addColorStop(1, 'rgba(20, 20, 20, 0)');
+      gradientCtx.fillStyle = gradient;
+      gradientCtx.fillRect(0, 0, width, gradientHeight);
+
+      // Create PSD document with fully editable layer structure
+      // Structure: Text Layers (title, subtitle) > Logo Layer > Gradient Layer > Original Image
       const psd = {
         width,
         height,
@@ -293,33 +303,47 @@
         bitsPerChannel: 8,
         colorMode: 3,
         children: [
-          // Editable Text Group - at the top for easy access
-          ...(textLayers.length > 0 ? [{
-            name: 'Editable Text',
-            opened: true,
-            children: textLayers
-          }] : []),
-          // Reference Images Group
+          // Editable Text Layers - at the top for easy access
+          ...(textLayers.length > 0 ? textLayers : []),
+
+          // Logo Layer (placeholder - user can add their own)
           {
-            name: 'Reference Images',
-            opened: true,
+            name: 'Logo (Add Your Own)',
+            opacity: 0, // Hidden by default - user adds their logo here
+            canvas: createCanvas(1, 1), // Minimal placeholder
+            blendMode: 'normal'
+          },
+
+          // Gradient Overlay Layer (editable opacity)
+          {
+            name: 'Gradient Overlay (Editable)',
+            canvas: gradientCanvas,
+            blendMode: 'normal',
+            opacity: 255
+          },
+
+          // Original Background Image
+          {
+            name: 'Original Image (Background)',
+            canvas: originalCanvas,
+            blendMode: 'normal',
+            opacity: 255
+          },
+
+          // Reference Group (hidden by default)
+          {
+            name: 'AI Reference (Hidden)',
+            opened: false,
+            visible: false,
             children: [
               {
-                name: 'AI Edited (Reference)',
+                name: 'AI Edited Version',
                 canvas: editedCanvas,
                 blendMode: 'normal',
                 opacity: 255
               },
               {
-                name: 'Original',
-                visible: false,
-                canvas: originalCanvas,
-                blendMode: 'normal',
-                opacity: 255
-              },
-              {
                 name: 'Difference Highlight',
-                visible: false,
                 canvas: diffCanvas,
                 blendMode: 'normal',
                 opacity: 255
@@ -377,26 +401,26 @@
       }
 
       const imageData = job.editedImages[index];
-      
+
       // Extract text specifications for this image
       const textSpecs = getTextSpecsForImage(job, index);
-      
+
       // Get actual image dimensions by loading the edited image
       let width = 1200;  // fallback
       let height = 800;  // fallback
-      
+
       try {
         if (imageData.editedImageId) {
           console.log('[PSD Info] Loading edited image to get actual dimensions...');
           const editedBuffer = await downloadFileFromDrive(imageData.editedImageId);
-          
+
           const img = await new Promise((resolve, reject) => {
             const image = new Image();
             image.onload = () => resolve(image);
             image.onerror = reject;
             image.src = editedBuffer;
           });
-          
+
           width = img.width;
           height = img.height;
           console.log(`[PSD Info] Actual image dimensions: ${width}x${height}`);
@@ -404,10 +428,10 @@
       } catch (dimError) {
         console.warn('[PSD Info] Could not load image for dimensions, using fallback:', dimError.message);
       }
-      
+
       // Generate metadata with actual dimensions
       const metadata = generateTextMetadata(width, height, textSpecs);
-      
+
       res.json({
         success: true,
         supportsTextLayers: SUPPORTS_TEXT_LAYERS,
@@ -466,9 +490,9 @@
 
       // Return the signed URL
       const downloadUrl = `/api/psd/file/${token}`;
-      
+
       console.log(`[PSD Signed URL] Generated token for job ${jobId}, image ${index}`);
-      
+
       res.json({
         success: true,
         downloadUrl,
@@ -519,38 +543,76 @@
 
       console.log('[PSD Token Download] Fetching image from Google Drive...');
 
-      // Download only the edited image (skip original and difference to reduce file size)
-      const editedBuffer = await downloadFileFromDrive(imageData.editedImageId);
+      // Download both original and edited images from Google Drive
+      const [originalBuffer, editedBuffer] = await Promise.all([
+        downloadFileFromDrive(imageData.originalImageId),
+        downloadFileFromDrive(imageData.editedImageId)
+      ]);
 
-      if (!editedBuffer) {
-        throw new Error('Failed to download image from Google Drive');
+      if (!originalBuffer || !editedBuffer) {
+        throw new Error('Failed to download images from Google Drive');
       }
 
-      console.log('[PSD Token Download] Image downloaded, creating optimized PSD...');
+      console.log('[PSD Token Download] Images downloaded, creating optimized PSD...');
 
-      // Load the image
-      const editedImg = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = (err) => reject(new Error('Failed to load image into canvas'));
-        img.src = editedBuffer;
-      });
+      // Load the images
+      const loadImage = (buffer) => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = (err) => reject(new Error('Failed to load image into canvas'));
+          img.src = buffer;
+        });
+      };
 
-      const width = editedImg.width;
-      const height = editedImg.height;
+      const [originalImg, editedImg] = await Promise.all([
+        loadImage(originalBuffer),
+        loadImage(editedBuffer)
+      ]);
 
-      // Create canvas for the edited image only (reduces file size significantly)
-      const editedCanvas = createCanvas(width, height);
-      const editedCtx = editedCanvas.getContext('2d');
-      editedCtx.drawImage(editedImg, 0, 0);
+
+      // Use the maximum dimensions from both images to prevent cropping
+      const width = Math.max(originalImg.width, editedImg.width);
+      const height = Math.max(originalImg.height, editedImg.height);
+
+      // Helper to create canvas and draw image
+      const createLayerCanvas = (img) => {
+        const canvas = createCanvas(width, height);
+        const ctx = canvas.getContext('2d', { pixelFormat: 'RGB24' });
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0);
+        return canvas;
+      };
+
+      const originalCanvas = createLayerCanvas(originalImg);
+      const editedCanvas = createLayerCanvas(editedImg);
+
+      // Create Difference Layer (visualize changes)
+      const diffCanvas = createCanvas(width, height);
+      const diffCtx = diffCanvas.getContext('2d');
+      diffCtx.drawImage(originalCanvas, 0, 0);
+      diffCtx.globalCompositeOperation = 'difference';
+      diffCtx.drawImage(editedCanvas, 0, 0);
+
 
       // Extract text specifications for this image
       const textSpecs = getTextSpecsForImage(job, imageIndex);
-      
+
       // Create editable text layers
       const textLayers = createTextLayers(width, height, textSpecs);
-      
+
       console.log(`[PSD Token Download] Created ${textLayers.length} editable text layers`);
+
+      // Create gradient layer
+      const gradientCanvas = createCanvas(width, height);
+      const gradientCtx = gradientCanvas.getContext('2d');
+      const gradientHeight = Math.floor(height * 0.22); // 22% gradient coverage
+      const gradient = gradientCtx.createLinearGradient(0, 0, 0, gradientHeight);
+      gradient.addColorStop(0, 'rgba(20, 20, 20, 0.35)');
+      gradient.addColorStop(1, 'rgba(20, 20, 20, 0)');
+      gradientCtx.fillStyle = gradient;
+      gradientCtx.fillRect(0, 0, width, gradientHeight);
 
       // Create OPTIMIZED PSD document - only essential layers
       const psd = {
@@ -560,21 +622,56 @@
         bitsPerChannel: 8,
         colorMode: 3,
         children: [
-          // Editable Text Group - at the top for easy access
-          ...(textLayers.length > 0 ? [{
-            name: 'Editable Text',
-            opened: true,
-            children: textLayers
-          }] : []),
-          // Single background layer (AI Edited image)
+          // Editable Text Layers - at the top for easy access
+          ...(textLayers.length > 0 ? textLayers : []),
+
+          // Logo Layer (placeholder - user can add their own)
           {
-            name: 'AI Edited Background',
-            canvas: editedCanvas,
+            name: 'Logo (Add Your Own)',
+            opacity: 0, // Hidden by default - user adds their logo here
+            canvas: createCanvas(1, 1), // Minimal placeholder
+            blendMode: 'normal'
+          },
+
+          // Gradient Overlay Layer (editable opacity)
+          {
+            name: 'Gradient Overlay (Editable)',
+            canvas: gradientCanvas,
             blendMode: 'normal',
             opacity: 255
+          },
+
+          // Original Background Image
+          {
+            name: 'Original Image (Background)',
+            canvas: originalCanvas,
+            blendMode: 'normal',
+            opacity: 255
+          },
+
+          // Reference Group (hidden by default)
+          {
+            name: 'AI Reference (Hidden)',
+            opened: false,
+            visible: false,
+            children: [
+              {
+                name: 'AI Edited Version',
+                canvas: editedCanvas,
+                blendMode: 'normal',
+                opacity: 255
+              },
+              {
+                name: 'Difference Highlight',
+                canvas: diffCanvas,
+                blendMode: 'normal',
+                opacity: 255
+              }
+            ]
           }
         ]
       };
+
 
       // Generate PSD buffer with compression to reduce file size
       const psdArrayBuffer = writePsdBuffer(psd, { 
@@ -588,14 +685,14 @@
 
       // Send as downloadable file with proper headers for browser streaming
       const fileName = `${(imageData.originalName || `image_${imageIndex}`).replace(/\.[^/.]+$/, '')}_edited.psd`;
-      
+
       res.setHeader('Content-Type', 'image/vnd.adobe.photoshop');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.setHeader('Content-Length', psdBuffer.length);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
-      
+
       res.send(psdBuffer);
 
       console.log('[PSD Token Download] Sent to client:', fileName);
@@ -611,4 +708,3 @@
 
   // Export SUPPORTS_TEXT_LAYERS constant for external use
   export { SUPPORTS_TEXT_LAYERS };
-

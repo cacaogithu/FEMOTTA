@@ -1,7 +1,7 @@
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
-import { editMultipleImagesWithGemini } from '../services/geminiImage.js';
+import { editMultipleImagesWithGemini, analyzeImageForParameters } from '../services/geminiImage.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
@@ -16,7 +16,7 @@ async function editImageUnified(imageUrl, prompt, options = {}) {
   // Inject curated Saira typography and image preservation guidelines
   const sairaGuidelines = getCompleteOverlayGuidelines();
   const enhancedPrompt = `${sairaGuidelines}\n\nSPECIFIC IMAGE INSTRUCTIONS:\n${prompt}`;
-  
+
   console.log('');
   console.log('╔═══════════════════════════════════════════════════════════════╗');
   console.log('║                  GEMINI IMAGE EDIT REQUEST                    ║');
@@ -27,13 +27,13 @@ async function editImageUnified(imageUrl, prompt, options = {}) {
   console.log('╠───────────────────────────────────────────────────────────────╣');
   console.log('║ Image URL:', imageUrl.substring(0, 60) + '...');
   console.log('╚═══════════════════════════════════════════════════════════════╝');
-  
+
   try {
     const result = await editMultipleImagesWithGemini([imageUrl], enhancedPrompt, {
       geminiApiKey: options.geminiApiKey,
       retries: 3
     });
-    
+
     console.log('[GEMINI] ✅ Success - Image edited');
     return result[0];
   } catch (error) {
@@ -48,23 +48,23 @@ async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-le
     // Extract base64 data from data URL
     const base64Data = logoBase64.replace(/^data:image\/\w+;base64,/, '');
     const logoBuffer = Buffer.from(base64Data, 'base64');
-    
+
     // Get image metadata
     const imageMetadata = await sharp(imageBuffer).metadata();
     const { width, height } = imageMetadata;
-    
+
     // Resize logo to be proportional (max 15% of image width)
     const maxLogoWidth = Math.floor(width * 0.15);
     const resizedLogo = await sharp(logoBuffer)
       .resize(maxLogoWidth, null, { fit: 'inside', withoutEnlargement: true })
       .toBuffer();
-    
+
     const logoMetadata = await sharp(resizedLogo).metadata();
-    
+
     // Calculate position based on option
     let left, top;
     const margin = Math.floor(width * 0.03); // 3% margin
-    
+
     switch (position) {
       case 'top-left':
         left = margin;
@@ -84,7 +84,7 @@ async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-le
         top = height - logoMetadata.height - margin;
         break;
     }
-    
+
     // Composite the logo onto the image
     const resultBuffer = await sharp(imageBuffer)
       .composite([{
@@ -94,7 +94,7 @@ async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-le
       }])
       .jpeg({ quality: 95 })
       .toBuffer();
-    
+
     console.log(`[Logo Overlay] Successfully overlaid logo at ${position} (${logoMetadata.width}x${logoMetadata.height})`);
     return resultBuffer;
   } catch (error) {
@@ -197,7 +197,7 @@ For each image specification, extract:
 - logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", etc.)
 - logo_name: If logo_requested is true, extract the brand/logo name (e.g., "Intel Core", "AMD Ryzen", "NVIDIA GeForce"). Set to null if no logo requested.
 
-For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS, NO technical specifications):
+For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS):
 
 "CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.
 
@@ -345,10 +345,10 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
     // Separate logos from product images based on size
     // Logos are typically smaller (under 50KB), product images are larger
     const LOGO_SIZE_THRESHOLD = 50000; // 50KB threshold
-    
+
     const logoImages = [];
     const productImages = [];
-    
+
     for (const img of extractedImages) {
       if (img.buffer.length < LOGO_SIZE_THRESHOLD) {
         // Convert logo to base64 for later use
@@ -364,14 +364,14 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
         productImages.push(img);
       }
     }
-    
+
     console.log(`[DOCX Extraction] Separated: ${productImages.length} product images, ${logoImages.length} logo images`);
-    
+
     // Only take the number of product images we need for the specs
     const imagesToProcess = productImages.slice(0, imageSpecs.length);
-    
+
     console.log(`[DOCX Extraction] Final image count: ${imagesToProcess.length} (matching ${imageSpecs.length} specs)`);
-    
+
     if (imagesToProcess.length < imageSpecs.length) {
       console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
     }
@@ -686,10 +686,10 @@ export async function uploadPDF(req, res) {
     }
 
     const startTime = new Date();
-    
+
     let marketplacePreset = null;
     let driveDestinationFolderId = null;
-    
+
     try {
       if (req.body && req.body.marketplacePreset) {
         marketplacePreset = typeof req.body.marketplacePreset === 'string' 
@@ -704,7 +704,7 @@ export async function uploadPDF(req, res) {
     } catch (parseErr) {
       console.warn('[Upload Brief] Could not parse preset/folder settings:', parseErr.message);
     }
-    
+
     createJob({
       id: jobId,
       brandId: req.brand.id,
@@ -872,7 +872,7 @@ async function processImagesWithGemini(jobId) {
   const presetModifier = job.marketplacePreset?.promptModifier || null;
   const presetMode = job.marketplacePreset?.aiMode || 'balanced';
   const presetId = job.marketplacePreset?.id || 'default';
-  
+
   if (presetModifier && typeof presetModifier === 'string' && presetModifier.trim()) {
     console.log(`[Marketplace Preset] Applying ${presetId} mode (${presetMode})`);
     console.log(`[Marketplace Preset] Prompt modifier length: ${presetModifier.length} chars`);
@@ -880,33 +880,54 @@ async function processImagesWithGemini(jobId) {
     console.log(`[Marketplace Preset] Using ${presetId} mode (no prompt modifications)`);
   }
 
-  // Match images to specifications
-  // If we have more images than specs, intelligently cycle through specs
-  // This handles cases like logo images or product variant images
-  const imagePrompts = job.images.map((img, idx) => {
-    // Use modulo to cycle through specs if we have more images than specs
-    const specIndex = idx % job.imageSpecs.length;
+  // Analyze images for parameters before generating prompts
+  console.log(`[Parameter Analysis] Analyzing ${job.images.length} images for AI parameters...`);
+  const imageUrls = job.images.map(img => img.publicUrl);
+  let imageAnalyses = [];
+  try {
+    imageAnalyses = await Promise.all(
+      imageUrls.map(url => analyzeImageForParameters(url, { geminiApiKey: brandConfig.geminiApiKey }))
+    );
+    console.log(`[Parameter Analysis] Successfully analyzed ${imageAnalyses.length} images.`);
+  } catch (analysisError) {
+    console.error('[Parameter Analysis] Failed to analyze images:', analysisError.message);
+    // Decide how to handle this: fail job, or continue with default prompts?
+    // For now, we'll log and continue, hoping generateAdaptivePrompt can handle undefined analysis
+    // or we might fall back to generatePrompt if analysis is critical.
+    // For this example, we will proceed assuming analysis might be partial or missing.
+    imageAnalyses = new Array(job.images.length).fill(null); // Fill with null to indicate failure
+  }
+
+  // Match images to specifications and generate prompts using AI-analyzed parameters
+  const imagePrompts = job.images.map((img, i) => {
+    const specIndex = i % job.imageSpecs.length;
     const spec = job.imageSpecs[specIndex];
-    console.log(`Image ${idx + 1}: ${img.originalName} -> "${spec?.title || 'FALLBACK'}" (spec ${specIndex + 1}/${job.imageSpecs.length})`);
-    
-    let basePrompt = spec?.ai_prompt || job.imageSpecs[0].ai_prompt;
-    
+    const analysis = imageAnalyses[i]; // Use the analysis for this image
+
+    // Generate adaptive prompt using AI-analyzed parameters
+    let finalPrompt = generateAdaptivePrompt(
+      spec.title,
+      spec.subtitle,
+      analysis, // Pass the AI-analyzed parameters
+      job.marketplacePreset?.id || 'website'
+    );
+
     if (presetModifier && typeof presetModifier === 'string' && presetModifier.trim()) {
-      basePrompt = `${presetModifier.trim()}\n\nORIGINAL INSTRUCTIONS:\n${basePrompt}`;
+      finalPrompt = `${finalPrompt}\n\nADDITIONAL REQUIREMENTS:\n${presetModifier}`;
     }
-    
-    return basePrompt;
+
+    return finalPrompt;
   });
 
   console.log(`[Matching Strategy] ${job.images.length} images mapped to ${job.imageSpecs.length} specifications using ${job.images.length > job.imageSpecs.length ? 'cyclic' : 'direct'} matching`);
 
   const hasActiveModifier = presetModifier && typeof presetModifier === 'string' && presetModifier.trim();
-  
+
   addWorkflowStep(jobId, {
     name: 'Prepare Processing',
     status: 'completed',
-    description: hasActiveModifier 
-      ? `Preparing images with ${job.marketplacePreset?.name || presetId} preset (${presetMode} mode)` 
+    description: hasActiveModifier
+      ? `Preparing images with ${job.marketplacePreset?.name || presetId} preset (${presetMode} mode)`
       : 'Preparing images with individual prompts for each image',
     details: {
       imageCount: job.images.length,
@@ -927,7 +948,7 @@ async function processImagesWithGemini(jobId) {
     }
   });
 
-  await updateJob(jobId, { 
+  await updateJob(jobId, {
     status: 'processing',
     processingStep: 'Processing images with individual prompts'
   });
@@ -955,10 +976,9 @@ async function processImagesWithGemini(jobId) {
     }
   });
 
-  const imageUrls = job.images.map(img => img.publicUrl);
   console.log('Image URLs to process:', imageUrls);
 
-  await updateJob(jobId, { 
+  await updateJob(jobId, {
     status: 'processing',
     processingStep: 'Editing images with AI (individual prompts per image)'
   });
@@ -1080,7 +1100,7 @@ async function processImagesWithGemini(jobId) {
   const editedImages = [];
   const DEFAULT_EDITED_IMAGES_FOLDER = brandConfig.editedResultsFolderId;
   const EDITED_IMAGES_FOLDER = job.driveDestinationFolderId || DEFAULT_EDITED_IMAGES_FOLDER;
-  
+
   if (job.driveDestinationFolderId) {
     console.log(`[Gemini] Using custom drive destination: ${EDITED_IMAGES_FOLDER}`);
   }
@@ -1090,7 +1110,7 @@ async function processImagesWithGemini(jobId) {
 
   console.log(`Saving ${results.length} edited images to Drive (brand: ${job.brandSlug})...`);
 
-  await updateJob(jobId, { 
+  await updateJob(jobId, {
     processingStep: 'Saving edited images to cloud storage'
   });
 
@@ -1114,7 +1134,7 @@ async function processImagesWithGemini(jobId) {
 
     // Handle both formats: result.outputs (direct API response) or result.data.outputs (wrapped)
     const outputs = result.outputs || (result.data && result.data.outputs);
-    
+
     if (outputs && outputs.length > 0) {
       const editedImageUrl = outputs[0];
       console.log(`Downloading edited image from: ${editedImageUrl}`);
@@ -1179,7 +1199,7 @@ async function processImagesWithGemini(jobId) {
   });
 
   console.log(`Successfully processed ${editedImages.length} images`);
-  await updateJob(jobId, { 
+  await updateJob(jobId, {
     status: 'completed',
     editedImages,
     processingStep: 'Complete',
