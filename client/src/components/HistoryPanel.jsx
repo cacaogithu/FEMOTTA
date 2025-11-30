@@ -228,7 +228,12 @@ function HistoryPanel({ onSelectBatch }) {
         subtitle: variant.subtitle || ''
       };
       
-      const imageUrl = variant.editedUrl || `/api/images/${variant.editedDriveId}?t=${Date.now()}`;
+      // Always use local API endpoint to avoid CORS issues with Google Drive URLs
+      const driveId = variant.editedDriveId || variant.editedImageId;
+      if (!driveId) {
+        throw new Error('Image ID not found');
+      }
+      const imageUrl = `/api/images/${driveId}?t=${Date.now()}`;
       const filename = (variant.editedName || variant.originalName || `image_${imageIndex}`).replace(/\.[^/.]+$/, '') + '_editable.psd';
       
       console.log('[History PSD] Using Photopea for TRUE editable text layers');
