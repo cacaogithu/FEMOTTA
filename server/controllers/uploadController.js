@@ -17,27 +17,16 @@ async function editImageUnified(imageUrl, prompt, options = {}) {
   const sairaGuidelines = getCompleteOverlayGuidelines();
   const enhancedPrompt = `${sairaGuidelines}\n\nSPECIFIC IMAGE INSTRUCTIONS:\n${prompt}`;
 
-  console.log('');
-  console.log('╔═══════════════════════════════════════════════════════════════╗');
-  console.log('║                  GEMINI IMAGE EDIT REQUEST                    ║');
-  console.log('╠═══════════════════════════════════════════════════════════════╣');
-  console.log('║ ENHANCED PROMPT (with Saira guidelines):');
-  console.log('╠───────────────────────────────────────────────────────────────╣');
-  enhancedPrompt.split('\n').forEach(line => console.log('║ ' + line));
-  console.log('╠───────────────────────────────────────────────────────────────╣');
-  console.log('║ Image URL:', imageUrl.substring(0, 60) + '...');
-  console.log('╚═══════════════════════════════════════════════════════════════╝');
-
   try {
     const result = await editMultipleImagesWithGemini([imageUrl], enhancedPrompt, {
       geminiApiKey: options.geminiApiKey,
-      retries: 3
+      retries: 3,
+      imageIndex: options.imageIndex || 0
     });
 
-    console.log('[GEMINI] ✅ Success - Image edited');
     return result[0];
   } catch (error) {
-    console.error('[GEMINI] ❌ Failed:', error.message);
+    console.error('[GEMINI] ❌ Edit failed:', error.message);
     throw error;
   }
 }
@@ -1032,12 +1021,23 @@ async function processImagesWithGemini(jobId) {
       const imageIndex = i + idx;
       const specIndex = imageIndex % job.imageSpecs.length;
       const prompt = batchPrompts[idx];
-      const specTitle = job.imageSpecs[specIndex]?.title || 'N/A';
-      console.log(`  Image ${imageIndex + 1}: Using prompt for "${specTitle}"`);
+      const spec = job.imageSpecs[specIndex];
+      const specTitle = spec?.title || 'N/A';
+      const specSubtitle = spec?.subtitle || 'N/A';
+
+      console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
+      console.log(`║ PROCESSING IMAGE ${imageIndex + 1}/${imageUrls.length}`);
+      console.log(`╠════════════════════════════════════════════════════════════════╣`);
+      console.log(`║ Title: ${specTitle}`);
+      console.log(`║ Subtitle: ${specSubtitle.substring(0, 50)}${specSubtitle.length > 50 ? '...' : ''}`);
+      console.log(`║ Using spec: ${specIndex + 1}/${job.imageSpecs.length}`);
+      console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
 
       return editImageUnified(url, prompt, {
-        geminiApiKey: brandConfig.geminiApiKey
+        geminiApiKey: brandConfig.geminiApiKey,
+        imageIndex
       }).then(async result => {
+        console.log(`\n✅ SUCCESS - Image ${imageIndex + 1}/${imageUrls.length}: "${specTitle}"`);
         try {
           await updateJob(jobId, {
             processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
@@ -1049,7 +1049,8 @@ async function processImagesWithGemini(jobId) {
         }
         return result;
       }).catch(err => {
-        console.error(`[Batch] Image ${imageIndex + 1} failed:`, err.message);
+        console.error(`\n❌ FAILED - Image ${imageIndex + 1}/${imageUrls.length}: "${specTitle}"`);
+        console.error(`   Error: ${err.message}`);
         return { error: err.message, imageIndex };
       });
     });
@@ -1130,28 +1131,29 @@ async function processImagesWithGemini(jobId) {
     const specIndex = i % job.imageSpecs.length;
     const spec = job.imageSpecs[specIndex];
 
-    console.log(`Processing result ${i + 1}/${results.length}:`, JSON.stringify(result, null, 2).substring(0, 300));
+    console.log(`\n[Save] Processing result ${i + 1}/${results.length} - "${spec?.title || 'N/A'}"`);
 
     // Handle both formats: result.outputs (direct API response) or result.data.outputs (wrapped)
     const outputs = result.outputs || (result.data && result.data.outputs);
 
     if (outputs && outputs.length > 0) {
       const editedImageUrl = outputs[0];
-      console.log(`Downloading edited image from: ${editedImageUrl}`);
+      const imageDataSize = Math.round(editedImageUrl.length / 1024);
+      console.log(`[Save] Image data received: ${imageDataSize}KB`);
 
       const imageResponse = await fetch(editedImageUrl);
       let imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
       // Check if this spec requires a logo overlay
       if (spec && spec.logoBase64 && spec.logo_requested === true) {
-        console.log(`[Logo Overlay] Applying logo to image ${i + 1} (${spec.logo_name || 'brand logo'})`);
+        console.log(`[Logo] Applying ${spec.logo_name || 'brand'} logo to image ${i + 1}`);
         imageBuffer = await overlayLogoOnImage(imageBuffer, spec.logoBase64, 'bottom-left');
       }
 
       const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
       const editedFileName = `${originalNameWithoutExt}_edited.jpg`;
 
-      console.log(`Uploading ${editedFileName} to Drive...`);
+      console.log(`[Drive] Uploading ${editedFileName}...`);
       const uploadedFile = await uploadFileToDrive(
         imageBuffer,
         editedFileName,
@@ -1161,7 +1163,7 @@ async function processImagesWithGemini(jobId) {
 
       await makeFilePublic(uploadedFile.id);
 
-      console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
+      console.log(`✅ [Save] Image ${i + 1}/${results.length} saved: ${editedFileName}`);
 
       return {
         id: uploadedFile.id,
@@ -1173,7 +1175,8 @@ async function processImagesWithGemini(jobId) {
         logoApplied: spec?.logo_requested === true && spec?.logoBase64 ? true : false
       };
     } else {
-      console.error(`No edited image in result ${i + 1} - Missing outputs. Result keys:`, Object.keys(result || {}));
+      console.error(`❌ [Save] No edited image in result ${i + 1} - Missing outputs`);
+      console.error(`   Available keys:`, Object.keys(result || {}));
       return null;
     }
   });

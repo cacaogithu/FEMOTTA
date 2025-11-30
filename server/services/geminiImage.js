@@ -39,12 +39,20 @@ class GeminiImageService {
   }
 
   async editImage(imageUrl, prompt, options = {}) {
-    const { retries = 3 } = options;
+    const { retries = 3, imageIndex = 0 } = options;
+
+    // Log prompt details (truncated for readability)
+    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[GeminiImage] Processing Image #${imageIndex + 1}`);
+    console.log(`[GeminiImage] Image URL: ${imageUrl.substring(0, 80)}...`);
+    console.log(`[GeminiImage] Prompt Preview (first 200 chars):`);
+    console.log(`  ${prompt.substring(0, 200)}...`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
     let lastError;
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        console.log(`[GeminiImage] Edit attempt ${attempt}/${retries}`);
+        console.log(`[GeminiImage] Attempt ${attempt}/${retries} - Sending to Gemini API...`);
 
         const imagePart = await this._inputToPart(imageUrl);
 
@@ -67,8 +75,6 @@ class GeminiImageService {
           },
         ];
 
-        console.log('[GeminiImage] Sending request to Gemini...');
-
         const response = await this.client.models.generateContent({
           model: this.model,
           config,
@@ -79,7 +85,8 @@ class GeminiImageService {
             response.candidates[0]?.content?.parts) {
           for (const part of response.candidates[0].content.parts) {
             if (part.inlineData?.data) {
-              console.log('[GeminiImage] Received edited image');
+              const imageSize = Math.round(part.inlineData.data.length / 1024);
+              console.log(`✅ [GeminiImage] SUCCESS - Image #${imageIndex + 1} edited (${imageSize}KB)`);
               return {
                 code: 200,
                 message: 'success',
@@ -96,17 +103,18 @@ class GeminiImageService {
         throw new Error('No image data in response');
 
       } catch (error) {
-        console.error(`[GeminiImage] Attempt ${attempt} failed:`, error.message);
+        console.error(`❌ [GeminiImage] Attempt ${attempt}/${retries} FAILED:`, error.message);
         lastError = error;
 
         if (attempt < retries) {
           const delay = Math.pow(2, attempt) * 1000;
-          console.log(`[GeminiImage] Retrying in ${delay}ms...`);
+          console.log(`⏳ [GeminiImage] Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
 
+    console.error(`❌ [GeminiImage] ALL RETRIES FAILED for Image #${imageIndex + 1}`);
     throw lastError;
   }
 
@@ -118,8 +126,10 @@ class GeminiImageService {
       const prompt = Array.isArray(prompts) ? prompts[i] : prompts;
 
       try {
-        console.log(`[GeminiImage] Processing image ${i + 1}/${imageUrls.length}`);
-        const result = await this.editImage(imageUrl, prompt, options);
+        const result = await this.editImage(imageUrl, prompt, {
+          ...options,
+          imageIndex: options.imageIndex !== undefined ? options.imageIndex : i
+        });
         results.push(result);
 
         if (options.onProgress) {
@@ -131,7 +141,7 @@ class GeminiImageService {
           });
         }
       } catch (error) {
-        console.error(`[GeminiImage] Failed to process image ${i + 1}:`, error.message);
+        console.error(`❌ [GeminiImage] Failed to process image ${i + 1}:`, error.message);
         results.push({ error: error.message, imageIndex: i });
       }
     }
