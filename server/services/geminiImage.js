@@ -175,7 +175,10 @@ Consider:
 - Is the background busy or simple?
 - What gradient coverage will preserve product visibility while supporting text?`;
 
-    const model = geminiService.genAI.getGenerativeModel({ 
+    // Use the GoogleGenAI instance from the constructor
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(apiKey || process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ 
       model: 'gemini-2.0-flash-exp' 
     });
 

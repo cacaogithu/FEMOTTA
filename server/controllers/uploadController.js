@@ -5,6 +5,7 @@ import { editMultipleImagesWithGemini, analyzeImageForParameters } from '../serv
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
+import { generateAdaptivePrompt } from '../services/promptTemplates.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
