@@ -62,3 +62,13 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
   - Saira Regular for subtitles (sentence case, white, below title)
 - **Curated Reference System**: `server/services/sairaReference.js` provides canonical typography guidelines that are automatically injected into all Gemini prompts
 - **Image Preservation**: Prompts explicitly forbid modifying the original image - only text overlays and subtle gradients are added
+
+## AI Prompt System
+The prompt system (`server/services/promptTemplates.js`) uses a strict structure to prevent unwanted text from appearing in generated images:
+
+- **RENDER_TEXT Section**: Contains ONLY the literal title and subtitle strings in key=value format (TITLE="...", SUBTITLE="...")
+- **GUIDANCE Section**: Styling instructions explicitly marked as non-renderable with "(do NOT draw any of this)" disclaimer
+- **FORBIDDEN Section**: Explicit list of terms that should never appear (numbers, percentages, technical terms like "gradient", "opacity", "px", etc.)
+- **PRESERVE IMAGE Section**: Instructions to keep original product image unchanged
+
+**Important**: Logo overlays are handled by post-processing (`overlayLogoOnImage` using Sharp library), NOT by the AI prompt. This prevents duplication and ensures consistent logo placement.
