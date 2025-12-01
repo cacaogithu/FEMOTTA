@@ -42,14 +42,19 @@ import { getJobWithFallback } from '../utils/jobStore.js';
     // Priority 3: Fallback - try to extract from the prompt used
     if (!specs.title && job.editedImages && job.editedImages[imageIndex]) {
       const editedImage = job.editedImages[imageIndex];
-      if (editedImage.promptUsed) {
-        // Try to parse title/subtitle from prompt text
-        const titleMatch = editedImage.promptUsed.match(/title[:\s]+["']?([^"'\n,]+)["']?/i) ||
-                          editedImage.promptUsed.match(/headline[:\s]+["']?([^"'\n,]+)["']?/i);
-        const subtitleMatch = editedImage.promptUsed.match(/subtitle[:\s]+["']?([^"'\n,]+)["']?/i) ||
-                              editedImage.promptUsed.match(/copy[:\s]+["']?([^"'\n,]+)["']?/i);
-        if (titleMatch && !specs.title) specs.title = titleMatch[1].trim();
-        if (subtitleMatch && !specs.subtitle) specs.subtitle = subtitleMatch[1].trim();
+      // Safely check if promptUsed exists and is a string before using regex
+      if (editedImage && editedImage.promptUsed && typeof editedImage.promptUsed === 'string') {
+        try {
+          // Try to parse title/subtitle from prompt text
+          const titleMatch = editedImage.promptUsed.match(/title[:\s]+["']?([^"'\n,]+)["']?/i) ||
+                            editedImage.promptUsed.match(/headline[:\s]+["']?([^"'\n,]+)["']?/i);
+          const subtitleMatch = editedImage.promptUsed.match(/subtitle[:\s]+["']?([^"'\n,]+)["']?/i) ||
+                                editedImage.promptUsed.match(/copy[:\s]+["']?([^"'\n,]+)["']?/i);
+          if (titleMatch && titleMatch[1] && !specs.title) specs.title = titleMatch[1].trim();
+          if (subtitleMatch && subtitleMatch[1] && !specs.subtitle) specs.subtitle = subtitleMatch[1].trim();
+        } catch (regexErr) {
+          console.warn('[PSD] Error parsing prompt for title/subtitle:', regexErr.message);
+        }
       }
     }
 
@@ -72,7 +77,14 @@ import { getJobWithFallback } from '../utils/jobStore.js';
       subtitle: null
     };
 
-    if (textSpecs.title) {
+    // Safely handle null/undefined textSpecs
+    if (!textSpecs) {
+      console.warn('[PSD Layout] No text specs provided, returning empty layout');
+      return layout;
+    }
+
+    // Safely handle title with null guards and type coercion
+    if (textSpecs.title && typeof textSpecs.title === 'string') {
       layout.title = {
         text: textSpecs.title.toUpperCase(),
         x: leftMargin,
@@ -86,7 +98,8 @@ import { getJobWithFallback } from '../utils/jobStore.js';
       };
     }
 
-    if (textSpecs.subtitle) {
+    // Safely handle subtitle with null guards and type coercion
+    if (textSpecs.subtitle && typeof textSpecs.subtitle === 'string') {
       const subtitleY = topMargin + titleFontSize + Math.floor(titleFontSize * 0.6);
       layout.subtitle = {
         text: textSpecs.subtitle,

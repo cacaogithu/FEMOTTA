@@ -1141,8 +1141,14 @@ async function processImagesWithGemini(jobId) {
 
     console.log(`\n[Save] Processing result ${i + 1}/${results.length} - "${spec?.title || 'N/A'}"`);
 
-    // Check for error results from Gemini first
-    if (result && result.error) {
+    // Validate result exists and is not an error
+    if (!result) {
+      console.error(`❌ [Save] Image ${i + 1} - No result returned from AI processing`);
+      return null;
+    }
+
+    // Check for explicit error results from Gemini
+    if (result.error) {
       console.error(`❌ [Save] Image ${i + 1} failed during AI processing: ${result.error}`);
       return null;
     }
@@ -1150,7 +1156,15 @@ async function processImagesWithGemini(jobId) {
     // Handle both formats: result.outputs (direct API response) or result.data.outputs (wrapped)
     const outputs = result.outputs || (result.data && result.data.outputs);
 
-    if (outputs && outputs.length > 0) {
+    // Validate outputs exist and have content - reject malformed success responses
+    if (!outputs || !Array.isArray(outputs) || outputs.length === 0) {
+      console.error(`❌ [Save] Image ${i + 1} - Invalid or missing outputs from AI processing`);
+      console.error(`   Result keys: ${Object.keys(result).join(', ')}`);
+      if (result.data) console.error(`   Data keys: ${Object.keys(result.data).join(', ')}`);
+      return null;
+    }
+
+    if (outputs[0] && typeof outputs[0] === 'string' && outputs[0].length > 0) {
       const editedImageUrl = outputs[0];
       const imageDataSize = Math.round(editedImageUrl.length / 1024);
       console.log(`[Save] Image data received: ${imageDataSize}KB`);
