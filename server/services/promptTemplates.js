@@ -145,12 +145,16 @@ export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketpl
     recommendedMarginLeft: 4
   };
 
+  // Sanitize and provide defaults for title/subtitle to prevent crashes
+  const safeTitle = (title || 'PRODUCT').toString().replace(/"/g, "'");
+  const safeSubtitle = (subtitle || '').toString().replace(/"/g, "'");
+
   // Strictly separate what text to render from how to render it
   return `Add text overlay to this product image.
 
 RENDER_TEXT (draw these exact strings only):
-TITLE="${title.toUpperCase()}"
-SUBTITLE="${subtitle}"
+TITLE="${safeTitle.toUpperCase()}"
+SUBTITLE="${safeSubtitle}"
 
 GUIDANCE (do NOT draw any of this - styling instructions only):
 - Title: white, uppercase, Saira Bold font, top-left position, drop shadow

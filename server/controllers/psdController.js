@@ -46,7 +46,7 @@ import { getJobWithFallback } from '../utils/jobStore.js';
         // Try to parse title/subtitle from prompt text
         const titleMatch = editedImage.promptUsed.match(/title[:\s]+["']?([^"'\n,]+)["']?/i) ||
                           editedImage.promptUsed.match(/headline[:\s]+["']?([^"'\n,]+)["']?/i);
-        const subtitleMatch = editededImage.promptUsed.match(/subtitle[:\s]+["']?([^"'\n,]+)["']?/i) ||
+        const subtitleMatch = editedImage.promptUsed.match(/subtitle[:\s]+["']?([^"'\n,]+)["']?/i) ||
                               editedImage.promptUsed.match(/copy[:\s]+["']?([^"'\n,]+)["']?/i);
         if (titleMatch && !specs.title) specs.title = titleMatch[1].trim();
         if (subtitleMatch && !specs.subtitle) specs.subtitle = subtitleMatch[1].trim();
