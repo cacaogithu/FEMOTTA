@@ -1,4 +1,3 @@
-
 // FEMOTTA - AI-Driven Adaptive Image Editing
 // Version: 5.0
 // Last Updated: 2025-01-29
@@ -142,50 +141,87 @@ export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketpl
     recommendedGradientCoverage: 20,
     recommendedTitleSize: 52,
     recommendedMarginTop: 5,
-    recommendedMarginLeft: 4
+    recommendedMarginLeft: 4,
+    textAlignment: 'left' // default to left alignment
   };
 
   // Sanitize and provide defaults for title/subtitle to prevent crashes
   const safeTitle = (title || 'PRODUCT').toString().replace(/"/g, "'");
   const safeSubtitle = (subtitle || '').toString().replace(/"/g, "'");
 
-  // Hyper-specific prompt for Nano Banana Pro with exact metrics
-  return `Edit this product image by adding ONLY text overlay and gradient. DO NOT modify the original product.
+  // Calculate exact metrics based on analyzed parameters
+  const gradientCoverage = params.recommendedGradientCoverage || 20;
+  const gradientOpacity = 0.35; // Fixed at 35% opacity for dark gradient
+  const titleFontSize = params.recommendedTitleSize || 52;
+  const subtitleFontSize = Math.round(titleFontSize * 0.35); // Subtitle is 35% of title size
+  const marginTop = params.recommendedMarginTop || 5;
+  const marginLeft = params.recommendedMarginLeft || 4;
+  const textAlignment = params.textAlignment || 'left';
+
+  // Text shadow specification
+  const shadowOffsetY = 1.5;
+  const shadowBlur = 3;
+  const shadowOpacity = 0.25;
+
+  // Line spacing
+  const titleLineHeight = 1.1;
+  const subtitleLineHeight = 1.3;
+  const subtitleMarginTop = 8; // pixels below title
+
+  // Generate alignment-specific positioning instructions
+  let positioningInstructions = '';
+  if (textAlignment === 'center') {
+    positioningInstructions = `Position title text horizontally centered at ${marginTop}% from top edge. Position subtitle horizontally centered ${subtitleMarginTop}px below title.`;
+  } else if (textAlignment === 'right') {
+    positioningInstructions = `Position title text ${marginLeft}% from right edge, ${marginTop}% from top edge. Position subtitle aligned to right edge, ${subtitleMarginTop}px below title.`;
+  } else {
+    // default: left alignment
+    positioningInstructions = `Position title text ${marginLeft}% from left edge, ${marginTop}% from top edge. Position subtitle aligned to left edge, ${subtitleMarginTop}px below title.`;
+  }
+
+  // Hyper-specific prompt with exact metrics for Nano Banana Pro
+  return `Edit this product image by adding text overlay with precise specifications.
 
 GRADIENT OVERLAY:
-- Position: Top edge of image only
-- Height: Exactly ${params.recommendedGradientCoverage}% from top (${Math.round(params.recommendedGradientCoverage * 0.01 * 2160)} pixels on 2160px height)
-- Color: Linear gradient from rgba(0,0,0,0.40) at top to rgba(0,0,0,0) at bottom
-- Blur: 0px (sharp gradient edge)
-- Opacity: 40% at top, fading to 0% transparent
+- Apply linear gradient starting from top edge
+- Coverage: top ${gradientCoverage}% of image height
+- Color: dark gray (rgb(20, 20, 20))
+- Opacity: ${gradientOpacity} at top, fading to 0 (fully transparent) at bottom edge of gradient
+- Transition: smooth linear fade
 
-TEXT OVERLAY - TITLE:
-- Content: "${safeTitle.toUpperCase()}"
-- Font: Saira Bold (geometric sans-serif, weight 700)
-- Color: #FFFFFF (pure white)
-- Size: ${params.recommendedTitleSize}px
-- Position: ${params.recommendedMarginLeft}% from left edge, ${params.recommendedMarginTop}% from top edge
-- Letter-spacing: 0.5px
-- Text-shadow: 0px 2px 4px rgba(0,0,0,0.30)
+TEXT CONTENT TO RENDER:
+Title: "${safeTitle.toUpperCase()}"
+Subtitle: "${safeSubtitle}"
 
-TEXT OVERLAY - SUBTITLE:
-- Content: "${safeSubtitle}"
-- Font: Saira Regular (weight 400)
-- Color: #FFFFFF (pure white)
-- Size: ${Math.round(params.recommendedTitleSize * 0.35)}px
-- Position: ${params.recommendedMarginLeft}% from left, ${params.recommendedMarginTop + 5}% from top (below title)
-- Letter-spacing: 0.3px
-- Line-height: 1.4
-- Text-shadow: 0px 1.5px 3px rgba(0,0,0,0.25)
+TITLE SPECIFICATIONS:
+- Font: Saira Bold (geometric sans-serif, sharp angular terminals)
+- Size: ${titleFontSize}px
+- Case: UPPERCASE
+- Color: white (#FFFFFF)
+- Line height: ${titleLineHeight}
+- Max width: 85% of image width
+- Text shadow: ${shadowOffsetY}px vertical offset, ${shadowBlur}px blur, rgba(0, 0, 0, ${shadowOpacity})
+
+SUBTITLE SPECIFICATIONS:
+- Font: Saira Regular (same geometric family, lighter weight)
+- Size: ${subtitleFontSize}px
+- Case: as provided
+- Color: white (#FFFFFF)
+- Line height: ${subtitleLineHeight}
+- Max width: 85% of image width
+- Text shadow: ${shadowOffsetY}px vertical offset, ${shadowBlur}px blur, rgba(0, 0, 0, ${shadowOpacity})
+
+TEXT POSITIONING:
+${positioningInstructions}
 
 CRITICAL PRESERVATION RULES:
-1. Original product image MUST remain 100% unchanged
-2. Do NOT regenerate, redraw, or modify any part of the product
-3. Do NOT change colors, lighting, shadows, or background
-4. ONLY add gradient overlay + text layers on top
-5. No cropping, resizing, or aspect ratio changes
+- Original product details: preserve 100% (colors, textures, materials, lighting)
+- Background: preserve 100% (no modifications to backdrop, environment, or context)
+- Product composition: preserve 100% (no cropping, resizing, or repositioning)
+- Only additions: gradient overlay + title text + subtitle text
+- Do NOT regenerate, redraw, or modify any part of the original image
 
-Output format: JPEG, preserve original dimensions.`;
+Output the edited image with text overlay applied using these exact specifications.`;
 }
 
 /**

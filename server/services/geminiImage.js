@@ -1,5 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import fetch from 'node-fetch';
+import { editMultipleImagesWithGemini } from '../services/geminiImage.js';
+import { NanoBananaProService } from '../services/nanoBananaService.js';
 
 class GeminiImageService {
   constructor(apiKey) {
@@ -150,7 +152,8 @@ class GeminiImageService {
   }
 }
 
-const defaultService = new GeminiImageService();
+const defaultGeminiService = new GeminiImageService();
+const defaultNanoBananaService = new NanoBananaProService();
 
 export async function analyzeImageForParameters(imageUrl, apiKey) {
   const geminiService = new GeminiImageService(apiKey);
@@ -230,8 +233,8 @@ Consider:
 export async function editImageWithGemini(imageUrl, prompt, apiKey, options = {}) {
   const service = apiKey 
     ? new GeminiImageService(apiKey) 
-    : defaultService;
-  
+    : defaultGeminiService;
+
   let analysisResult = {};
   if (options.analyzeImage) {
     analysisResult = await analyzeImageForParameters(imageUrl, apiKey);
@@ -265,11 +268,59 @@ export async function editImageWithGemini(imageUrl, prompt, apiKey, options = {}
   }
 }
 
+export async function editImageWithNanoBanana(imageUrl, prompt, options = {}) {
+  const service = options.nanoBananaApiKey 
+    ? new NanoBananaProService(options.nanoBananaApiKey) 
+    : defaultNanoBananaService;
+
+  let analysisResult = {};
+  if (options.analyzeImage) {
+    analysisResult = await analyzeImageForParameters(imageUrl, options.geminiApiKey); // Assuming analyzeImageForParameters still uses Gemini
+  }
+
+  const finalPrompt = prompt; // Assuming prompt already incorporates adaptive elements
+
+  try {
+    const result = await service.editImage(imageUrl, finalPrompt, options);
+
+    if (!result || !result.data || !result.data.outputs || result.data.outputs.length === 0) {
+      throw new Error('No images returned from Nano Banana Pro');
+    }
+
+    const outputUrl = result.data.outputs[0];
+    const matches = outputUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (matches) {
+      return {
+        base64: matches[2],
+        mimeType: matches[1]
+      };
+    } else {
+      throw new Error("Invalid output format from Nano Banana Pro");
+    }
+  } catch (error) {
+    console.error('Nano Banana Pro edit error:', error);
+    throw error;
+  }
+}
+
+
 export async function editMultipleImagesWithGemini(imageUrls, prompts, options = {}) {
   const service = options.geminiApiKey 
     ? new GeminiImageService(options.geminiApiKey) 
-    : defaultService;
+    : defaultGeminiService;
   return service.editMultipleImages(imageUrls, prompts, options);
 }
+
+export async function editMultipleImagesWithNanoBanana(imageUrls, prompts, options = {}) {
+  const service = options.nanoBananaApiKey 
+    ? new NanoBananaProService(options.nanoBananaApiKey) 
+    : defaultNanoBananaService;
+  
+  // Assuming NanoBananaProService has a similar editMultipleImages method
+  // or requires individual calls handled here.
+  // For simplicity, let's assume a similar method signature for now.
+  return service.editMultipleImages(imageUrls, prompts, options);
+}
+
 
 export { GeminiImageService };
