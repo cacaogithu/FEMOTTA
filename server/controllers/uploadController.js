@@ -1141,6 +1141,12 @@ async function processImagesWithGemini(jobId) {
 
     console.log(`\n[Save] Processing result ${i + 1}/${results.length} - "${spec?.title || 'N/A'}"`);
 
+    // Check for error results from Gemini first
+    if (result && result.error) {
+      console.error(`❌ [Save] Image ${i + 1} failed during AI processing: ${result.error}`);
+      return null;
+    }
+
     // Handle both formats: result.outputs (direct API response) or result.data.outputs (wrapped)
     const outputs = result.outputs || (result.data && result.data.outputs);
 
