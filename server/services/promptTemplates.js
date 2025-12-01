@@ -149,21 +149,43 @@ export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketpl
   const safeTitle = (title || 'PRODUCT').toString().replace(/"/g, "'");
   const safeSubtitle = (subtitle || '').toString().replace(/"/g, "'");
 
-  // Optimized prompt for Nano Banana Pro - concise and direct
-  return `Edit this product image by adding text overlay only.
+  // Hyper-specific prompt for Nano Banana Pro with exact metrics
+  return `Edit this product image by adding ONLY text overlay and gradient. DO NOT modify the original product.
 
-Add the following text:
-- Title: "${safeTitle.toUpperCase()}" (white, bold, Saira font, top-left corner)
-- Subtitle: "${safeSubtitle}" (white, regular, Saira font, below title, smaller size)
+GRADIENT OVERLAY:
+- Position: Top edge of image only
+- Height: Exactly ${params.recommendedGradientCoverage}% from top (${Math.round(params.recommendedGradientCoverage * 0.01 * 2160)} pixels on 2160px height)
+- Color: Linear gradient from rgba(0,0,0,0.40) at top to rgba(0,0,0,0) at bottom
+- Blur: 0px (sharp gradient edge)
+- Opacity: 40% at top, fading to 0% transparent
 
-Add a subtle dark gradient (15-20% opacity) at the top edge for text contrast.
+TEXT OVERLAY - TITLE:
+- Content: "${safeTitle.toUpperCase()}"
+- Font: Saira Bold (geometric sans-serif, weight 700)
+- Color: #FFFFFF (pure white)
+- Size: ${params.recommendedTitleSize}px
+- Position: ${params.recommendedMarginLeft}% from left edge, ${params.recommendedMarginTop}% from top edge
+- Letter-spacing: 0.5px
+- Text-shadow: 0px 2px 4px rgba(0,0,0,0.30)
 
-Important:
-- Preserve the original product, background, colors, and lighting completely
-- Only add the text overlay and minimal gradient
-- Use clean, professional typography with subtle drop shadow
+TEXT OVERLAY - SUBTITLE:
+- Content: "${safeSubtitle}"
+- Font: Saira Regular (weight 400)
+- Color: #FFFFFF (pure white)
+- Size: ${Math.round(params.recommendedTitleSize * 0.35)}px
+- Position: ${params.recommendedMarginLeft}% from left, ${params.recommendedMarginTop + 5}% from top (below title)
+- Letter-spacing: 0.3px
+- Line-height: 1.4
+- Text-shadow: 0px 1.5px 3px rgba(0,0,0,0.25)
 
-Output the edited image with text overlay applied.`;
+CRITICAL PRESERVATION RULES:
+1. Original product image MUST remain 100% unchanged
+2. Do NOT regenerate, redraw, or modify any part of the product
+3. Do NOT change colors, lighting, shadows, or background
+4. ONLY add gradient overlay + text layers on top
+5. No cropping, resizing, or aspect ratio changes
+
+Output format: JPEG, preserve original dimensions.`;
 }
 
 /**
