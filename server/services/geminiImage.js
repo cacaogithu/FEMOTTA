@@ -1,6 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
 import fetch from 'node-fetch';
-import { editMultipleImagesWithGemini } from '../services/geminiImage.js';
 import { NanoBananaProService } from '../services/nanoBananaService.js';
 
 class GeminiImageService {
