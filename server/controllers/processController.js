@@ -33,7 +33,7 @@ export async function processImages(req, res) {
       imageUrls
     });
 
-    const results = await editMultipleImagesWithNanaBananaPro(imageUrls, job.promptText, {
+    const results = await editMultipleImagesWithNanoBananaPro(imageUrls, job.promptText, {
       retries: 3
     });
 
