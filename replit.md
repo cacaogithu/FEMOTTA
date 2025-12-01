@@ -21,7 +21,12 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 - **Dynamic Theming**: Frontend dynamically loads brand-specific assets.
 - **CRM System**: Manages subaccounts with user management (role-based access, seat tracking), per-subaccount prompt template library with version control, and usage/output quality analytics.
 - **Admin Dashboard**: Comprehensive dashboard for managing users, prompts, workflows, and analytics, secured with `verifyAdminToken` middleware.
-- **Authentication**: JWT-based for the main editor, brand-specific logins (`/:brandSlug/login`) with bcrypt-hashed passwords. Brand tokens include `brandId`, `brandSlug`, and `brandName`. `brandContextMiddleware` enforces data isolation.
+- **Authentication**: Dual authentication system supporting:
+  - **Replit Auth (SSO)**: OpenID Connect integration via `server/replitAuth.js` supporting Google, GitHub, X, Apple, and email/password login. Sessions stored in PostgreSQL via connect-pg-simple.
+  - **Local Registration**: Self-signup via `/register` page with bcrypt-hashed passwords (`client/src/pages/UserRegister.jsx`).
+  - **Brand-specific logins**: `/:brandSlug/login` with JWT tokens containing `brandId`, `brandSlug`, and `brandName`. `brandContextMiddleware` enforces data isolation.
+  - **Key files**: `server/replitAuth.js` (OIDC setup), `server/storage.js` (user operations), `client/src/hooks/useAuth.js` (frontend hook).
+  - **Required env vars for production**: SESSION_SECRET, REPL_ID, ISSUER_URL.
 
 ### UI/UX Decisions
 - **Aesthetic**: Sleek, dark gaming aesthetic with brand-specific theming.
