@@ -149,30 +149,21 @@ export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketpl
   const safeTitle = (title || 'PRODUCT').toString().replace(/"/g, "'");
   const safeSubtitle = (subtitle || '').toString().replace(/"/g, "'");
 
-  // Strictly separate what text to render from how to render it
-  return `Add text overlay to this product image.
+  // Optimized prompt for Nano Banana Pro - concise and direct
+  return `Edit this product image by adding text overlay only.
 
-RENDER_TEXT (draw these exact strings only):
-TITLE="${safeTitle.toUpperCase()}"
-SUBTITLE="${safeSubtitle}"
+Add the following text:
+- Title: "${safeTitle.toUpperCase()}" (white, bold, Saira font, top-left corner)
+- Subtitle: "${safeSubtitle}" (white, regular, Saira font, below title, smaller size)
 
-GUIDANCE (do NOT draw any of this - styling instructions only):
-- Title: white, uppercase, Saira Bold font, top-left position, drop shadow
-- Subtitle: white, Saira Regular font, below title, smaller size
-- Add subtle dark gradient at top edge for text readability
-- Gradient should be barely visible, just enough for contrast
+Add a subtle dark gradient (15-20% opacity) at the top edge for text contrast.
 
-FORBIDDEN (never draw these):
-- Any numbers, measurements, percentages, or technical terms
-- Words like "gradient", "opacity", "font", "position", "px", "margin"
-- Any instruction text or parameters
-- Anything except the TITLE and SUBTITLE strings above
+Important:
+- Preserve the original product, background, colors, and lighting completely
+- Only add the text overlay and minimal gradient
+- Use clean, professional typography with subtle drop shadow
 
-PRESERVE IMAGE:
-- Original product, colors, lighting, and background must stay unchanged
-- Only add text overlay on top, nothing else
-
-Output the edited image.`;
+Output the edited image with text overlay applied.`;
 }
 
 /**
