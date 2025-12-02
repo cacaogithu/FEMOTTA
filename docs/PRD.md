@@ -2,8 +2,8 @@
 ## Multi-Brand AI Marketing Image Editor
 
 **Document Status:** Approved  
-**Version:** 1.0  
-**Last Updated:** November 3, 2025  
+**Version:** 2.0  
+**Last Updated:** December 2, 2025  
 **Product Owner:** Platform Team  
 **Contributors:** Engineering, Design, Product Management  
 
@@ -12,7 +12,7 @@
 ## 1. Executive Summary
 
 ### 1.1 Product Overview
-The Multi-Brand AI Marketing Image Editor is a professional, multi-tenant SaaS platform that revolutionizes marketing image production through AI-powered automation. The platform allows marketing teams to upload campaign briefs (PDF, DOCX, or text) and product images, which are then instantly transformed into polished marketing assets using the Wavespeed Nano Banana API.
+The Multi-Brand AI Marketing Image Editor is a professional, multi-tenant SaaS platform that revolutionizes marketing image production through AI-powered automation. The platform allows marketing teams to upload campaign briefs (PDF, DOCX, or text) and product images, which are then instantly transformed into polished marketing assets using Google Gemini Image API (models: gemini-2.5-flash-image and gemini-3-pro-image-preview).
 
 ### 1.2 Product Vision
 To become the industry-leading solution for AI-powered marketing image production, delivering measurable ROI through time savings, consistency, and quality while maintaining brand integrity across multiple sub-brands and teams.
@@ -115,7 +115,7 @@ To become the industry-leading solution for AI-powered marketing image productio
 
 **Functional Requirements:**
 - Upload multiple product images (PNG, JPG, up to 20 images)
-- Process images in parallel batches of 15 using Wavespeed Nano Banana API
+- Process images in parallel batches of 15 using Google Gemini Image API
 - Show real-time progress updates for each image
 - Store original and edited images in Google Drive
 - Generate public URLs for preview and download
@@ -180,7 +180,7 @@ To become the industry-leading solution for AI-powered marketing image productio
 - Create primary brands and sub-accounts (e.g., Corsair → LifeTrek Medical)
 - Configure brand-specific colors, logos, and branding assets
 - Set Google Drive folder paths for isolated file storage
-- Store brand-specific API keys (Wavespeed, OpenAI)
+- Store brand-specific API keys (Gemini, OpenAI)
 - Configure default prompt templates per brand
 
 **Acceptance Criteria:**
@@ -227,7 +227,7 @@ To become the industry-leading solution for AI-powered marketing image productio
 **Functional Requirements:**
 - Daily usage tracking: jobs created/completed/failed
 - Image counts: uploaded vs. processed
-- API call tracking (Wavespeed, OpenAI)
+- API call tracking (Gemini, OpenAI)
 - Cost estimation per brand
 - Time savings calculation (processing time vs. manual estimate)
 
@@ -292,7 +292,8 @@ To become the industry-leading solution for AI-powered marketing image productio
 - Google Drive API - File storage with brand-specific folders
 
 **AI/ML Services:**
-- Wavespeed Nano Banana API - Image editing
+- Google Gemini Image API - AI-powered image editing via @google/genai SDK
+  - Models: gemini-2.5-flash-image (default), gemini-3-pro-image-preview (advanced)
 - OpenAI GPT-4 - Chat assistant, function calling, ML analysis
 
 **File Processing:**
@@ -324,7 +325,7 @@ To become the industry-leading solution for AI-powered marketing image productio
        │                  │                  │
        ▼                  ▼                  ▼
 ┌─────────────┐   ┌──────────────┐   ┌──────────────┐
-│ PostgreSQL  │   │ Google Drive │   │  Wavespeed   │
+│ PostgreSQL  │   │ Google Drive │   │   Gemini     │
 │   (Neon)    │   │     API      │   │  + OpenAI    │
 └─────────────┘   └──────────────┘   └──────────────┘
 ```
@@ -336,7 +337,7 @@ To become the industry-leading solution for AI-powered marketing image productio
 2. Backend extracts text from brief, parses requirements
 3. Images uploaded to Google Drive (brand-specific folder)
 4. Job created in PostgreSQL with status='processing'
-5. Images sent to Wavespeed API in parallel batches (15 concurrent)
+5. Images sent to Google Gemini Image API in parallel batches (15 concurrent)
 6. Edited images saved to Google Drive
 7. Database updated with image URLs and metadata
 8. Job status updated to 'completed'
@@ -479,7 +480,7 @@ To become the industry-leading solution for AI-powered marketing image productio
 ### 8.1 In Scope (MVP)
 ✅ Multi-tenant brand management  
 ✅ PDF/DOCX/text brief processing  
-✅ Parallel AI image editing (Wavespeed API)  
+✅ Parallel AI image editing (Google Gemini Image API)  
 ✅ Before/after comparison UI  
 ✅ AI chat for selective re-editing  
 ✅ PSD download (layered files)  
@@ -502,13 +503,13 @@ To become the industry-leading solution for AI-powered marketing image productio
 
 ### 8.3 Assumptions
 - Users have Google Drive access for file storage
-- Wavespeed Nano Banana API maintains <30s response times
+- Google Gemini Image API maintains <30s response times
 - OpenAI GPT-4 API availability for chat and ML features
 - Users access platform via modern web browsers (Chrome, Firefox, Safari, Edge)
 - Internet connection required (no offline support)
 
 ### 8.4 Dependencies
-- **External APIs:** Wavespeed, OpenAI, Google Drive
+- **External APIs:** Google Gemini, OpenAI, Google Drive
 - **Infrastructure:** Neon PostgreSQL database, Replit hosting
 - **Third-party Libraries:** See Technical Architecture section
 
@@ -576,7 +577,7 @@ To become the industry-leading solution for AI-powered marketing image productio
 | Role | Responsibility | Engagement |
 |------|---------------|------------|
 | Beta Customers | Feedback, testing | Weekly calls |
-| Wavespeed API Team | API support, performance | As needed |
+| Google Gemini API Team | API support, performance | As needed |
 | OpenAI | API support, quota management | As needed |
 | Google Drive Support | Storage integration | As needed |
 
@@ -586,11 +587,11 @@ To become the industry-leading solution for AI-powered marketing image productio
 
 ### 11.1 Technical Risks
 
-**Risk:** Wavespeed API downtime or performance degradation  
+**Risk:** Google Gemini API downtime or performance degradation  
 **Impact:** High - core functionality blocked  
 **Mitigation:** 
 - Implement retry logic with exponential backoff
-- Add secondary AI provider as fallback
+- Support multiple Gemini models (flash and pro) as fallbacks
 - Cache successful edits for re-use
 
 **Risk:** Database performance degradation at scale  
@@ -652,7 +653,7 @@ To become the industry-leading solution for AI-powered marketing image productio
 
 ### 12.2 Future Enhancements
 - Real-time collaboration (multiplayer editing sessions)
-- Video editing capabilities (Wavespeed video API when available)
+- Video editing capabilities (when Gemini video API becomes available)
 - Advanced analytics (A/B testing of prompts)
 - White-label deployment for enterprise customers
 - API access for programmatic usage
@@ -670,7 +671,7 @@ To become the industry-leading solution for AI-powered marketing image productio
 - **Workflow:** Customizable processing pipeline configuration
 
 ### 13.2 References
-- Wavespeed Nano Banana API Documentation
+- Google Gemini Image API Documentation (@google/genai SDK)
 - OpenAI GPT-4 API Documentation
 - Google Drive API Documentation
 - Drizzle ORM Documentation

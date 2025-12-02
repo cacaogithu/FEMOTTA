@@ -4,6 +4,8 @@
 ## OVERVIEW
 This is an AI-powered image editing platform built specifically for CORSAIR's marketing team. It automates the process of adding text overlays and enhancements to product images using AI, replacing manual Photoshop work.
 
+**Last Updated:** December 2025
+
 ---
 
 ## HOW THE PLATFORM WORKS (USER PERSPECTIVE)
@@ -38,16 +40,16 @@ Once the brief is analyzed:
 **Step 2: AI Image Editing**
 For each image:
 - Original image URL is generated from Google Drive
-- Image + AI prompt sent to Wavespeed AI's "Nano Banana" model
-- Nano Banana adds:
+- Image + AI prompt sent to Google Gemini Image API
+- Gemini adds:
   - Dark gradient overlay at top
-  - Title text (large, bold, white)
-  - Subtitle text (smaller, regular, white)
+  - Title text (large, bold, white, Saira font)
+  - Subtitle text (smaller, regular, white, Saira font)
   - Text shadows for readability
-- Wavespeed processes the image (takes ~15 seconds)
+- Gemini processes the image (takes ~15-30 seconds)
 
 **Step 3: Save Results**
-- Edited images are downloaded from Wavespeed
+- Edited images are downloaded from Gemini (base64 encoded)
 - Uploaded back to Google Drive in "New Images" folder
 - All results tracked in database
 
@@ -63,7 +65,7 @@ Users see a results page showing:
 If user doesn't like an edit:
 - Click "Re-edit" button
 - Write custom prompt describing what to change
-- System sends to Wavespeed again with new prompt
+- System sends to Gemini again with new prompt
 - New version saved, old version kept for comparison
 
 ---
@@ -78,7 +80,7 @@ If user doesn't like an edit:
    - id, name, slug (e.g., "corsair")
    - logoUrl, primaryColor, secondaryColor
    - Google Drive folder IDs (briefFolderId, productImagesFolderId, editedResultsFolderId)
-   - API keys (wavespeedApiKey, openaiApiKey)
+   - API keys (geminiApiKey, openaiApiKey)
    - defaultPromptTemplate
    - aiSettings (batchSize, etc.)
 
@@ -130,9 +132,8 @@ If user doesn't like an edit:
 - Creates job in database
 - For each image:
   - Fetches from Google Drive
-  - Sends to Wavespeed Nano Banana API
-  - Polls for completion
-  - Downloads edited image
+  - Sends to Google Gemini Image API
+  - Receives base64-encoded edited image
   - Uploads to Google Drive
   - Updates database
 - Sends progress updates via Server-Sent Events (SSE)
@@ -146,13 +147,22 @@ If user doesn't like an edit:
 - Creates layered PSD with:
   - Layer 1: Original image
   - Layer 2: AI-edited image
+  - Layer 3: Editable text layers (Saira font)
 - Returns downloadable PSD file
 
 **server/routes/reEdit.js** - Re-editing existing images
 - `/api/re-edit/:imageId` - Re-edits a specific image
 - Takes custom prompt
-- Sends to Wavespeed again
+- Sends to Gemini again
 - Saves as new version
+
+**server/services/nanoBananaService.js** - Google Gemini Integration
+- Uses `@google/genai` SDK
+- Supports multiple models:
+  - `gemini-2.5-flash-image` (Nano Banana) - Default, fast
+  - `gemini-3-pro-image-preview` (Nano Banana Pro) - Advanced, higher quality
+- Model configurable via `GEMINI_IMAGE_MODEL` environment variable
+- Handles image editing with text overlay prompts
 
 **server/services/brandService.js** - Brand management
 - CRUD operations for brands
@@ -173,23 +183,31 @@ If user doesn't like an edit:
 
 ### EXTERNAL API INTEGRATIONS
 
-**Wavespeed AI - Nano Banana Model**
-- Endpoint: `https://api.wavespeed.ai/api/v3/google/nano-banana/edit`
-- Authentication: Bearer token
+**Google Gemini Image API - Nano Banana / Nano Banana Pro**
+- SDK: `@google/genai`
+- Models:
+  - `gemini-2.5-flash-image` - Fast image generation (default)
+  - `gemini-3-pro-image-preview` - Advanced image editing
 - Request format:
-```json
-{
-  "enable_base64_output": false,
-  "enable_sync_mode": true,
-  "images": ["https://drive.google.com/..."],
-  "output_format": "jpeg",
-  "prompt": "Add dark gradient overlay..."
-}
+```javascript
+const contents = [
+  { text: prompt },
+  {
+    inlineData: {
+      mimeType: "image/jpeg",
+      data: base64ImageData,
+    },
+  },
+];
+
+const response = await ai.models.generateContent({
+  model: "gemini-3-pro-image-preview",
+  contents: contents,
+});
 ```
 - Returns:
-  - Job ID
-  - Status URL
-  - Output image URLs when complete
+  - Base64-encoded image data
+  - Optional text response
 
 **OpenAI GPT-4** - Brief parsing
 - Used to extract image specifications from PDF/DOCX text
@@ -318,31 +336,26 @@ If user doesn't like an edit:
 7. **Process Each Image (Loop)**
    For image 1:
    
-   a. **Send to Wavespeed**
-      - POST to Nano Banana API
-      - Body: `{images: ["https://drive.google.com/..."], prompt: "Add dark gradient..."}`
-      - Response: `{id: "ws_xyz", urls: {get: "https://api.wavespeed.ai/..."}}`
+   a. **Fetch Image**
+      - Download image from Google Drive
+      - Convert to base64
    
-   b. **Wait for Processing**
-      - Poll Wavespeed status URL every 5 seconds
-      - Status: `pending` → `processing` → `completed`
-      - Takes ~15 seconds
+   b. **Send to Google Gemini**
+      - POST using @google/genai SDK
+      - Body: `{contents: [{text: prompt}, {inlineData: {mimeType, data: base64}}]}`
+      - Response: base64-encoded edited image
    
-   c. **Download Edited Image**
-      - GET edited image URL
-      - Download to server memory
+   c. **Save Edited Image**
+      - Decode base64 to buffer
+      - Upload to Google Drive "New Images" folder
+      - Get public URL
    
-   d. **Upload to Google Drive**
-      - Upload to "New Images" folder
-      - Filename: `corsair_one_i600_metal_dark_12_edited.jpg`
-      - Get Drive file ID: `1ABC...`
-   
-   e. **Update Database**
+   d. **Update Database**
       - INSERT into `images` table
       - Store URLs, metadata, processing time
       - UPDATE job: `processedImages = 1`
    
-   f. **Send Progress to Frontend (SSE)**
+   e. **Send Progress to Frontend (SSE)**
       - Event: `{type: 'progress', completed: 1, total: 5}`
 
 8. **Repeat for Images 2-5**
@@ -418,7 +431,7 @@ If user doesn't like an edit:
   briefFolderId: "1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697",
   productImagesFolderId: "1_WUvTwPrw8DNpns9wB36cxQ13RamCvAS",
   editedResultsFolderId: "17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB",
-  wavespeedApiKey: "ws_...",
+  geminiApiKey: "AIza...",
   openaiApiKey: "sk-...",
   defaultPromptTemplate: "Add a VERY SUBTLE enhancement...",
   aiSettings: {
@@ -440,7 +453,7 @@ Admin can create new brands via:
 
 ### Batch Processing
 - Images processed in batches of 15 (configurable)
-- Prevents overwhelming Wavespeed API
+- Prevents overwhelming Gemini API
 - Parallel processing within batches
 
 ### Caching
@@ -465,7 +478,7 @@ Admin can create new brands via:
 - Check: Google Drive quota
 
 **Processing Fails**
-- Wavespeed API timeout → Retry with exponential backoff
+- Gemini API timeout → Retry with exponential backoff
 - Invalid image URL → Skip image, log error
 - AI parsing fails → Fallback to default template
 
@@ -480,9 +493,9 @@ Admin can create new brands via:
 
 ### Time Savings Calculation
 - Manual time per image: 15 minutes (configurable)
-- AI processing time: ~15 seconds per image
-- Time saved = (15 min × images) - (15 sec × images)
-- Example: 20 images = 300 min manual vs. 5 min AI = **295 minutes saved**
+- AI processing time: ~15-30 seconds per image
+- Time saved = (15 min × images) - (30 sec × images)
+- Example: 20 images = 300 min manual vs. 10 min AI = **290 minutes saved**
 
 ### Tracked Metrics
 - Total jobs processed
@@ -507,10 +520,34 @@ Admin can create new brands via:
 DATABASE_URL=postgresql://...
 GOOGLE_DRIVE_CLIENT_EMAIL=...
 GOOGLE_DRIVE_PRIVATE_KEY=...
-WAVESPEED_API_KEY=ws_...
+GEMINI_API_KEY=AIza...
+GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview  # Optional, defaults to gemini-2.5-flash-image
 OPENAI_API_KEY=sk-...
 JWT_SECRET=...
+SESSION_SECRET=...
+CANVAS_TEST_ENABLED=false  # Set to true to enable canvas test route
 ```
+
+---
+
+## TYPOGRAPHY SYSTEM
+
+### Saira Font Family
+All text overlays use the Saira geometric sans-serif font exclusively:
+- **Saira Bold** for titles (uppercase, white, top-left positioning)
+- **Saira Regular** for subtitles (sentence case, white, below title)
+
+### Font Files Location
+```
+fonts/
+├── Saira-Bold.ttf
+└── Saira-Regular.ttf
+```
+
+### Text Rendering
+- Text is rendered by Google Gemini as part of the image editing
+- Prompts include specific Saira font instructions
+- Character-for-character text accuracy enforced in prompts
 
 ---
 

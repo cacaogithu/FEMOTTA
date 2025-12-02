@@ -2,8 +2,8 @@
 ## Multi-Brand AI Marketing Image Editor
 
 **Project Name:** Multi-Brand AI Marketing Image Editor  
-**Document Package Version:** 1.0  
-**Date:** November 3, 2025  
+**Document Package Version:** 2.0  
+**Date:** December 2, 2025  
 **Status:** ✅ Complete & Verified
 
 ---
@@ -11,6 +11,24 @@
 ## Overview
 
 This directory contains comprehensive strategy and technical documentation for the Multi-Brand AI Marketing Image Editor platform. These documents provide a complete specification for the product requirements, data architecture, and database implementation.
+
+---
+
+## Recent Updates (December 2025)
+
+### AI Provider Migration
+- **From:** Wavespeed Nano Banana API (external)
+- **To:** Google Gemini Image API (native)
+  - Model: `gemini-2.5-flash-image` (default) or `gemini-3-pro-image-preview`
+  - SDK: `@google/genai`
+
+### Environment Variables
+- Added `GEMINI_IMAGE_MODEL` for configurable model selection
+- Added `CANVAS_TEST_ENABLED` for security feature flag
+
+### Typography System
+- Standardized on Saira font family
+- Character-for-character text accuracy in prompts
 
 ---
 
@@ -257,8 +275,35 @@ This directory contains comprehensive strategy and technical documentation for t
 ### Analytics ✅
 - Daily usage metrics per brand
 - Job and image counts
-- API call tracking (Wavespeed, OpenAI)
+- API call tracking (Gemini, OpenAI)
 - Cost estimation and time savings
+
+---
+
+## AI Provider Configuration
+
+### Current Provider: Google Gemini Image API
+- **SDK:** `@google/genai`
+- **Default Model:** `gemini-2.5-flash-image` (Nano Banana)
+- **Advanced Model:** `gemini-3-pro-image-preview` (Nano Banana Pro)
+
+### Environment Variables
+```bash
+# Required
+GEMINI_API_KEY=your_api_key_here
+
+# Optional - Model Selection
+GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview  # Or gemini-2.5-flash-image (default)
+```
+
+### Model Comparison
+| Feature | gemini-2.5-flash-image | gemini-3-pro-image-preview |
+|---------|------------------------|---------------------------|
+| Speed | Fast (~15s) | Moderate (~30s) |
+| Quality | Good | Excellent |
+| Resolution | Up to 2K | Up to 4K |
+| Text Rendering | Good | State-of-the-art |
+| Best For | High volume | Quality-critical work |
 
 ---
 
@@ -297,7 +342,7 @@ Before deploying to production, ensure:
 - [ ] Configure connection pooling (Neon handles automatically)
 
 ### Security
-- [ ] Implement API key encryption for wavespeed_api_key and openai_api_key
+- [ ] Implement API key encryption for gemini_api_key and openai_api_key
 - [ ] Review and strengthen password hashing settings (bcrypt rounds)
 - [ ] Set up SSL/TLS for database connections (Neon provides by default)
 
@@ -342,6 +387,7 @@ Before deploying to production, ensure:
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0 | Nov 3, 2025 | Initial documentation package created | Platform Team |
+| 2.0 | Dec 2, 2025 | Updated for Google Gemini migration, added model configuration | Platform Team |
 
 ---
 
