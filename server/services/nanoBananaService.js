@@ -1,9 +1,10 @@
+import { GoogleGenAI } from "@google/genai";
 import fetch from 'node-fetch';
 
 /**
  * Nano Banana Pro Service
- * Uses Gemini Image models for image editing
- * Supports both gemini-2.5-flash-image and gemini-3-pro-image-preview
+ * Uses Google GenAI SDK for image editing
+ * Supports gemini-2.5-flash-image (nano banana) and other image models
  */
 
 const AVAILABLE_MODELS = {
@@ -17,13 +18,12 @@ const DEFAULT_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'
 export class NanoBananaProService {
   constructor(apiKey, modelOverride = null) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY;
-    this.model = modelOverride || process.env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
-    this.baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
+    this.model = modelOverride || DEFAULT_MODEL;
+    
+    this.ai = new GoogleGenAI({ apiKey: this.apiKey });
     
     console.log(`[NanoBananaPro] Initialized with model: ${this.model}`);
     console.log(`[NanoBananaPro] API Key present: ${this.apiKey ? 'Yes (length: ' + this.apiKey.length + ')' : 'No'}`);
-    console.log(`[NanoBananaPro] Available models:`, Object.keys(AVAILABLE_MODELS).join(', '));
-    console.log(`[NanoBananaPro] To use gemini-3-pro-image-preview, set GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview`);
   }
 
   async _fetchImageAsBase64(imageUrl) {
@@ -50,82 +50,41 @@ export class NanoBananaProService {
     console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`[NanoBananaPro] Processing Image #${imageIndex + 1}`);
     console.log(`[NanoBananaPro] Using model: ${this.model}`);
-    console.log(`[NanoBananaPro] API URL: ${this.baseUrl}`);
     console.log(`[NanoBananaPro] Image URL: ${imageUrl.substring(0, 80)}...`);
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
     try {
       const imageData = await this._fetchImageAsBase64(imageUrl);
 
-      const payload = {
-        contents: [
-          {
-            parts: [
-              {
-                inline_data: {
-                  mime_type: imageData.mimeType,
-                  data: imageData.base64
-                }
-              },
-              {
-                text: prompt
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          responseModalities: ["IMAGE", "TEXT"]
-        }
-      };
+      const contents = [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: imageData.mimeType,
+            data: imageData.base64,
+          },
+        },
+      ];
 
       console.log(`[NanoBananaPro] Sending request to Gemini API...`);
       console.log(`[NanoBananaPro] Prompt length: ${prompt.length} chars`);
 
-      const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+      const response = await this.ai.models.generateContent({
+        model: this.model,
+        contents: contents,
       });
 
-      console.log(`[NanoBananaPro] Response status: ${response.status} ${response.statusText}`);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[NanoBananaPro] API error response:`, errorText);
-        
-        // Parse error for better messaging
-        try {
-          const errorJson = JSON.parse(errorText);
-          const errorMessage = errorJson.error?.message || errorText;
-          throw new Error(`Gemini API error: ${response.status} - ${errorMessage}`);
-        } catch (parseErr) {
-          throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`);
-        }
-      }
-
-      const result = await response.json();
+      console.log(`[NanoBananaPro] Response received`);
       
-      // Log response structure for debugging
-      console.log(`[NanoBananaPro] Response has candidates: ${!!result.candidates}`);
-      if (result.candidates?.[0]?.content?.parts) {
-        console.log(`[NanoBananaPro] Response parts count: ${result.candidates[0].content.parts.length}`);
-        for (let i = 0; i < result.candidates[0].content.parts.length; i++) {
-          const part = result.candidates[0].content.parts[i];
-          if (part.inlineData) {
-            console.log(`[NanoBananaPro] Part ${i}: inlineData (mimeType: ${part.inlineData.mimeType}, data length: ${part.inlineData.data?.length || 0})`);
-          } else if (part.text) {
-            console.log(`[NanoBananaPro] Part ${i}: text (length: ${part.text.length})`);
-          }
-        }
-      }
-
-      if (result.candidates && result.candidates[0]?.content?.parts) {
-        for (const part of result.candidates[0].content.parts) {
-          if (part.inlineData?.data) {
-            const mimeType = part.inlineData.mimeType || 'image/png';
+      if (response.candidates && response.candidates[0]?.content?.parts) {
+        console.log(`[NanoBananaPro] Response parts count: ${response.candidates[0].content.parts.length}`);
+        
+        for (const part of response.candidates[0].content.parts) {
+          if (part.text) {
+            console.log(`[NanoBananaPro] Text response: ${part.text.substring(0, 200)}...`);
+          } else if (part.inlineData) {
             const base64Data = part.inlineData.data;
+            const mimeType = part.inlineData.mimeType || 'image/png';
             const dataUrl = `data:${mimeType};base64,${base64Data}`;
             
             console.log(`✅ [NanoBananaPro] SUCCESS - Image #${imageIndex + 1} edited`);
@@ -136,12 +95,15 @@ export class NanoBananaProService {
         }
       }
 
-      // Log what we got if no image
-      console.error(`[NanoBananaPro] No image in response. Full response:`, JSON.stringify(result, null, 2).substring(0, 1000));
+      console.error(`[NanoBananaPro] No image in response. Response structure:`, 
+        JSON.stringify(response, null, 2).substring(0, 500));
       throw new Error('No image data in response from Gemini');
 
     } catch (error) {
       console.error(`❌ [NanoBananaPro] Error:`, error.message);
+      if (error.stack) {
+        console.error(`[NanoBananaPro] Stack:`, error.stack.split('\n').slice(0, 3).join('\n'));
+      }
       throw error;
     }
   }
