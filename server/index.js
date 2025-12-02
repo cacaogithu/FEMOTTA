@@ -18,6 +18,7 @@ import subaccountsRoutes from './routes/subaccounts.js';
 import mlRoutes from './routes/ml.js';
 import userRoutes from './routes/users.js';
 import historyRoutes from './routes/history.js';
+import canvasTestRoutes from './routes/canvasTest.js';
 import { setupAuth, isAuthenticated } from './replitAuth.js';
 import { storage } from './storage.js';
 
@@ -102,6 +103,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/ml', mlStatsRoutes);
 app.use('/api/psd', psdRoutes);
 app.use('/api/history', historyRoutes);
+app.use('/api/canvas-test', canvasTestRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });

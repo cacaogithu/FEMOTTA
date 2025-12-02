@@ -2,6 +2,7 @@ import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/g
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
 import { editMultipleImagesWithGemini, analyzeImageForParameters } from '../services/geminiImage.js';
+import { NanoBananaProService } from '../services/nanoBananaService.js';
 import { overlayTextOnImage } from '../services/canvasTextOverlay.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
@@ -15,20 +16,20 @@ import mammoth from 'mammoth';
 import sharp from 'sharp';
 
 async function editImageUnified(imageUrl, prompt, options = {}) {
-  // Inject curated Saira typography and image preservation guidelines
   const sairaGuidelines = getCompleteOverlayGuidelines();
   const enhancedPrompt = `${sairaGuidelines}\n\nSPECIFIC IMAGE INSTRUCTIONS:\n${prompt}`;
 
   try {
-    const result = await editMultipleImagesWithGemini([imageUrl], enhancedPrompt, {
-      geminiApiKey: options.geminiApiKey,
-      retries: 3,
+    const nanoBanana = new NanoBananaProService(options.geminiApiKey);
+    console.log('[NanoBananaPro] Using service with dimension preservation');
+    
+    const result = await nanoBanana.editImage(imageUrl, enhancedPrompt, {
       imageIndex: options.imageIndex || 0
     });
 
     return result[0];
   } catch (error) {
-    console.error('[GEMINI] ❌ Edit failed:', error.message);
+    console.error('[NanoBananaPro] ❌ Edit failed:', error.message);
     throw error;
   }
 }
@@ -982,19 +983,19 @@ async function processImagesWithGemini(jobId) {
   });
 
   addWorkflowStep(jobId, {
-    name: 'Canvas Overlay Processing Started',
+    name: 'AI Processing Started',
     status: 'in_progress',
-    description: `Processing ${imageUrls.length} images with Canvas text overlay (Saira font)`,
+    description: `Processing ${imageUrls.length} images with Nano Banana Pro (gemini-3-pro-image-preview)`,
     details: {
       totalImages: imageUrls.length,
       batchSize: 15,
-      method: 'Canvas programmatic overlay',
-      font: 'Saira Bold/Regular',
-      code: `// Each image processed with Canvas text overlay\n// Uses exact Saira font for perfect text rendering\nconst batchSize = 15;\nfor (let i = 0; i < images.length; i += batchSize) {\n  const batch = images.slice(i, i + batchSize);\n  const results = await Promise.all(\n    batch.map((img, idx) => overlayTextOnImage(img, specs[idx]))\n  );\n}`
+      model: 'gemini-3-pro-image-preview',
+      preserveDimensions: true,
+      code: `// Each image processed with Nano Banana Pro\n// Preserves original dimensions with empty aspectRatio/imageSize\nconst batchSize = 15;\nfor (let i = 0; i < images.length; i += batchSize) {\n  const batch = images.slice(i, i + batchSize);\n  const results = await Promise.all(\n    batch.map((img, idx) => editWithAI(img, prompts[i + idx]))\n  );\n}`
     }
   });
 
-  console.log('Processing images with Canvas text overlay (Saira font)...');
+  console.log('Processing images with Nano Banana Pro (gemini-3-pro-image-preview)...');
 
   // Process images with their individual prompts
   const results = [];
@@ -1030,46 +1031,34 @@ async function processImagesWithGemini(jobId) {
     const batchPromises = batchUrls.map((url, idx) => {
       const imageIndex = i + idx;
       const specIndex = imageIndex % job.imageSpecs.length;
+      const prompt = batchPrompts[idx];
       const spec = job.imageSpecs[specIndex];
-      const analysis = imageAnalyses[imageIndex];
       const specTitle = spec?.title || 'N/A';
-      const specSubtitle = spec?.subtitle || '';
+      const specSubtitle = spec?.subtitle || 'N/A';
 
       console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
-      console.log(`║ PROCESSING IMAGE ${imageIndex + 1}/${imageUrls.length} (CANVAS OVERLAY)`);
+      console.log(`║ PROCESSING IMAGE ${imageIndex + 1}/${imageUrls.length}`);
       console.log(`╠════════════════════════════════════════════════════════════════╣`);
       console.log(`║ Title: ${specTitle}`);
       console.log(`║ Subtitle: ${specSubtitle.substring(0, 50)}${specSubtitle.length > 50 ? '...' : ''}`);
       console.log(`║ Using spec: ${specIndex + 1}/${job.imageSpecs.length}`);
       console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
 
-      return overlayTextOnImage(url, {
-        title: specTitle,
-        subtitle: specSubtitle,
-        marginTop: analysis?.recommendedMarginTop || 5,
-        marginLeft: analysis?.recommendedMarginLeft || 4,
-        gradientCoverage: analysis?.recommendedGradientCoverage || 20,
-        gradientOpacity: 0.35,
-        titleFontSize: analysis?.recommendedTitleSize || null,
-        textAlignment: analysis?.textAlignment || 'left',
-        logoBase64: spec?.logoBase64 || null,
-        logoPosition: 'bottom-left'
+      return editImageUnified(url, prompt, {
+        geminiApiKey: brandConfig.geminiApiKey,
+        imageIndex
       }).then(async result => {
         console.log(`\n✅ SUCCESS - Image ${imageIndex + 1}/${imageUrls.length}: "${specTitle}"`);
         try {
           await updateJob(jobId, {
-            processingStep: `Canvas overlay: ${imageIndex + 1} of ${imageUrls.length} images`,
+            processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
             progress: Math.round(((imageIndex + 1) / imageUrls.length) * 100),
             currentImageIndex: imageIndex
           });
         } catch (updateErr) {
           console.error(`[Batch] Error updating job progress:`, updateErr.message);
         }
-        return {
-          outputs: [result.dataUrl],
-          width: result.width,
-          height: result.height
-        };
+        return result;
       }).catch(err => {
         console.error(`\n❌ FAILED - Image ${imageIndex + 1}/${imageUrls.length}: "${specTitle}"`);
         console.error(`   Error: ${err.message}`);
@@ -1111,13 +1100,13 @@ async function processImagesWithGemini(jobId) {
   };
 
   addWorkflowStep(jobId, {
-    name: 'Canvas Overlay Complete',
+    name: 'AI Processing Complete',
     status: 'completed',
-    description: `Successfully processed ${results.length} images with text overlay`,
+    description: `Successfully edited ${results.length} images with Nano Banana Pro`,
     details: {
       totalProcessed: results.length,
-      method: 'Canvas programmatic overlay with Saira font',
-      features: ['Exact text spelling', 'Saira Bold/Regular fonts', 'Preserved dimensions', 'Dark gradient overlay']
+      model: 'gemini-3-pro-image-preview',
+      features: ['Preserved dimensions', 'Dark gradient overlay', 'Saira font styling']
     }
   });
 

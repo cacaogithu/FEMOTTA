@@ -182,6 +182,10 @@ export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketpl
   // Hyper-specific prompt with exact metrics for Nano Banana Pro
   return `Edit this product image by adding text overlay with precise specifications.
 
+CRITICAL TEXT ACCURACY REQUIREMENT:
+You MUST render the text EXACTLY as provided - character for character, letter for letter.
+Do NOT change, rephrase, or misspell any words. Copy the text EXACTLY as written below.
+
 GRADIENT OVERLAY:
 - Apply linear gradient starting from top edge
 - Coverage: top ${gradientCoverage}% of image height
@@ -189,9 +193,11 @@ GRADIENT OVERLAY:
 - Opacity: ${gradientOpacity} at top, fading to 0 (fully transparent) at bottom edge of gradient
 - Transition: smooth linear fade
 
-TEXT CONTENT TO RENDER:
+EXACT TEXT TO RENDER (copy character-for-character):
 Title: "${safeTitle.toUpperCase()}"
 Subtitle: "${safeSubtitle}"
+
+IMPORTANT: The title and subtitle text above must be rendered EXACTLY as shown - do not change spelling, do not add or remove letters.
 
 TITLE SPECIFICATIONS:
 - Font: Saira Bold (geometric sans-serif, sharp angular terminals)
@@ -205,7 +211,7 @@ TITLE SPECIFICATIONS:
 SUBTITLE SPECIFICATIONS:
 - Font: Saira Regular (same geometric family, lighter weight)
 - Size: ${subtitleFontSize}px
-- Case: as provided
+- Case: as provided (do not modify)
 - Color: white (#FFFFFF)
 - Line height: ${subtitleLineHeight}
 - Max width: 85% of image width
@@ -215,11 +221,13 @@ TEXT POSITIONING:
 ${positioningInstructions}
 
 CRITICAL PRESERVATION RULES:
+- Original image dimensions: preserve 100% (do not change aspect ratio or add borders)
 - Original product details: preserve 100% (colors, textures, materials, lighting)
 - Background: preserve 100% (no modifications to backdrop, environment, or context)
 - Product composition: preserve 100% (no cropping, resizing, or repositioning)
 - Only additions: gradient overlay + title text + subtitle text
 - Do NOT regenerate, redraw, or modify any part of the original image
+- Do NOT add white backgrounds or borders
 
 Output the edited image with text overlay applied using these exact specifications.`;
 }
