@@ -61,18 +61,32 @@ export async function processImages(req, res) {
       if (result.images && result.images.length > 0) {
         const editedImageUrl = result.images[0].url;
 
-        const imageResponse = await fetch(editedImageUrl);
-        const imageBuffer = await imageResponse.arrayBuffer();
+        let imageBuffer;
+        let mimeType = 'image/jpeg';
+        
+        if (editedImageUrl.startsWith('data:')) {
+          const matches = editedImageUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            mimeType = matches[1];
+            imageBuffer = Buffer.from(matches[2], 'base64');
+          } else {
+            throw new Error('Invalid data URL format');
+          }
+        } else {
+          const imageResponse = await fetch(editedImageUrl);
+          imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+        }
 
         const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
-        const editedFileName = `${originalNameWithoutExt}_edited.jpg`;
+        const extension = mimeType.includes('png') ? 'png' : 'jpg';
+        const editedFileName = `${originalNameWithoutExt}_edited.${extension}`;
 
-        const stream = Readable.from(Buffer.from(imageBuffer));
+        const stream = Readable.from(imageBuffer);
 
         const uploadedFile = await uploadFileToDrive(
           stream,
           editedFileName,
-          'image/jpeg',
+          mimeType,
           targetFolderId
         );
 
