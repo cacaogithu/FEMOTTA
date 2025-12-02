@@ -44,7 +44,7 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 - **Smart Logo Detection & Overlay**: Automatically detects logo requests in brief text using OpenAI extraction (`logo_requested: true/false`, `logo_name`). Small embedded images (<50KB) in DOCX are classified as logos. When a spec requests a logo, the system overlays it programmatically using Sharp with proportional sizing (15% of image width) and proper margins.
 - **Triple Input Modes**: Supports PDF, DOCX (with intelligent image filtering), or text prompts.
 - **AI Chat with Vision**: GPT-4o with vision capabilities for precise re-editing based on visual analysis and natural language commands. Automatically detects image references.
-- **Gemini-Only AI Strategy**: Google Gemini for all AI-powered image editing with 2K resolution output in PNG format. Saira font guidelines are automatically injected into all prompts for consistent typography.
+- **Gemini 3 Pro Image Preview**: Uses `gemini-3-pro-image-preview` model via `server/services/nanoBananaService.js` for true image editing that preserves original product images. Outputs text overlays and gradients without modifying the underlying image. Returns base64-encoded images that are decoded and uploaded to Google Drive.
 - **ML Feedback System**: GPT-4 powered 5-star rating and text feedback for continuous prompt improvement and prompt optimization.
 - **Job-based Architecture**: Isolates each job with a unique ID and dedicated storage (in-memory cache and PostgreSQL persistence).
 - **Iterative Re-editing**: Re-edits download the previously edited image to build on prior AI work, allowing for sequential refinements.
