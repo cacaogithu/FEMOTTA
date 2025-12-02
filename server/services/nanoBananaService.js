@@ -58,11 +58,7 @@ export class NanoBananaProService {
           }
         ],
         generationConfig: {
-          responseModalities: ["IMAGE", "TEXT"],
-          imageConfig: {
-            aspectRatio: "",
-            imageSize: ""
-          }
+          responseModalities: ["IMAGE", "TEXT"]
         }
       };
 
