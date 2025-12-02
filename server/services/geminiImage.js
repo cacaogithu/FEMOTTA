@@ -9,7 +9,7 @@ class GeminiImageService {
       console.warn('[GeminiImage] API key is missing. Service will not function correctly.');
     }
     this.client = new GoogleGenAI({ apiKey: this.apiKey });
-    this.model = 'gemini-2.0-flash-exp-image-generation';
+    this.model = 'gemini-3-pro-image-preview';
     this.genAI = new GoogleGenAI({ apiKey: this.apiKey }); // Added for access to genAI instance
   }
 
@@ -177,11 +177,11 @@ Consider:
 - Is the background busy or simple?
 - What gradient coverage will preserve product visibility while supporting text?`;
 
-    // Use the GoogleGenAI instance from the constructor
+    // Use Gemini 1.5 Flash for text analysis (more reliable for JSON output)
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey || process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp' 
+      model: 'gemini-1.5-flash' 
     });
 
     const imagePart = await geminiService._inputToPart(imageUrl);

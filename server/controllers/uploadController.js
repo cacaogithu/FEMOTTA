@@ -964,7 +964,7 @@ async function processImagesWithGemini(jobId) {
         };
       }),
       api: 'Google Gemini',
-      endpoint: 'gemini-2.0-flash-exp-image-generation',
+      endpoint: 'gemini-3-pro-image-preview',
       parameters: {
         imageSize: '2K',
         outputFormat: 'png',
