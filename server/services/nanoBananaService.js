@@ -17,11 +17,13 @@ const DEFAULT_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'
 export class NanoBananaProService {
   constructor(apiKey, modelOverride = null) {
     this.apiKey = apiKey || process.env.GEMINI_API_KEY;
-    this.model = modelOverride || DEFAULT_MODEL;
+    this.model = modelOverride || process.env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
     this.baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
     
     console.log(`[NanoBananaPro] Initialized with model: ${this.model}`);
     console.log(`[NanoBananaPro] API Key present: ${this.apiKey ? 'Yes (length: ' + this.apiKey.length + ')' : 'No'}`);
+    console.log(`[NanoBananaPro] Available models:`, Object.keys(AVAILABLE_MODELS).join(', '));
+    console.log(`[NanoBananaPro] To use gemini-3-pro-image-preview, set GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview`);
   }
 
   async _fetchImageAsBase64(imageUrl) {
