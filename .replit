@@ -99,3 +99,8 @@ externalPort = 3002
 run = ["sh", "-c", "cd server && npm install && npm start"]
 build = ["sh", "-c", "cd client && npm install && npm run build"]
 deploymentTarget = "cloudrun"
+
+[userenv]
+
+[userenv.shared]
+GEMINI_IMAGE_MODEL = "gemini-3-pro-image-preview"
