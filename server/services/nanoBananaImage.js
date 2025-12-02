@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 import { NanoBananaProService } from './nanoBananaService.js';
 
 /**
- * Edit multiple images using Nano Banana Pro API
+ * Edit multiple images using Gemini 3 Pro Image Preview (Nano Banana Pro)
  * @param {Array<string>} imageUrls - Array of public image URLs
  * @param {string} prompt - The editing prompt
  * @param {Object} options - Configuration options
@@ -11,9 +11,9 @@ import { NanoBananaProService } from './nanoBananaService.js';
 export async function editMultipleImagesWithNanoBananaPro(imageUrls, prompt, options = {}) {
   const { retries = 3 } = options;
   
-  const apiKey = process.env.WAVESPEED_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error('WAVESPEED_API_KEY not configured in environment variables');
+    throw new Error('GEMINI_API_KEY not configured in environment variables');
   }
 
   const nanoBananaService = new NanoBananaProService(apiKey);
@@ -34,12 +34,9 @@ export async function editMultipleImagesWithNanoBananaPro(imageUrls, prompt, opt
         attempt++;
         console.log(`[Nano Banana Pro] Attempt ${attempt}/${retries} for image ${i + 1}`);
 
-        // Call Nano Banana Pro API in sync mode
+        // Call Gemini 3 Pro Image Preview for image editing
         const outputImages = await nanoBananaService.editImage(imageUrl, prompt, {
-          enableBase64Output: false,
-          enableSyncMode: true,
-          outputFormat: 'jpeg',
-          numberOfImages: 1
+          imageIndex: i
         });
 
         if (outputImages && outputImages.length > 0) {
