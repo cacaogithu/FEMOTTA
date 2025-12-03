@@ -975,7 +975,7 @@ async function processImagesWithGemini(jobId) {
     }
   });
 
-  console.log('Image URLs to process:', imageUrls);
+  console.log(`Image URLs to process: ${imageUrls.length} URLs`);
 
   await updateJob(jobId, {
     status: 'processing',
@@ -1072,7 +1072,8 @@ async function processImagesWithGemini(jobId) {
       batchResults = await Promise.all(batchPromises);
       console.log(`[Batch ${batchNumber}] All promises resolved. Results count: ${batchResults.length}`);
       if (batchResults[0]) {
-        console.log(`[Batch ${batchNumber}] First result structure:`, JSON.stringify(batchResults[0], null, 2).substring(0, 500));
+        const firstResultType = typeof batchResults[0] === 'string' ? 'dataUrl' : 'object';
+        console.log(`[Batch ${batchNumber}] First result type: ${firstResultType}`);
       }
     } catch (batchErr) {
       console.error(`[Batch ${batchNumber}] Promise.all failed:`, batchErr.message);
@@ -1157,19 +1158,29 @@ async function processImagesWithGemini(jobId) {
       return null;
     }
 
-    // Handle both formats: result.outputs (direct API response) or result.data.outputs (wrapped)
-    const outputs = result.outputs || (result.data && result.data.outputs);
-
-    // Validate outputs exist and have content - reject malformed success responses
-    if (!outputs || !Array.isArray(outputs) || outputs.length === 0) {
-      console.error(`❌ [Save] Image ${i + 1} - Invalid or missing outputs from AI processing`);
-      console.error(`   Result keys: ${Object.keys(result).join(', ')}`);
-      if (result.data) console.error(`   Data keys: ${Object.keys(result.data).join(', ')}`);
-      return null;
+    // Handle multiple result formats:
+    // 1. Plain string (data URL from editImageUnified)
+    // 2. {outputs: [...]} format
+    // 3. {data: {outputs: [...]}} wrapped format
+    let editedImageUrl;
+    
+    if (typeof result === 'string' && result.startsWith('data:')) {
+      // Direct data URL string from editImageUnified
+      editedImageUrl = result;
+    } else {
+      // Object format with outputs array
+      const outputs = result.outputs || (result.data && result.data.outputs);
+      
+      if (!outputs || !Array.isArray(outputs) || outputs.length === 0) {
+        console.error(`❌ [Save] Image ${i + 1} - Invalid or missing outputs from AI processing`);
+        console.error(`   Result type: ${typeof result}`);
+        if (typeof result === 'object') console.error(`   Result keys: ${Object.keys(result).join(', ')}`);
+        return null;
+      }
+      editedImageUrl = outputs[0];
     }
 
-    if (outputs[0] && typeof outputs[0] === 'string' && outputs[0].length > 0) {
-      const editedImageUrl = outputs[0];
+    if (editedImageUrl && typeof editedImageUrl === 'string' && editedImageUrl.length > 0) {
       const imageDataSize = Math.round(editedImageUrl.length / 1024);
       console.log(`[Save] Image data received: ${imageDataSize}KB`);
 
