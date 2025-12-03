@@ -5,6 +5,8 @@ import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import { analyzeResultQuality } from '../services/mlLearning.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
+import { calculateDefaultParameters } from '../services/imageParameters.js';
+import sharp from 'sharp';
 
 export async function processImages(req, res) {
   try {
@@ -117,6 +119,26 @@ export async function processImages(req, res) {
         // Get title/subtitle from imageSpecs if available (for PSD text layers)
         const imageSpec = job.imageSpecs && job.imageSpecs[i] ? job.imageSpecs[i] : null;
         
+        // Get image dimensions for parameter calculation
+        let imageWidth = 1920;
+        let imageHeight = 1080;
+        try {
+          const metadata = await sharp(imageBuffer).metadata();
+          imageWidth = metadata.width || 1920;
+          imageHeight = metadata.height || 1080;
+          console.log(`[Parameters] Image ${i + 1} dimensions: ${imageWidth}x${imageHeight}`);
+        } catch (dimError) {
+          console.warn(`[Parameters] Could not get image dimensions, using defaults:`, dimError.message);
+        }
+        
+        // Calculate and store parameters for this image
+        const parameters = calculateDefaultParameters(
+          imageWidth,
+          imageHeight,
+          imageSpec?.title || null,
+          imageSpec?.subtitle || null
+        );
+        
         const editedImageData = {
           id: uploadedFile.id,
           name: editedFileName,
@@ -126,7 +148,9 @@ export async function processImages(req, res) {
           url: publicEditedUrl,
           title: imageSpec?.title || null,
           subtitle: imageSpec?.subtitle || null,
-          promptUsed: job.promptText || null
+          promptUsed: job.promptText || null,
+          parameters: parameters,
+          version: 1
         };
         
         editedImages.push(editedImageData);
