@@ -54,6 +54,8 @@ export async function processImages(req, res) {
     }
 
     const editedImages = [];
+    const psdGenerationPromises = []; // Track PSD generation for parallel processing
+    
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const originalImage = job.images[i];
@@ -115,7 +117,7 @@ export async function processImages(req, res) {
         // Get title/subtitle from imageSpecs if available (for PSD text layers)
         const imageSpec = job.imageSpecs && job.imageSpecs[i] ? job.imageSpecs[i] : null;
         
-        editedImages.push({
+        const editedImageData = {
           id: uploadedFile.id,
           name: editedFileName,
           editedImageId: uploadedFile.id,
@@ -125,8 +127,36 @@ export async function processImages(req, res) {
           title: imageSpec?.title || null,
           subtitle: imageSpec?.subtitle || null,
           promptUsed: job.promptText || null
-        });
+        };
+        
+        editedImages.push(editedImageData);
+        
+        // Optionally: Start PSD generation in parallel (non-blocking)
+        // This prepares PSD files in the background without blocking PNG delivery
+        if (options.generatePSD) {
+          const psdPromise = generatePSDInBackground(
+            jobId, 
+            i, 
+            originalImage.driveId, 
+            uploadedFile.id,
+            imageSpec
+          ).catch(err => {
+            console.error(`[PSD Background] Failed for image ${i}:`, err.message);
+          });
+          
+          psdGenerationPromises.push(psdPromise);
+        }
       }
+    }
+    
+    // Wait for all background PSD generation to complete (non-blocking for user)
+    if (psdGenerationPromises.length > 0) {
+      console.log(`[PSD Background] Generating ${psdGenerationPromises.length} PSDs in parallel...`);
+      Promise.all(psdGenerationPromises).then(() => {
+        console.log('[PSD Background] All PSDs generated successfully');
+      }).catch(err => {
+        console.error('[PSD Background] Some PSDs failed:', err.message);
+      });
     }
 
     // Calculate time metrics

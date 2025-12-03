@@ -102,27 +102,60 @@ export const ADAPTIVE_RANGES = {
 };
 
 /**
- * Generate AI analysis prompt for image-specific parameters
+ * Generate AI analysis prompt for image-specific parameters with detailed product detection
  */
 export function generateImageAnalysisPrompt(imageContext = {}) {
-  return `Analyze this product image and determine optimal overlay parameters.
+  return `Analyze this product image and determine optimal overlay parameters for text and gradient placement.
 
-Respond with ONLY a JSON object in this exact format:
+CRITICAL: You must detect the exact location of the product in the image to ensure text and gradients don't cover it.
+
+Respond with ONLY a valid JSON object in this exact format:
 {
   "productPosition": "top-third" | "middle" | "bottom-third",
+  "productBounds": {
+    "topPercent": 0-100,
+    "bottomPercent": 0-100,
+    "leftPercent": 0-100,
+    "rightPercent": 0-100
+  },
   "imageComplexity": "simple" | "moderate" | "complex",
   "recommendedGradientCoverage": 15-28,
+  "gradientSafeZone": {
+    "maxCoveragePercent": 15-28,
+    "canExtendToBottom": true | false
+  },
   "recommendedTitleSize": 36-72,
   "recommendedMarginTop": 3-8,
   "recommendedMarginLeft": 3-6,
-  "reasoning": "brief explanation"
+  "textAlignment": "left" | "center" | "right",
+  "textSafeZone": {
+    "topMarginPercent": 3-10,
+    "sideMarginPercent": 3-8
+  },
+  "reasoning": "brief explanation of product location and safe zones"
 }
 
-Consider:
-- Where is the main product located in the frame?
-- How much visual space is available at the top for text?
-- Is the background busy or simple?
-- What gradient coverage will preserve product visibility while supporting text?`;
+ANALYSIS REQUIREMENTS:
+1. Product Detection:
+   - Identify the main product's exact position (percentage from top/bottom/left/right)
+   - Determine if product is in top-third, middle, or bottom-third of frame
+   - Calculate safe zones where text/gradient won't obscure the product
+
+2. Gradient Placement:
+   - If product is in bottom 70% of image, gradient can cover top 20-28%
+   - If product is in top 30% of image, gradient should only cover top 12-18%
+   - Gradient must fade to transparent before touching product
+
+3. Text Positioning:
+   - Calculate optimal margins to avoid product overlap
+   - Recommend text alignment (left/center/right) based on composition
+   - Ensure text size is readable but doesn't dominate the product
+
+4. Background Analysis:
+   - Assess background complexity (simple/moderate/complex)
+   - Determine if gradient needs higher opacity for text readability
+
+Return ONLY the JSON object, no additional text or markdown formatting.`;
 }
 
 /**
