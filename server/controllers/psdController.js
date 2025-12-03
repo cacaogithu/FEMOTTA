@@ -113,10 +113,13 @@ import { getJobWithFallback } from '../utils/jobStore.js';
       opacity: gradientOpacity
     };
 
+    // Get title text - prefer top-level, fallback to parameters
+    const titleText = textSpecs.title || params?.title?.text || null;
+    
     // Safely handle title with null guards and type coercion
-    if (textSpecs.title && typeof textSpecs.title === 'string') {
+    if (titleText && typeof titleText === 'string') {
       layout.title = {
-        text: textSpecs.title.toUpperCase(),
+        text: titleText.toUpperCase(),
         x: leftMargin,
         y: topMargin + titleFontSize,
         fontSize: titleFontSize,
@@ -128,11 +131,14 @@ import { getJobWithFallback } from '../utils/jobStore.js';
       };
     }
 
+    // Get subtitle text - prefer top-level, fallback to parameters
+    const subtitleText = textSpecs.subtitle || params?.subtitle?.text || null;
+    
     // Safely handle subtitle with null guards and type coercion
-    if (textSpecs.subtitle && typeof textSpecs.subtitle === 'string') {
+    if (subtitleText && typeof subtitleText === 'string') {
       const subtitleY = topMargin + titleFontSize + Math.floor(titleFontSize * 0.6);
       layout.subtitle = {
-        text: textSpecs.subtitle,
+        text: subtitleText,
         x: leftMargin,
         y: subtitleY + subtitleFontSize,
         fontSize: subtitleFontSize,
