@@ -28,7 +28,8 @@ Users can upload either:
    - Image titles (headlines)
    - Image subtitles (copy text)
    - Which product images to use
-   - Custom AI prompts for each image
+   - Pontential Logos or Icons to add to the main image. 
+   - Custom AI prompts for each image.
 
 ### 3. PROCESSING IMAGES
 Once the brief is analyzed:

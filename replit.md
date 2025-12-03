@@ -4,11 +4,14 @@
 A professional, multi-tenant SaaS platform for AI-powered marketing image editing. This platform allows users to upload marketing briefs (PDF, DOCX, or text prompt) and product images for instant AI-powered editing. Key capabilities include brand-specific theming, interactive before/after image comparisons, an AI chat assistant for selective re-editing, and the ability to download layered PSD files with editable text. The system enhances efficiency and reduces the time required for marketing image production, with a vision to become the leading AI-powered image editing solution for marketing teams globally.
 
 ## Recent Changes
+- **December 2025**: Created CORSAIR-specific PRD (docs/CORSAIR_PRD.md) focusing on single-client perfection before multi-tenancy
+- **December 2025**: Standardized on Nano Banana Pro (gemini-3-pro-image-preview) for all image generation
+- **December 2025**: Planned architecture update: Chat to use Gemini Flash 1.5 for understanding, Nano Banana Pro for generation
+- **December 2025**: Defined structured parameter storage schema for editable image settings
+- **December 2025**: Planned enhanced PSD generation with separate title, subtitle, gradient, and logo layers
+- **December 2025**: ML Feedback system deferred until CORSAIR client satisfaction achieved
 - **December 2025**: Migrated from raw REST API to `@google/genai` SDK for improved reliability
-- **December 2025**: Added configurable model selection via `GEMINI_IMAGE_MODEL` environment variable
-- **December 2025**: Default model updated to `gemini-2.5-flash-image` with support for `gemini-3-pro-image-preview`
 - **December 2025**: Added CANVAS_TEST_ENABLED feature flag for canvas test route security
-- **December 2025**: Enhanced prompt templates with explicit character-for-character text accuracy instructions
 
 ## User Preferences
 - I prefer clear and concise explanations.
@@ -50,11 +53,10 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 - **PSD Export with Editable Text Layers**: Server-side PSD generation using ag-psd library. Creates true layered PSDs with fully editable text layers that work natively in Adobe Photoshop. Text layers reference Saira font family (Saira-Bold for titles, Saira-Regular for subtitles). The PSD download uses signed URLs via `/api/psd/signed-url/:jobId/:imageIndex` endpoint for reliable file delivery.
 - **Smart Logo Detection & Overlay**: Automatically detects logo requests in brief text using OpenAI extraction (`logo_requested: true/false`, `logo_name`). Small embedded images (<50KB) in DOCX are classified as logos. When a spec requests a logo, the system overlays it programmatically using Sharp with proportional sizing (15% of image width) and proper margins.
 - **Triple Input Modes**: Supports PDF, DOCX (with intelligent image filtering), or text prompts.
-- **AI Chat with Vision**: GPT-4o with vision capabilities for precise re-editing based on visual analysis and natural language commands. Automatically detects image references.
-- **Google Gemini Image API**: Uses `@google/genai` SDK via `server/services/nanoBananaService.js` for true image editing that preserves original product images. Supports multiple models:
-  - `gemini-2.5-flash-image` (Nano Banana) - Default, fast image generation
-  - `gemini-3-pro-image-preview` (Nano Banana Pro) - Advanced image editing with 2K/4K resolution
-  - Model selection via `GEMINI_IMAGE_MODEL` environment variable
+- **AI Chat with Vision**: Chat assistant with vision capabilities for precise re-editing based on visual analysis and natural language commands. Currently uses GPT-4o, planned migration to Gemini Flash 1.5 for understanding with Nano Banana Pro for image generation.
+- **Google Gemini Image API**: Uses `@google/genai` SDK via `server/services/nanoBananaService.js` for true image editing that preserves original product images.
+  - **Production Model**: `gemini-3-pro-image-preview` (Nano Banana Pro) - Always used for image generation, 4K resolution, superior text rendering
+  - Model enforced via `GEMINI_IMAGE_MODEL` environment variable (should always be set to gemini-3-pro-image-preview)
 - **ML Feedback System**: GPT-4 powered 5-star rating and text feedback for continuous prompt improvement and prompt optimization.
 - **Job-based Architecture**: Isolates each job with a unique ID and dedicated storage (in-memory cache and PostgreSQL persistence).
 - **Iterative Re-editing**: Re-edits download the previously edited image to build on prior AI work, allowing for sequential refinements.
@@ -62,7 +64,7 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 ## External Dependencies
 - **PostgreSQL Database (Neon)**: Multi-tenant data storage.
 - **Google Drive API**: File storage for briefs, product images, and results.
-- **Google Gemini Image API**: Primary AI-powered image editing provider using `@google/genai` SDK. Supports both Nano Banana (gemini-2.5-flash-image) and Nano Banana Pro (gemini-3-pro-image-preview) models with up to 4K resolution output in PNG format.
+- **Google Gemini Image API**: Primary AI-powered image editing provider using `@google/genai` SDK. Uses Nano Banana Pro (gemini-3-pro-image-preview) exclusively for production-quality output with up to 4K resolution in PNG format.
 - **OpenAI API (GPT-4o)**: AI Chat Assistant with vision, function calling, ML feedback system.
 - **ag-psd**: Server-side PSD generation with editable text layers.
 - **Mammoth.js**: Extracts text and images from DOCX.
@@ -79,9 +81,14 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 - `JWT_SECRET` - JWT token signing secret
 - `SESSION_SECRET` - Session encryption secret
 
+### Required for Production
+- `GEMINI_IMAGE_MODEL` - Must be set to `gemini-3-pro-image-preview` (Nano Banana Pro) for production quality
+
 ### Optional
-- `GEMINI_IMAGE_MODEL` - Gemini model for image editing (default: `gemini-2.5-flash-image`, options: `gemini-3-pro-image-preview`)
 - `CANVAS_TEST_ENABLED` - Enable canvas test route (default: false)
+
+## Current Focus: CORSAIR
+The platform is currently focused on perfecting the image editing experience for CORSAIR before expanding to multi-tenant architecture. See `docs/CORSAIR_PRD.md` for the detailed product requirements and implementation to-do list.
 
 ## Typography System
 - **Saira Font Family**: All text overlays use the Saira geometric sans-serif font exclusively
