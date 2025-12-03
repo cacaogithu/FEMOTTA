@@ -4,13 +4,15 @@
 A professional, multi-tenant SaaS platform for AI-powered marketing image editing. This platform allows users to upload marketing briefs (PDF, DOCX, or text prompt) and product images for instant AI-powered editing. Key capabilities include brand-specific theming, interactive before/after image comparisons, an AI chat assistant for selective re-editing, and the ability to download layered PSD files with editable text. The system enhances efficiency and reduces the time required for marketing image production, with a vision to become the leading AI-powered image editing solution for marketing teams globally.
 
 ## Recent Changes
+- **December 2025**: Implemented parameter storage system (`server/services/imageParameters.js`) - stores font sizes, positions, gradient settings with each edited image
+- **December 2025**: Enhanced PSD generation to use stored parameters for precise text positioning and gradient configuration
+- **December 2025**: Added chat-based parameter editing via `adjustParameters` function - allows quick adjustments without full regeneration
+- **December 2025**: Updated re-edit workflow to preserve and increment version numbers for parameter tracking
+- **December 2025**: Created Gemini Flash chat service (`server/services/geminiFlashChat.js`) - optional integration for future use
 - **December 2025**: Created CORSAIR-specific PRD (docs/CORSAIR_PRD.md) focusing on single-client perfection before multi-tenancy
 - **December 2025**: Standardized on Nano Banana Pro (gemini-3-pro-image-preview) for all image generation
-- **December 2025**: Planned architecture update: Chat to use Gemini Flash 1.5 for understanding, Nano Banana Pro for generation
-- **December 2025**: Defined structured parameter storage schema for editable image settings
-- **December 2025**: Planned enhanced PSD generation with separate title, subtitle, gradient, and logo layers
-- **December 2025**: ML Feedback system deferred until CORSAIR client satisfaction achieved
 - **December 2025**: Migrated from raw REST API to `@google/genai` SDK for improved reliability
+- **December 2025**: ML Feedback system deferred until CORSAIR client satisfaction achieved
 - **December 2025**: Added CANVAS_TEST_ENABLED feature flag for canvas test route security
 
 ## User Preferences
