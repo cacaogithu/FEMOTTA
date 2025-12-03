@@ -3,7 +3,9 @@ import { getJobWithFallback, updateJob, getJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
+import { calculateDefaultParameters } from '../services/imageParameters.js';
 import fetch from 'node-fetch';
+import sharp from 'sharp';
 
 export async function reEditImages(req, res) {
   try {
@@ -162,6 +164,24 @@ export async function reEditImages(req, res) {
         await makeFilePublic(uploadedFile.id);
         console.log(`[Re-edit] Upload complete! File ID: ${uploadedFile.id}`);
 
+        // Calculate parameters for the re-edited image
+        let imageWidth = 1920;
+        let imageHeight = 1080;
+        try {
+          const metadata = await sharp(Buffer.from(imageBuffer)).metadata();
+          imageWidth = metadata.width || 1920;
+          imageHeight = metadata.height || 1080;
+          console.log(`[Re-edit] Image dimensions: ${imageWidth}x${imageHeight}`);
+        } catch (dimError) {
+          console.warn(`[Re-edit] Could not get image dimensions:`, dimError.message);
+        }
+        
+        // Inherit existing parameters or calculate new ones
+        const existingParams = image.parameters || null;
+        const newParams = existingParams 
+          ? { ...existingParams, version: (existingParams.version || 1) + 1 }
+          : calculateDefaultParameters(imageWidth, imageHeight, image.title, image.subtitle);
+        
         reEditedResults.push({
           id: uploadedFile.id,
           name: displayName,
@@ -169,7 +189,12 @@ export async function reEditImages(req, res) {
           editedImageId: uploadedFile.id,
           originalImageId: image.originalImageId,
           originalName: image.originalName,
-          url: getPublicImageUrl(uploadedFile.id)
+          url: getPublicImageUrl(uploadedFile.id),
+          title: image.title || null,
+          subtitle: image.subtitle || null,
+          promptUsed: newPrompt,
+          parameters: newParams,
+          version: newParams.version
         });
       } else {
         console.error(`[Re-edit] No images returned from Gemini API`);

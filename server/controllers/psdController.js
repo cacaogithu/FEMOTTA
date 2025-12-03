@@ -18,15 +18,20 @@ import { getJobWithFallback } from '../utils/jobStore.js';
   // ag-psd DOES support real editable text layers
   const SUPPORTS_TEXT_LAYERS = true;
 
-  // Helper function to extract text specs for a specific image
+  // Helper function to extract text specs and parameters for a specific image
   function getTextSpecsForImage(job, imageIndex) {
-    const specs = { title: null, subtitle: null };
+    const specs = { title: null, subtitle: null, parameters: null };
 
     // Priority 1: Check editedImages directly (added during processing)
     if (job.editedImages && job.editedImages[imageIndex]) {
       const editedImage = job.editedImages[imageIndex];
       if (editedImage.title) specs.title = editedImage.title;
       if (editedImage.subtitle) specs.subtitle = editedImage.subtitle;
+      // Use stored parameters if available
+      if (editedImage.parameters) {
+        specs.parameters = editedImage.parameters;
+        console.log(`[PSD Download] Using stored parameters for image ${imageIndex}`);
+      }
     }
 
     // Priority 2: Try to get from imageSpecs array (extracted from brief)
@@ -63,18 +68,12 @@ import { getJobWithFallback } from '../utils/jobStore.js';
   }
 
   // Calculate text positioning and font sizes based on image dimensions
+  // Uses stored parameters if available, otherwise calculates from image dimensions
   function calculateTextLayout(width, height, textSpecs) {
-    // Calculate responsive font sizes based on image dimensions
-    const titleFontSize = Math.max(36, Math.min(72, Math.floor(width * 0.045)));
-    const subtitleFontSize = Math.max(16, Math.min(32, Math.floor(width * 0.02)));
-
-    // Position text in the top portion of the image (matching AI placement)
-    const topMargin = Math.floor(height * 0.08);
-    const leftMargin = Math.floor(width * 0.05);
-
     const layout = {
       title: null,
-      subtitle: null
+      subtitle: null,
+      gradient: null
     };
 
     // Safely handle null/undefined textSpecs
@@ -82,6 +81,37 @@ import { getJobWithFallback } from '../utils/jobStore.js';
       console.warn('[PSD Layout] No text specs provided, returning empty layout');
       return layout;
     }
+
+    // Use stored parameters if available
+    const params = textSpecs.parameters;
+    
+    let titleFontSize, subtitleFontSize, topMargin, leftMargin;
+    let gradientHeight, gradientOpacity;
+    
+    if (params) {
+      // Use stored parameters
+      titleFontSize = params.title?.fontSize || Math.max(36, Math.min(72, Math.floor(width * 0.045)));
+      subtitleFontSize = params.subtitle?.fontSize || Math.round(titleFontSize * 0.35);
+      topMargin = params.margins?.top || Math.floor(height * 0.08);
+      leftMargin = params.margins?.left || Math.floor(width * 0.05);
+      gradientHeight = (params.gradient?.heightPercent || 22) / 100;
+      gradientOpacity = params.gradient?.opacity || 0.35;
+      console.log('[PSD Layout] Using stored parameters for layout');
+    } else {
+      // Calculate responsive font sizes based on image dimensions
+      titleFontSize = Math.max(36, Math.min(72, Math.floor(width * 0.045)));
+      subtitleFontSize = Math.max(16, Math.min(32, Math.floor(width * 0.02)));
+      topMargin = Math.floor(height * 0.08);
+      leftMargin = Math.floor(width * 0.05);
+      gradientHeight = 0.22;
+      gradientOpacity = 0.35;
+    }
+
+    // Store gradient info in layout for layer creation
+    layout.gradient = {
+      height: Math.floor(height * gradientHeight),
+      opacity: gradientOpacity
+    };
 
     // Safely handle title with null guards and type coercion
     if (textSpecs.title && typeof textSpecs.title === 'string') {
@@ -94,7 +124,7 @@ import { getJobWithFallback } from '../utils/jobStore.js';
         fontWeight: 'Bold',
         fontPostScriptName: 'Saira-Bold',
         color: { r: 255, g: 255, b: 255 },
-        alignment: 'left'
+        alignment: params?.title?.position?.alignment || 'left'
       };
     }
 
@@ -110,7 +140,7 @@ import { getJobWithFallback } from '../utils/jobStore.js';
         fontWeight: 'Regular',
         fontPostScriptName: 'Saira-Regular',
         color: { r: 255, g: 255, b: 255 },
-        alignment: 'left'
+        alignment: params?.subtitle?.position?.alignment || 'left'
       };
     }
 
@@ -136,12 +166,19 @@ import { getJobWithFallback } from '../utils/jobStore.js';
   }
 
   // Helper function to create editable text layers using ag-psd text layer API
+  // Returns both text layers and gradient info from layout
   function createTextLayers(width, height, textSpecs) {
-    const layers = [];
+    const result = {
+      layers: [],
+      gradient: null
+    };
     const layout = calculateTextLayout(width, height, textSpecs);
 
+    // Store gradient info for layer creation
+    result.gradient = layout.gradient;
+
     if (layout.title) {
-      layers.push(createEditableTextLayer(
+      result.layers.push(createEditableTextLayer(
         'Title - Editable Text',
         layout.title.text,
         layout.title.x,
@@ -153,7 +190,7 @@ import { getJobWithFallback } from '../utils/jobStore.js';
     }
 
     if (layout.subtitle) {
-      layers.push(createEditableTextLayer(
+      result.layers.push(createEditableTextLayer(
         'Subtitle - Editable Text',
         layout.subtitle.text,
         layout.subtitle.x,
@@ -164,7 +201,7 @@ import { getJobWithFallback } from '../utils/jobStore.js';
       ));
     }
 
-    return layers;
+    return result;
   }
 
   // Generate JSON metadata for designers (fallback if text layers don't work)
@@ -292,20 +329,25 @@ import { getJobWithFallback } from '../utils/jobStore.js';
       // Extract text specifications for this image
       const textSpecs = getTextSpecsForImage(job, index);
 
-      // Create editable text layers
-      const textLayers = createTextLayers(width, height, textSpecs);
+      // Create editable text layers (returns layers and gradient info)
+      const textResult = createTextLayers(width, height, textSpecs);
+      const textLayers = textResult.layers;
+      const gradientInfo = textResult.gradient || { height: Math.floor(height * 0.22), opacity: 0.35 };
 
       console.log(`[PSD Download] Created ${textLayers.length} editable text layers`);
 
-      // Create gradient layer
+      // Create gradient layer using stored or default parameters
       const gradientCanvas = createCanvas(width, height);
       const gradientCtx = gradientCanvas.getContext('2d');
-      const gradientHeight = Math.floor(height * 0.22); // 22% gradient coverage
+      const gradientHeight = gradientInfo.height;
+      const gradientOpacity = gradientInfo.opacity;
       const gradient = gradientCtx.createLinearGradient(0, 0, 0, gradientHeight);
-      gradient.addColorStop(0, 'rgba(20, 20, 20, 0.35)');
+      gradient.addColorStop(0, `rgba(20, 20, 20, ${gradientOpacity})`);
       gradient.addColorStop(1, 'rgba(20, 20, 20, 0)');
       gradientCtx.fillStyle = gradient;
       gradientCtx.fillRect(0, 0, width, gradientHeight);
+
+      console.log(`[PSD Download] Gradient: height=${gradientHeight}px, opacity=${gradientOpacity}`);
 
       // Create PSD document with fully editable layer structure
       // Structure: Text Layers (title, subtitle) > Logo Layer > Gradient Layer > Original Image
@@ -612,20 +654,25 @@ import { getJobWithFallback } from '../utils/jobStore.js';
       // Extract text specifications for this image
       const textSpecs = getTextSpecsForImage(job, imageIndex);
 
-      // Create editable text layers
-      const textLayers = createTextLayers(width, height, textSpecs);
+      // Create editable text layers (returns layers and gradient info)
+      const textResult = createTextLayers(width, height, textSpecs);
+      const textLayers = textResult.layers;
+      const gradientInfo = textResult.gradient || { height: Math.floor(height * 0.22), opacity: 0.35 };
 
       console.log(`[PSD Token Download] Created ${textLayers.length} editable text layers`);
 
-      // Create gradient layer
+      // Create gradient layer using stored or default parameters
       const gradientCanvas = createCanvas(width, height);
       const gradientCtx = gradientCanvas.getContext('2d');
-      const gradientHeight = Math.floor(height * 0.22); // 22% gradient coverage
+      const gradientHeight = gradientInfo.height;
+      const gradientOpacity = gradientInfo.opacity;
       const gradient = gradientCtx.createLinearGradient(0, 0, 0, gradientHeight);
-      gradient.addColorStop(0, 'rgba(20, 20, 20, 0.35)');
+      gradient.addColorStop(0, `rgba(20, 20, 20, ${gradientOpacity})`);
       gradient.addColorStop(1, 'rgba(20, 20, 20, 0)');
       gradientCtx.fillStyle = gradient;
       gradientCtx.fillRect(0, 0, width, gradientHeight);
+
+      console.log(`[PSD Token Download] Gradient: height=${gradientHeight}px, opacity=${gradientOpacity}`);
 
       // Create OPTIMIZED PSD document - only essential layers
       const psd = {
