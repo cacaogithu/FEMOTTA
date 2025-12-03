@@ -1184,8 +1184,23 @@ async function processImagesWithGemini(jobId) {
       const imageDataSize = Math.round(editedImageUrl.length / 1024);
       console.log(`[Save] Image data received: ${imageDataSize}KB`);
 
-      const imageResponse = await fetch(editedImageUrl);
-      let imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+      let imageBuffer;
+      
+      // Handle data URLs directly (Node fetch doesn't support data: protocol)
+      if (editedImageUrl.startsWith('data:')) {
+        const matches = editedImageUrl.match(/^data:[^;]+;base64,(.+)$/);
+        if (matches && matches[1]) {
+          imageBuffer = Buffer.from(matches[1], 'base64');
+          console.log(`[Save] Decoded base64 data: ${Math.round(imageBuffer.length / 1024)}KB`);
+        } else {
+          console.error(`❌ [Save] Image ${i + 1} - Invalid data URL format`);
+          return null;
+        }
+      } else {
+        // Fetch from regular URL
+        const imageResponse = await fetch(editedImageUrl);
+        imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+      }
 
       // Check if this spec requires a logo overlay
       if (spec && spec.logoBase64 && spec.logo_requested === true) {
@@ -1218,8 +1233,7 @@ async function processImagesWithGemini(jobId) {
         logoApplied: spec?.logo_requested === true && spec?.logoBase64 ? true : false
       };
     } else {
-      console.error(`❌ [Save] No edited image in result ${i + 1} - Missing outputs`);
-      console.error(`   Available keys:`, Object.keys(result || {}));
+      console.error(`❌ [Save] No valid image URL in result ${i + 1}`);
       return null;
     }
   });
