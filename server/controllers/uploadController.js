@@ -11,6 +11,7 @@ import { generateAdaptivePrompt } from '../services/promptTemplates.js';
 import { findLogoByName, detectLogosInText, getLogoData } from '../services/partnerLogos.js';
 import { saveLogoFromBase64 } from '../services/logoStorage.js';
 import { analyzeLogoPlacement, mergeLogoPlansIntoSpecs } from '../services/logoPlacementAnalyzer.js';
+import { analyzeImagesWithVision, mergeVisionPlansIntoSpecs } from '../services/visionLogoAnalyzer.js';
 import { validateStructuredBrief, validatePDFWithImages, sanitizeInput, generateDefaultPrompt } from '../utils/briefValidation.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
@@ -1141,32 +1142,9 @@ export async function uploadPDF(req, res) {
       imageSpecs = docxResult.imageSpecs;
       extractedImages = docxResult.extractedImages;
       
-      // AI-POWERED LOGO ANALYSIS: Analyze brief text to determine accurate logo placement
-      // Only run if we have valid brief text and image specs
-      const briefText = docxResult.briefText || '';
-      console.log(`[Upload Brief] Brief text length: ${briefText.length}, Specs count: ${imageSpecs ? imageSpecs.length : 0}`);
-      if (briefText && briefText.trim().length > 20 && imageSpecs && imageSpecs.length > 0) {
-        console.log('[Upload Brief] Starting AI logo placement analysis...');
-        try {
-          const logoPlans = await analyzeLogoPlacement(
-            briefText, 
-            imageSpecs, 
-            { openaiApiKey: req.brand.openaiApiKey || process.env.OPENAI_API_KEY }
-          );
-          
-          // Merge AI logo analysis into image specs only if we got valid plans
-          if (logoPlans && Array.isArray(logoPlans) && logoPlans.length > 0) {
-            imageSpecs = mergeLogoPlansIntoSpecs(imageSpecs, logoPlans);
-            console.log('[Upload Brief] Logo placement analysis complete');
-          } else {
-            console.log('[Upload Brief] No logo plans returned, using original extraction');
-          }
-        } catch (logoErr) {
-          console.warn('[Upload Brief] Logo analysis failed, using original extraction:', logoErr.message);
-        }
-      } else {
-        console.log('[Upload Brief] Skipping logo analysis - insufficient brief text or no specs');
-      }
+      // Note: Vision-based logo analysis will happen AFTER images are uploaded to Drive
+      // This is because we need public URLs to analyze with GPT-4o Vision
+      console.log(`[Upload Brief] DOCX extracted ${imageSpecs.length} specs, ${extractedImages.length} images`);
     }
 
     console.log('[Upload Brief] Extracted', imageSpecs.length, 'image specifications');
@@ -1202,6 +1180,27 @@ export async function uploadPDF(req, res) {
       }
 
       console.log('[Upload Brief] All embedded images uploaded and made public');
+      
+      // VISION-BASED LOGO ANALYSIS: Now that images are public, analyze them with GPT-4o Vision
+      // This analyzes the actual image content to determine optimal logo placement
+      if (uploadedImages.length > 0 && imageSpecs.length > 0) {
+        console.log('[Upload Brief] Starting vision-based logo placement analysis...');
+        try {
+          const visionPlans = await analyzeImagesWithVision(
+            uploadedImages,
+            imageSpecs,
+            { openaiApiKey: req.brand.openaiApiKey || process.env.OPENAI_API_KEY }
+          );
+          
+          // Merge vision-analyzed placement plans into image specs
+          if (visionPlans && visionPlans.length > 0) {
+            imageSpecs = mergeVisionPlansIntoSpecs(imageSpecs, visionPlans);
+            console.log('[Upload Brief] Vision logo analysis complete - specs updated with placement data');
+          }
+        } catch (visionErr) {
+          console.warn('[Upload Brief] Vision analysis failed, using fallback detection:', visionErr.message);
+        }
+      }
     }
 
     const startTime = new Date();
