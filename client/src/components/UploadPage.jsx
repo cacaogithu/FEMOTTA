@@ -255,13 +255,17 @@ function UploadPage({ onComplete }) {
       const responseData = briefType === 'pdf' ? pdfData : textData;
       const hasEmbeddedImages = responseData?.embeddedImageCount > 0;
       
-      // Check if logo confirmation is required
-      if (responseData?.requiresConfirmation) {
-        console.log('[Upload] Showing logo confirmation panel');
+      // Check if logo confirmation is required (supports both old and new response formats)
+      const needsConfirmation = responseData?.requiresConfirmation || 
+                                 responseData?.status === 'awaiting_confirmation' ||
+                                 responseData?.pendingConfirmation;
+      
+      if (needsConfirmation && responseData?.imageSpecs) {
+        console.log('[Upload] Showing logo confirmation panel, status:', responseData?.status);
         setConfirmationData({
           jobId: responseData.jobId,
           imageSpecs: responseData.imageSpecs,
-          images: responseData.images
+          images: responseData.images || []
         });
         setShowConfirmation(true);
         setUploading(false);
