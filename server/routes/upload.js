@@ -53,6 +53,39 @@ const imageUpload = multer({
   }
 });
 
+// Multer configuration for PDF+images uploads (accepts both PDFs and images)
+const pdfWithImagesUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB max
+  },
+  fileFilter: (req, file, cb) => {
+    console.log(`[PDF+Images Upload] File detected: ${file.originalname}, MIME type: ${file.mimetype}, field: ${file.fieldname}`);
+    
+    // Accept PDFs for the 'pdf' field
+    if (file.fieldname === 'pdf') {
+      if (file.mimetype === 'application/pdf') {
+        cb(null, true);
+      } else {
+        console.log(`[PDF+Images Upload] Rejected PDF: ${file.originalname} with MIME: ${file.mimetype}`);
+        cb(new Error('Only PDF files are allowed for the brief'));
+      }
+    }
+    // Accept images for the 'images' field
+    else if (file.fieldname === 'images') {
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        console.log(`[PDF+Images Upload] Rejected image: ${file.originalname} with MIME: ${file.mimetype}`);
+        cb(new Error('Only JPG and PNG images are allowed'));
+      }
+    } else {
+      cb(new Error('Unexpected field: ' + file.fieldname));
+    }
+  }
+});
+
 // Original routes
 router.post('/pdf', upload.single('pdf'), uploadPDF);
 router.post('/text-prompt', express.json(), uploadTextPrompt);
@@ -61,7 +94,7 @@ router.post('/images', imageUpload.array('images', 20), uploadImages);
 // New routes for multi-method submission
 router.post('/structured-brief', imageUpload.array('images', 20), uploadStructuredBrief);
 router.post('/pdf-with-images',
-  upload.fields([
+  pdfWithImagesUpload.fields([
     { name: 'pdf', maxCount: 1 },
     { name: 'images', maxCount: 20 }
   ]),

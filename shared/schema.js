@@ -98,6 +98,11 @@ export const jobs = pgTable('jobs', {
   promptText: text('prompt_text'), // Current editing prompt
   processingStep: text('processing_step'), // Current step description
 
+  // Multi-method submission tracking
+  briefType: text('brief_type'), // 'pdf', 'docx', 'structured_form', 'pdf_with_images', 'text_prompt'
+  projectName: text('project_name'), // User-provided project name for organization
+  submissionMetadata: jsonb('submission_metadata'), // Additional metadata about the submission method
+
   // Processing metadata
   imageSpecs: jsonb('image_specs'),
   workflowSteps: jsonb('workflow_steps'),

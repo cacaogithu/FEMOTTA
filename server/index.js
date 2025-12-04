@@ -21,6 +21,7 @@ import historyRoutes from './routes/history.js';
 import canvasTestRoutes from './routes/canvasTest.js';
 import { setupAuth, isAuthenticated } from './replitAuth.js';
 import { storage } from './storage.js';
+import { runStartupMigration } from './utils/autoMigrate.js';
 
 dotenv.config();
 

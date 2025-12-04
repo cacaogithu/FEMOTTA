@@ -10,6 +10,7 @@ import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
 import { generateAdaptivePrompt } from '../services/promptTemplates.js';
 import { findLogoByName, detectLogosInText, getLogoData } from '../services/partnerLogos.js';
 import { saveLogoFromBase64 } from '../services/logoStorage.js';
+import { validateStructuredBrief, validatePDFWithImages, sanitizeInput, generateDefaultPrompt } from '../utils/briefValidation.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
@@ -1758,6 +1759,383 @@ async function processImagesWithGemini(jobId) {
   }).catch(err => {
     console.error('[History Archive] Non-blocking archive error:', err.message);
   });
+}
+
+/**
+ * Upload Structured Brief - handles the structured form submission
+ * Users fill out a form with image specs directly (no PDF parsing needed)
+ */
+export async function uploadStructuredBrief(req, res) {
+  try {
+    console.log('[Structured Brief] Starting upload...');
+    
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No images uploaded' });
+    }
+    
+    // Parse imageSpecs from JSON
+    let imageSpecs;
+    try {
+      imageSpecs = JSON.parse(req.body.imageSpecs);
+    } catch (parseError) {
+      return res.status(400).json({ error: 'Invalid image specifications format' });
+    }
+    
+    const projectName = sanitizeInput(req.body.projectName) || 'Untitled Project';
+    
+    // Validate the submission
+    const validation = validateStructuredBrief(imageSpecs, req.files);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: validation.errors.join('; ')
+      });
+    }
+    
+    console.log(`[Structured Brief] Validated ${req.files.length} images with specs`);
+    
+    // Upload images to Google Drive
+    const uploadedImages = [];
+    
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      const spec = imageSpecs[i];
+      
+      const result = await uploadFileToDrive(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        req.brand.productImagesFolderId
+      );
+      
+      console.log(`[Structured Brief] Uploaded ${file.originalname} to Drive`);
+      await makeFilePublic(result.id);
+      const publicUrl = getPublicImageUrl(result.id);
+      
+      uploadedImages.push({
+        id: result.id,
+        name: file.originalname,
+        originalName: file.originalname,
+        driveId: result.id,
+        publicUrl: publicUrl
+      });
+    }
+    
+    // Generate prompts for each image (use custom or default)
+    // Ensure all fields expected by processImagesWithGemini are present
+    const processedSpecs = imageSpecs.map((spec, i) => {
+      const sanitizedTitle = sanitizeInput(spec.title);
+      const sanitizedSubtitle = sanitizeInput(spec.subtitle);
+      
+      // Use custom prompt if provided and not using default, otherwise generate
+      const aiPrompt = !spec.useDefaultPrompt && spec.customPrompt
+        ? sanitizeInput(spec.customPrompt)
+        : generateDefaultPrompt(sanitizedTitle, sanitizedSubtitle);
+      
+      // Get the first logo name for compatibility with existing processImagesWithGemini
+      const logoNamesArray = Array.isArray(spec.logoNames) ? spec.logoNames.filter(n => n && n.trim()) : [];
+      const primaryLogoName = logoNamesArray.length > 0 ? logoNamesArray[0] : '';
+      // Only set logo_requested to true if we actually have a valid logo name
+      const hasValidLogo = primaryLogoName.length > 0;
+      
+      return {
+        image_number: i + 1,
+        title: sanitizedTitle,
+        subtitle: sanitizedSubtitle,
+        asset: sanitizeInput(spec.asset || ''),
+        variant: sanitizeInput(spec.variant || null),
+        ai_prompt: aiPrompt,
+        logo_requested: hasValidLogo,
+        logo_name: primaryLogoName,
+        logo_names: logoNamesArray,
+        customPromptUsed: !spec.useDefaultPrompt && !!spec.customPrompt
+      };
+    });
+    
+    // Generate a structured promptText for downstream services (bounded, JSON-serialized)
+    const promptSummary = processedSpecs.map((spec, i) => ({
+      imageIndex: i + 1,
+      title: spec.title,
+      subtitle: spec.subtitle
+    }));
+    const combinedPromptText = JSON.stringify(promptSummary);
+    
+    // Create job
+    const jobId = `job_${Date.now()}`;
+    const startTime = new Date();
+    
+    // Build submission metadata (includes full prompt details)
+    const submissionMetadata = {
+      method: 'structured_form',
+      projectName: projectName,
+      hasCustomPrompts: processedSpecs.some(s => s.customPromptUsed),
+      hasVariants: processedSpecs.some(s => s.variant),
+      hasAssetNames: processedSpecs.some(s => s.asset),
+      imageCount: uploadedImages.length,
+      promptDetails: processedSpecs.map((s, i) => ({
+        imageIndex: i + 1,
+        title: s.title,
+        promptPreview: s.ai_prompt.substring(0, 200) + '...'
+      }))
+    };
+    
+    await createJob({
+      id: jobId,
+      brandId: req.brand.id,
+      brandSlug: req.brand.slug,
+      briefFileId: null,
+      briefType: 'structured_form',
+      projectName: projectName,
+      promptText: combinedPromptText,
+      submissionMetadata: submissionMetadata,
+      imageSpecs: processedSpecs,
+      images: uploadedImages,
+      status: 'processing',
+      createdAt: startTime,
+      startTime: startTime,
+      imageCount: uploadedImages.length
+    });
+    
+    console.log(`[Structured Brief] Job created: ${jobId}`);
+    
+    res.json({
+      success: true,
+      jobId,
+      imageCount: uploadedImages.length,
+      projectName: projectName,
+      message: `Structured brief created with ${uploadedImages.length} images. Processing started.`
+    });
+    
+    // Start processing in the background
+    processImagesWithGemini(jobId).catch(async err => {
+      console.error('[Structured Brief] Background processing error:', err);
+      await updateJob(jobId, { 
+        status: 'failed',
+        error: err.message
+      });
+    });
+    
+  } catch (error) {
+    console.error('[Structured Brief] Error:', error);
+    res.status(500).json({ error: 'Failed to process structured brief', details: error.message });
+  }
+}
+
+/**
+ * Upload PDF with separate Images
+ * Users upload a PDF brief and separate high-res images
+ */
+export async function uploadPDFWithImages(req, res) {
+  try {
+    console.log('[PDF+Images] Starting upload...');
+    
+    // Check for PDF file
+    if (!req.files.pdf || req.files.pdf.length === 0) {
+      return res.status(400).json({ error: 'PDF file is required' });
+    }
+    
+    // Check for images
+    if (!req.files.images || req.files.images.length === 0) {
+      return res.status(400).json({ error: 'At least one image is required' });
+    }
+    
+    const pdfFile = req.files.pdf[0];
+    const imageFiles = req.files.images;
+    
+    console.log(`[PDF+Images] PDF: ${pdfFile.originalname}, Images: ${imageFiles.length}`);
+    
+    // Validate files
+    const validation = validatePDFWithImages(pdfFile, imageFiles);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: validation.errors.join('; ')
+      });
+    }
+    
+    // Upload PDF to Drive
+    const pdfResult = await uploadFileToDrive(
+      pdfFile.buffer,
+      pdfFile.originalname,
+      pdfFile.mimetype,
+      req.brand.briefFolderId
+    );
+    console.log(`[PDF+Images] PDF uploaded to Drive: ${pdfResult.id}`);
+    
+    // Extract specs from PDF using existing logic
+    let imageSpecs = [];
+    try {
+      const loadingTask = pdfjsLib.getDocument({ data: pdfFile.buffer });
+      const pdfDocument = await loadingTask.promise;
+      
+      let pdfText = '';
+      for (let i = 1; i <= pdfDocument.numPages; i++) {
+        const page = await pdfDocument.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        pdfText += pageText + '\n';
+      }
+      
+      // Simple extraction logic - look for Title/Subtitle patterns
+      const lines = pdfText.split('\n').filter(line => line.trim());
+      const extractedSpecs = [];
+      let specIndex = 0;
+      
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i].trim();
+        const nextLine = lines[i + 1]?.trim();
+        
+        // Basic heuristic: short line followed by longer line could be title/subtitle
+        if (line.length > 0 && line.length < 60 && nextLine && nextLine.length > line.length) {
+          specIndex++;
+          extractedSpecs.push({
+            image_number: specIndex,
+            title: line,
+            subtitle: nextLine,
+            asset: '',
+            variant: null,
+            ai_prompt: generateDefaultPrompt(line, nextLine),
+            logo_requested: false,
+            logo_name: '',
+            logo_names: []
+          });
+          i++; // Skip next line since we used it as subtitle
+        }
+      }
+      
+      // If we couldn't extract structured specs, create one per image
+      if (extractedSpecs.length === 0) {
+        for (let i = 0; i < imageFiles.length; i++) {
+          const title = `Image ${i + 1}`;
+          const subtitle = 'Enhance this image with professional styling';
+          extractedSpecs.push({
+            image_number: i + 1,
+            title: title,
+            subtitle: subtitle,
+            asset: '',
+            variant: null,
+            ai_prompt: generateDefaultPrompt(title, subtitle),
+            logo_requested: false,
+            logo_name: '',
+            logo_names: []
+          });
+        }
+      }
+      
+      imageSpecs = extractedSpecs;
+      console.log(`[PDF+Images] Extracted ${imageSpecs.length} specs from PDF`);
+      
+    } catch (pdfError) {
+      console.error('[PDF+Images] PDF extraction error:', pdfError);
+      // Create default specs for each image
+      for (let i = 0; i < imageFiles.length; i++) {
+        const title = `Image ${i + 1}`;
+        const subtitle = 'Enhance this image with professional styling';
+        imageSpecs.push({
+          image_number: i + 1,
+          title: title,
+          subtitle: subtitle,
+          asset: '',
+          variant: null,
+          ai_prompt: generateDefaultPrompt(title, subtitle),
+          logo_requested: false,
+          logo_name: '',
+          logo_names: []
+        });
+      }
+    }
+    
+    // Upload images to Drive
+    const uploadedImages = [];
+    
+    for (const file of imageFiles) {
+      const result = await uploadFileToDrive(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        req.brand.productImagesFolderId
+      );
+      
+      console.log(`[PDF+Images] Uploaded ${file.originalname} to Drive`);
+      await makeFilePublic(result.id);
+      const publicUrl = getPublicImageUrl(result.id);
+      
+      uploadedImages.push({
+        id: result.id,
+        name: file.originalname,
+        originalName: file.originalname,
+        driveId: result.id,
+        publicUrl: publicUrl
+      });
+    }
+    
+    // Create job
+    const jobId = `job_${Date.now()}`;
+    const startTime = new Date();
+    
+    // Generate a structured promptText for downstream services (bounded, JSON-serialized)
+    const promptSummary = imageSpecs.map((spec, i) => ({
+      imageIndex: i + 1,
+      title: spec.title,
+      subtitle: spec.subtitle
+    }));
+    const combinedPromptText = JSON.stringify(promptSummary);
+    
+    // Build submission metadata (includes full prompt details)
+    const submissionMetadata = {
+      method: 'pdf_with_images',
+      pdfFileName: pdfFile.originalname,
+      matchingStrategy: 'order_based',
+      extractedSpecCount: imageSpecs.length,
+      imageCount: uploadedImages.length,
+      promptDetails: imageSpecs.map((s, i) => ({
+        imageIndex: i + 1,
+        title: s.title,
+        promptPreview: s.ai_prompt.substring(0, 200) + '...'
+      }))
+    };
+    
+    await createJob({
+      id: jobId,
+      brandId: req.brand.id,
+      brandSlug: req.brand.slug,
+      briefFileId: pdfResult.id,
+      briefType: 'pdf_with_images',
+      promptText: combinedPromptText,
+      submissionMetadata: submissionMetadata,
+      imageSpecs: imageSpecs,
+      images: uploadedImages,
+      status: 'processing',
+      createdAt: startTime,
+      startTime: startTime,
+      imageCount: uploadedImages.length
+    });
+    
+    console.log(`[PDF+Images] Job created: ${jobId}`);
+    
+    res.json({
+      success: true,
+      jobId,
+      pdfFileId: pdfResult.id,
+      pdfFileName: pdfFile.originalname,
+      imageCount: uploadedImages.length,
+      extractedSpecs: imageSpecs.length,
+      message: `PDF brief uploaded with ${uploadedImages.length} separate images. Processing started.`
+    });
+    
+    // Start processing in the background
+    processImagesWithGemini(jobId).catch(async err => {
+      console.error('[PDF+Images] Background processing error:', err);
+      await updateJob(jobId, { 
+        status: 'failed',
+        error: err.message
+      });
+    });
+    
+  } catch (error) {
+    console.error('[PDF+Images] Error:', error);
+    res.status(500).json({ error: 'Failed to process PDF with images', details: error.message });
+  }
 }
 
 export async function uploadTextPrompt(req, res) {

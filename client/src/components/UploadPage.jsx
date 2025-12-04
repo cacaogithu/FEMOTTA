@@ -1,6 +1,9 @@
 import { useState, useRef } from 'react';
 import { authenticatedFetch, postFormData, postJSON } from '../utils/api';
 import marketplacePresets, { getPresetById, getPresetList } from '../config/marketplacePresets';
+import BriefMethodSelector from './BriefMethodSelector';
+import StructuredBriefForm from './StructuredBriefForm';
+import PDFWithImagesPanel from './PDFWithImagesPanel';
 import './UploadPage.css';
 
 const validateDriveFolderUrl = (url) => {
@@ -123,6 +126,68 @@ function UploadPage({ onComplete }) {
     }
   };
 
+  // Handler for structured form submission
+  const handleStructuredFormSubmit = async (formData) => {
+    setUploading(true);
+    setError('');
+    
+    try {
+      const multipartData = new FormData();
+      multipartData.append('projectName', formData.projectName);
+      multipartData.append('imageSpecs', JSON.stringify(formData.imageSpecs));
+      
+      formData.images.forEach(image => {
+        multipartData.append('images', image);
+      });
+      
+      const response = await postFormData('/api/upload/structured-brief', multipartData);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Submission failed');
+      }
+      
+      const data = await response.json();
+      onComplete(data.jobId);
+      
+    } catch (err) {
+      console.error('Structured form submission error:', err);
+      setError(err.message);
+      setUploading(false);
+    }
+  };
+
+  // Handler for PDF + Images submission
+  const handlePDFWithImagesSubmit = async (pdfFile, imageFiles) => {
+    setUploading(true);
+    setError('');
+    
+    try {
+      const multipartData = new FormData();
+      multipartData.append('pdf', pdfFile);
+      
+      imageFiles.forEach(image => {
+        multipartData.append('images', image);
+      });
+      
+      const response = await postFormData('/api/upload/pdf-with-images', multipartData);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Submission failed');
+      }
+      
+      const data = await response.json();
+      onComplete(data.jobId);
+      
+    } catch (err) {
+      console.error('PDF + Images submission error:', err);
+      setError(err.message);
+      setUploading(false);
+    }
+  };
+
+  // Handler for document/text submission (original method)
   const handleSubmit = async () => {
     const isDOCX = pdfFile && pdfFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -264,6 +329,13 @@ function UploadPage({ onComplete }) {
               />
             )}
 
+            {submissionMethod === 'pdf-images' && (
+              <PDFWithImagesPanel
+                onSubmit={handlePDFWithImagesSubmit}
+                uploading={uploading}
+              />
+            )}
+
             {submissionMethod === 'document' && (
               <>
                 <div className="brief-type-toggle">
@@ -397,82 +469,81 @@ function UploadPage({ onComplete }) {
                       )}
                     </div>
                   </div>
-                </>
-              ) : (
-                <>
-                  <h3>Upload Product Images</h3>
-                  <p>Drag & drop or click to browse</p>
-                  <span className="hint">JPG, PNG - Max 20MB each</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+                </div>
 
-        <div className="settings-panel">
-          <h3 className="settings-title">Output Settings</h3>
-          
-          <div className="settings-row">
-            <div className="setting-field">
-              <label htmlFor="marketplace-preset">Marketplace Preset</label>
-              <select
-                id="marketplace-preset"
-                className="preset-select"
-                value={selectedPreset}
-                onChange={(e) => setSelectedPreset(e.target.value)}
-              >
-                {getPresetList().map(preset => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.name}
-                  </option>
-                ))}
-              </select>
-              {selectedPreset !== 'default' && (
-                <span className="preset-info">
-                  {getPresetById(selectedPreset).description}
-                </span>
-              )}
-            </div>
-            
-            <div className="setting-field">
-              <label htmlFor="drive-destination">
-                Drive Destination Folder
-                <span className="optional-badge">Optional</span>
-              </label>
-              <input
-                id="drive-destination"
-                type="text"
-                className={`drive-url-input ${driveUrlError ? 'error' : ''}`}
-                placeholder="https://drive.google.com/drive/folders/..."
-                value={driveDestinationUrl}
-                onChange={handleDriveUrlChange}
-              />
-              {driveUrlError && (
-                <span className="field-error">{driveUrlError}</span>
-              )}
-              <span className="field-hint">
-                Leave empty to use default folder. Paste a Google Drive folder URL to save outputs there.
-              </span>
-            </div>
-          </div>
-        </div>
+                <div className="settings-panel">
+                  <h3 className="settings-title">Output Settings</h3>
+                  
+                  <div className="settings-row">
+                    <div className="setting-field">
+                      <label htmlFor="marketplace-preset">Marketplace Preset</label>
+                      <select
+                        id="marketplace-preset"
+                        className="preset-select"
+                        value={selectedPreset}
+                        onChange={(e) => setSelectedPreset(e.target.value)}
+                      >
+                        {getPresetList().map(preset => (
+                          <option key={preset.id} value={preset.id}>
+                            {preset.name}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedPreset !== 'default' && (
+                        <span className="preset-info">
+                          {getPresetById(selectedPreset).description}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="setting-field">
+                      <label htmlFor="drive-destination">
+                        Drive Destination Folder
+                        <span className="optional-badge">Optional</span>
+                      </label>
+                      <input
+                        id="drive-destination"
+                        type="text"
+                        className={`drive-url-input ${driveUrlError ? 'error' : ''}`}
+                        placeholder="https://drive.google.com/drive/folders/..."
+                        value={driveDestinationUrl}
+                        onChange={handleDriveUrlChange}
+                      />
+                      {driveUrlError && (
+                        <span className="field-error">{driveUrlError}</span>
+                      )}
+                      <span className="field-hint">
+                        Leave empty to use default folder. Paste a Google Drive folder URL to save outputs there.
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-        {error && <div className="error-message">{error}</div>}
+                {error && <div className="error-message">{error}</div>}
 
-        <button 
-          className="button button-primary submit-button"
-          onClick={handleSubmit}
-          disabled={!canSubmit || !!driveUrlError}
-        >
-          {uploading ? (
-            <>
-              <span className="spinner"></span>
-              Uploading...
-            </>
-          ) : (
-            'Start AI Editing'
-          )}
-        </button>
+                <button 
+                  className="button button-primary submit-button"
+                  onClick={handleSubmit}
+                  disabled={!canSubmit || !!driveUrlError}
+                >
+                  {uploading ? (
+                    <>
+                      <span className="spinner"></span>
+                      Uploading...
+                    </>
+                  ) : (
+                    'Start AI Editing'
+                  )}
+                </button>
+              </>
+            )}
+
+            {/* Show error for form and pdf-images methods */}
+            {(submissionMethod === 'form' || submissionMethod === 'pdf-images') && error && (
+              <div className="error-message">{error}</div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
