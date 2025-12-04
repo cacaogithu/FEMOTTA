@@ -1099,7 +1099,7 @@ export async function uploadImages(req, res) {
 
     const { jobId } = req.body;
 
-    const job = getJob(jobId);
+    const job = await getJob(jobId);
     if (!jobId || !job) {
       return res.status(400).json({ error: 'Invalid job ID' });
     }
@@ -1164,7 +1164,7 @@ export async function uploadImages(req, res) {
 }
 
 async function processImagesWithGemini(jobId) {
-  const job = getJob(jobId);
+  const job = await getJob(jobId);
 
   if (!job) {
     throw new Error('Job not found');
@@ -1613,7 +1613,7 @@ async function processImagesWithGemini(jobId) {
     }
   });
 
-  const finalJob = getJob(jobId);
+  const finalJob = await getJob(jobId);
   archiveBatchToStorage(jobId, {
     ...finalJob,
     editedImages
@@ -1678,9 +1678,9 @@ export async function uploadTextPrompt(req, res) {
   }
 }
 
-export function getJobInfo(req, res) {
+export async function getJobInfo(req, res) {
   const { jobId } = req.params;
-  const job = getJob(jobId);
+  const job = await getJob(jobId);
 
   if (!job) {
     return res.status(404).json({ error: 'Job not found' });
