@@ -91,10 +91,17 @@ function LogoConfirmationPanel({ jobId, imageSpecs, images, onConfirm, onCancel 
   };
 
   const handleConfirm = async () => {
+    console.log('[LogoConfirmation] Confirm button clicked');
     setSubmitting(true);
     setError('');
 
     try {
+      console.log('[LogoConfirmation] Sending confirmation payload:', {
+        jobId,
+        specCount: confirmedSpecs.length,
+        specs: confirmedSpecs.map(s => ({ index: s.imageIndex, logos: s.selectedLogos }))
+      });
+      
       // Only send logo selections, not full specs (server preserves its own fields)
       const response = await authenticatedFetch('/api/upload/confirm-logos', {
         method: 'POST',
@@ -108,12 +115,15 @@ function LogoConfirmationPanel({ jobId, imageSpecs, images, onConfirm, onCancel 
         })
       });
 
+      console.log('[LogoConfirmation] Response status:', response.status);
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Confirmation failed');
       }
 
       const data = await response.json();
+      console.log('[LogoConfirmation] Confirmation successful, calling onConfirm');
       onConfirm(data.jobId);
     } catch (err) {
       console.error('Confirmation error:', err);
@@ -189,13 +199,18 @@ function LogoConfirmationPanel({ jobId, imageSpecs, images, onConfirm, onCancel 
 
       <div className="confirmation-actions">
         <button 
+          type="button"
           className="cancel-btn"
-          onClick={onCancel}
+          onClick={() => {
+            console.log('[LogoConfirmation] Cancel button clicked');
+            onCancel();
+          }}
           disabled={submitting}
         >
           Cancel
         </button>
         <button 
+          type="button"
           className="confirm-btn"
           onClick={handleConfirm}
           disabled={submitting}
