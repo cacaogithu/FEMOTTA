@@ -227,8 +227,19 @@ export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketpl
     positioningInstructions = `Position title text ${marginLeft}% from left edge, ${marginTop}% from top edge. Position subtitle aligned to left edge, ${subtitleMarginTop}px below title.`;
   }
 
+  // Build STRONG product context instruction if brand detected
+  const brandContextInstruction = productBrand 
+    ? `\nCRITICAL PRODUCT CONTEXT: This image features a ${productBrand} product.
+- Do NOT add ANY logos, brand names, or product identifiers to the image
+- Do NOT modify, replace, or regenerate ANY part of the original product
+- Do NOT add text like "Intel", "AMD", "NVIDIA" as visual elements - only add the TITLE text provided below
+- ONLY add the gradient overlay and the exact text specified in EXACT TEXT TO RENDER section
+- If the product has existing branding, preserve it exactly as shown in the original`
+    : '';
+
   // Hyper-specific prompt with exact metrics for Nano Banana Pro
   return `Edit this product image by adding text overlay with precise specifications.
+${brandContextInstruction}
 
 CRITICAL TEXT ACCURACY REQUIREMENT:
 You MUST render the text EXACTLY as provided - character for character, letter for letter.
