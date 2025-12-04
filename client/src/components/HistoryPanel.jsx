@@ -304,10 +304,10 @@ function HistoryPanel({ onSelectBatch }) {
             <div className="results-grid">
               {batchDetails.variants?.map((variant, idx) => (
                 <div key={`${variant.editedDriveId || idx}-${refreshToken}`} className="result-card">
-                  {variant.originalImageId && (variant.editedUrl || variant.editedDriveId) ? (
+                  {variant.originalDriveId && (variant.editedUrl || variant.editedDriveId) ? (
                     <BeforeAfterSlider 
                       key={`slider-${variant.editedDriveId}-${refreshToken}`}
-                      beforeImageId={variant.originalImageId}
+                      beforeImageId={variant.originalDriveId}
                       afterImageId={variant.editedDriveId}
                       name={variant.editedName}
                       refreshToken={refreshToken}
