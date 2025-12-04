@@ -1,4 +1,4 @@
-import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
+import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
 import { editMultipleImagesWithGemini, analyzeImageForParameters } from '../services/geminiImage.js';
@@ -8,6 +8,7 @@ import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
 import { generateAdaptivePrompt } from '../services/promptTemplates.js';
+import { findLogoByName, detectLogosInText } from '../services/partnerLogos.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
@@ -165,20 +166,49 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
 
 Your task is to carefully READ the document layout and extract ALL image specifications into structured JSON format.
 
+CRITICAL: TABLE-BASED BRIEF PARSING
+Many marketing briefs use TABLE STRUCTURES with columns like:
+- ASSET (image filename)
+- HEADLINE/TITLE (main text)
+- COPY (subtitle/description text)
+- NOTES (may contain logo requirements like "Include Intel Core logo")
+
+When parsing tables:
+1. Each TABLE ROW typically represents ONE image specification
+2. Look for IMAGE 1, IMAGE 2, etc. as row headers or section markers
+3. Extract the ASSET column for the image filename
+4. Extract HEADLINE/TITLE column for the main text
+5. Extract COPY column for the subtitle text
+6. Check NOTES column for logo requirements
+
 CRITICAL INSTRUCTIONS:
-1. Extract EVERY image variant mentioned in the brief(IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
+1. Extract EVERY image variant mentioned in the brief (IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
 2. If a brief mentions BOTH "Metal Dark" AND "Wood Dark" variants, create SEPARATE specifications for EACH variant
 3. Create one JSON object per variant, even if they share the same image number
 4. The total number of specifications should match the total number of product variant images described
 
 TITLE AND SUBTITLE EXTRACTION RULES:
 - ANALYZE the visual/textual layout of each image specification in the document
-- TITLE: Extract the main HEADLINE text - usually larger, bold, or emphasized text at the top of each spec
-- SUBTITLE: Extract the descriptive COPY text - usually smaller text below the headline
+- TITLE: Extract the main HEADLINE text - usually in a "HEADLINE" or "TITLE" column/field
+- SUBTITLE: Extract the descriptive COPY text - usually in a "COPY" or "DESCRIPTION" column/field
 - Extract titles and subtitles EXACTLY as written in the document
 - DO NOT add variant names (like "- METAL DARK") to titles unless they are already part of the written title in the document
 - DO NOT invent or modify titles - read what is actually written
 - If no subtitle exists, use empty string ""
+
+LOGO DETECTION - CRITICAL:
+Look for logo requirements in these locations:
+1. NOTES column: "Include Intel Core logo", "Add AMD Ryzen logo", "NVIDIA 50 Series logo required"
+2. COPY field: If copy text ends with "(Logo)" like "Powered by Intel Core (Logo)"
+3. Explicit mentions: "Intel Logo", "AMD Logo", "NVIDIA Logo", "Hydro X logo", "iCUE Link logo"
+4. Partner mentions in notes: "Hydro X & iCUE Link logo", "Intel Core Ultra logo"
+
+LOGO NAME EXTRACTION:
+Extract the EXACT partner logo name, including specific variants:
+- "Intel Core" vs "Intel Core Ultra" - these are DIFFERENT logos
+- "NVIDIA" vs "NVIDIA 50 Series" - these are DIFFERENT logos
+- "Hydro X" vs "Hydro X & iCUE Link" - extract as written
+- "AMD Ryzen" - for AMD processor images
 
 For each image specification, extract:
 - image_number: The sequential number from the brief (1, 2, 3, etc.)
@@ -186,8 +216,8 @@ For each image specification, extract:
 - title: The HEADLINE text EXACTLY as written (convert to uppercase). Do NOT append variant names unless already in the document.
 - subtitle: The COPY text EXACTLY as written (keep original case). IMPORTANT: If a logo annotation like "(Logo)" appears, extract the subtitle WITHOUT the "(Logo)" text - the logo will be overlaid separately.
 - asset: The ASSET filename (if mentioned)
-- logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", etc.)
-- logo_name: If logo_requested is true, extract the brand/logo name (e.g., "Intel Core", "AMD Ryzen", "NVIDIA GeForce"). Set to null if no logo requested.
+- logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", "include logo" in the NOTES, COPY, or any other field)
+- logo_name: If logo_requested is true, extract the SPECIFIC brand/logo name (e.g., "Intel Core", "Intel Core Ultra", "AMD Ryzen", "NVIDIA 50 Series", "Hydro X & iCUE Link"). Set to null if no logo requested.
 
 For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS):
 
@@ -241,6 +271,16 @@ Example for document with variants and logo requests:
   {
     "image_number": 2,
     "variant": null,
+    "title": "CUSTOM COOLING",
+    "subtitle": "Precision-engineered liquid cooling",
+    "asset": "PC_COOLING_SHOT_01",
+    "logo_requested": true,
+    "logo_name": "Hydro X & iCUE Link",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 5,
+    "variant": null,
     "title": "INTEL CORE",
     "subtitle": "Intel Core Ultra 9 processor",
     "asset": "PC_INTERIOR_SHOT_01",
@@ -249,13 +289,33 @@ Example for document with variants and logo requests:
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
-    "image_number": 3,
+    "image_number": 6,
+    "variant": null,
+    "title": "INTEL CORE ULTRA",
+    "subtitle": "Next-gen Intel performance",
+    "asset": "PC_ULTRA_SHOT_01",
+    "logo_requested": true,
+    "logo_name": "Intel Core Ultra",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 7,
     "variant": null,
     "title": "AMD RYZEN",
     "subtitle": "AMD Ryzen 9000-series processor",
     "asset": "PC_AMD_VARIANT_01",
     "logo_requested": true,
     "logo_name": "AMD Ryzen",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 8,
+    "variant": null,
+    "title": "NVIDIA 50 SERIES",
+    "subtitle": "Ultimate gaming graphics",
+    "asset": "PC_GPU_SHOT_01",
+    "logo_requested": true,
+    "logo_name": "NVIDIA 50 Series",
     "ai_prompt": "Add a dark gradient overlay..."
   }
 ]`
@@ -368,26 +428,65 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
       console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
     }
 
-    // Attach logos to specs that request them (using AI-extracted logo_requested field)
-    if (logoImages.length > 0) {
-      let logoIndex = 0;
-      for (const spec of imageSpecs) {
-        // Check if this spec explicitly requested a logo (from AI extraction)
-        if (spec.logo_requested === true) {
-          // Assign logos in order - if multiple logos available, try to match by index
-          const logoToUse = logoImages[Math.min(logoIndex, logoImages.length - 1)];
-          spec.logoBase64 = logoToUse.base64;
-          spec.logoContentType = logoToUse.contentType;
-          console.log(`[DOCX Extraction] Attached logo to spec: "${spec.title}" (logo: ${spec.logo_name || 'unknown'})`);
-          logoIndex++;
+    // INTELLIGENT LOGO MATCHING using partner logos registry
+    // Instead of sequential assignment, use the logo_name to find the correct logo
+    console.log('[DOCX Extraction] Starting intelligent logo matching...');
+    
+    let matchedLogosCount = 0;
+    for (const spec of imageSpecs) {
+      if (spec.logo_requested === true && spec.logo_name) {
+        console.log(`[DOCX Extraction] Looking for logo: "${spec.logo_name}" for image "${spec.title}"`);
+        
+        const matchedLogo = findLogoByName(spec.logo_name);
+        
+        if (matchedLogo) {
+          spec.matchedPartnerLogo = {
+            key: matchedLogo.key,
+            name: matchedLogo.name,
+            driveId: matchedLogo.driveId,
+            localPath: matchedLogo.localPath,
+            matchScore: matchedLogo.matchScore
+          };
+          console.log(`[DOCX Extraction] ✓ Matched "${spec.logo_name}" to "${matchedLogo.name}" (score: ${matchedLogo.matchScore})`);
+          matchedLogosCount++;
+          
+          if (matchedLogo.driveId) {
+            try {
+              const logoBuffer = await downloadFileFromDrive(matchedLogo.driveId);
+              const base64Data = logoBuffer.toString('base64');
+              const contentType = 'image/png';
+              spec.logoBase64 = `data:${contentType};base64,${base64Data}`;
+              spec.logoContentType = contentType;
+              console.log(`[DOCX Extraction] ✓ Downloaded logo from Drive: ${matchedLogo.driveId}`);
+            } catch (driveErr) {
+              console.warn(`[DOCX Extraction] Could not download logo from Drive: ${driveErr.message}`);
+            }
+          }
+        } else {
+          console.warn(`[DOCX Extraction] ⚠ No matching logo found for: "${spec.logo_name}"`);
+          const detectedLogos = detectLogosInText(spec.logo_name);
+          if (detectedLogos.length > 0) {
+            console.log(`[DOCX Extraction] Possible alternatives detected:`, detectedLogos.map(l => l.name));
+          }
         }
+      } else if (spec.logo_requested === true && !spec.logo_name) {
+        console.warn(`[DOCX Extraction] ⚠ Logo requested but no logo_name extracted for: "${spec.title}"`);
       }
-      console.log(`[DOCX Extraction] Attached logos to ${logoIndex} image specifications`);
-    } else {
-      // Check for logo requests without available logo images
-      const specsNeedingLogos = imageSpecs.filter(s => s.logo_requested === true);
-      if (specsNeedingLogos.length > 0) {
-        console.warn(`[DOCX Extraction] Warning: ${specsNeedingLogos.length} specs request logos but no logo images found in document`);
+    }
+    
+    console.log(`[DOCX Extraction] Matched ${matchedLogosCount} logos using intelligent matching`);
+    
+    if (logoImages.length > 0) {
+      console.log(`[DOCX Extraction] Found ${logoImages.length} embedded logos in document (available as fallback)`);
+      let fallbackLogoIndex = 0;
+      for (const spec of imageSpecs) {
+        if (spec.logo_requested === true && !spec.logoBase64 && fallbackLogoIndex < logoImages.length) {
+          const fallbackLogo = logoImages[fallbackLogoIndex];
+          spec.logoBase64 = fallbackLogo.base64;
+          spec.logoContentType = fallbackLogo.contentType;
+          console.log(`[DOCX Extraction] Using embedded fallback logo for: "${spec.title}" (logo: ${spec.logo_name || 'unknown'})`);
+          fallbackLogoIndex++;
+        }
       }
     }
 
@@ -396,19 +495,6 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
       extractedImages: imagesToProcess,
       logoImages: logoImages
     };
-
-if (imagesToProcess.length < imageSpecs.length) {
-  console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
-}
-
-if (extractedImages.length > imagesToProcess.length) {
-  console.log(`[DOCX Extraction] Filtered out ${extractedImages.length - imagesToProcess.length} images (likely logos/icons)`);
-}
-
-return {
-  imageSpecs,
-  extractedImages: imagesToProcess
-};
 
   } catch (error) {
   console.error('[DOCX Extraction] Error:', error.message);
