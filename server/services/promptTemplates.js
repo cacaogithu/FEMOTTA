@@ -159,6 +159,18 @@ Return ONLY the JSON object, no additional text or markdown formatting.`;
 }
 
 /**
+ * Extract product brand from title to provide context to AI
+ */
+function extractProductBrand(title) {
+  title = (title || '').toUpperCase();
+  if (title.includes('NVIDIA') || title.includes('5090') || title.includes('5080') || title.includes('RTX')) return 'NVIDIA';
+  if (title.includes('INTEL') || title.includes('CORE')) return 'Intel';
+  if (title.includes('AMD') || title.includes('RYZEN')) return 'AMD';
+  if (title.includes('CORSAIR') || title.includes('HYDRO') || title.includes('ICUE')) return 'Corsair';
+  return null;
+}
+
+/**
  * Generate final editing prompt based on AI-analyzed parameters
  * 
  * IMPORTANT: This prompt uses strict separation between:
@@ -168,7 +180,7 @@ Return ONLY the JSON object, no additional text or markdown formatting.`;
  * Logo overlays are handled by post-processing (overlayLogoOnImage), 
  * so we do NOT include logo instructions here to avoid duplication.
  */
-export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketplace = 'website', logoInfo = null) {
+export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketplace = 'website', logoInfo = null, productContext = null) {
   const params = analyzedParams || {
     productPosition: 'middle',
     recommendedGradientCoverage: 20,
@@ -181,6 +193,9 @@ export function generateAdaptivePrompt(title, subtitle, analyzedParams, marketpl
   // Sanitize and provide defaults for title/subtitle to prevent crashes
   const safeTitle = (title || 'PRODUCT').toString().replace(/"/g, "'");
   const safeSubtitle = (subtitle || '').toString().replace(/"/g, "'");
+  
+  // Extract product brand from title for context
+  const productBrand = extractProductBrand(safeTitle);
 
   // Calculate exact metrics based on analyzed parameters
   const gradientCoverage = params.recommendedGradientCoverage || 20;
