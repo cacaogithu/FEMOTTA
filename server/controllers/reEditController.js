@@ -346,7 +346,7 @@ export async function reEditImages(req, res) {
     });
     
     console.log('[Re-edit] Job updated successfully. Verifying...');
-    const verifyJob = getJob(jobId);
+    const verifyJob = await getJob(jobId);
     console.log('[Re-edit] Verified job.editedImages count:', verifyJob.editedImages.length);
     console.log('[Re-edit] Verified Image 13:', verifyJob.editedImages.find(img => img.name && img.name.includes('13')));
 

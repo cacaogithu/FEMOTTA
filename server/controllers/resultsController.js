@@ -13,7 +13,7 @@ export async function pollResults(req, res) {
     
     const { jobId } = req.params;
     
-    const job = getJob(jobId);
+    const job = await getJob(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -66,7 +66,7 @@ export async function downloadAll(req, res) {
   try {
     const { jobId } = req.params;
     
-    const job = getJob(jobId);
+    const job = await getJob(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }

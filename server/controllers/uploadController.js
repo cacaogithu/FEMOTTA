@@ -16,6 +16,36 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
 import sharp from 'sharp';
 
+/**
+ * Expands multi-logo strings into individual logo names
+ * "Hydro X & iCUE Link" -> ["Hydro X", "iCUE Link"]
+ * "NVIDIA and AMD" -> ["NVIDIA", "AMD"]
+ * Note: Only splits on "&" and " and " - not commas (to preserve names like "GE, Inc.")
+ */
+function expandLogoNames(logoNames) {
+  if (!logoNames || !Array.isArray(logoNames)) return [];
+  
+  const expanded = [];
+  // Only split on & or " and " (case insensitive) - NOT commas to avoid splitting corporate names
+  const delimiters = /\s*&\s*|\s+and\s+/i;
+  
+  for (const name of logoNames) {
+    if (!name || typeof name !== 'string') continue;
+    
+    // Check if this contains multiple logos
+    const parts = name.split(delimiters).map(p => p.trim()).filter(p => p.length > 0);
+    
+    if (parts.length > 1) {
+      console.log(`[Logo Expand] Split "${name}" into ${parts.length} logos: ${parts.join(', ')}`);
+      expanded.push(...parts);
+    } else {
+      expanded.push(name.trim());
+    }
+  }
+  
+  return expanded;
+}
+
 async function editImageUnified(imageUrl, prompt, options = {}) {
   const sairaGuidelines = getCompleteOverlayGuidelines();
   const enhancedPrompt = `${sairaGuidelines}\n\nSPECIFIC IMAGE INSTRUCTIONS:\n${prompt}`;
@@ -691,10 +721,12 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
       spec.logoBase64Array = []; // Support multiple logos
 
       if (spec.logo_requested === true && spec.logo_names && spec.logo_names.length > 0) {
-        console.log(`[DOCX Extraction] Processing ${spec.logo_names.length} logo(s) for "${spec.title}":`, spec.logo_names);
+        // CRITICAL: Expand multi-logo strings like "Hydro X & iCUE Link" into separate entries
+        const expandedLogoNames = expandLogoNames(spec.logo_names);
+        console.log(`[DOCX Extraction] Processing ${expandedLogoNames.length} logo(s) for "${spec.title}":`, expandedLogoNames);
 
-        for (let logoIdx = 0; logoIdx < spec.logo_names.length; logoIdx++) {
-          const logoName = spec.logo_names[logoIdx];
+        for (let logoIdx = 0; logoIdx < expandedLogoNames.length; logoIdx++) {
+          const logoName = expandedLogoNames[logoIdx];
           totalLogosRequested++;
           console.log(`  - Looking for logo: "${logoName}"`);
 
