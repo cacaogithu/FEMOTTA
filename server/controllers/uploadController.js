@@ -1181,28 +1181,10 @@ export async function uploadPDF(req, res) {
 
       console.log('[Upload Brief] All embedded images uploaded and made public');
       
-      // VISION-BASED LOGO ANALYSIS: Now that images are public, analyze them with GPT-4o Vision
-      // This analyzes the actual image content to determine optimal logo placement
-      if (uploadedImages.length > 0 && imageSpecs.length > 0) {
-        console.log('[Upload Brief] Starting vision-based logo placement analysis...');
-        try {
-          const briefText = docxResult?.briefText || '';
-          const visionPlans = await analyzeImagesWithVision(
-            uploadedImages,
-            imageSpecs,
-            briefText,
-            { openaiApiKey: req.brand.openaiApiKey || process.env.OPENAI_API_KEY }
-          );
-          
-          // Merge vision-analyzed placement plans into image specs
-          if (visionPlans && visionPlans.length > 0) {
-            imageSpecs = mergeVisionPlansIntoSpecs(imageSpecs, visionPlans);
-            console.log('[Upload Brief] Vision logo analysis complete - specs updated with placement data');
-          }
-        } catch (visionErr) {
-          console.warn('[Upload Brief] Vision analysis failed, using fallback detection:', visionErr.message);
-        }
-      }
+      // SKIP VISION ANALYSIS FOR SPEED: Image specs already have logos defined from DOCX extraction
+      // Vision analysis is expensive and the specs already have the correct logos
+      console.log('[Upload Brief] Using logos from image specifications (skipping vision analysis for performance)');
+      // Image specs already have logoNames and logo_names populated from DOCX extraction
     }
 
     const startTime = new Date();
