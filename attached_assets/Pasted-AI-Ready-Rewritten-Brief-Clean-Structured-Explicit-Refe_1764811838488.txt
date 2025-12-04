@@ -1,0 +1,108 @@
+AI-Ready Rewritten Brief (Clean, Structured, Explicit)
+(Reference source: 
+ARACHNID - Enhanced Image Brief
+)
+Project Overview
+Create a full set of enhanced marketing imagery for GENESIS, a SYSTEMS category product.
+This is part of the ORIGIN PC Enhanced Imagery series.
+Multiple images must be produced following the templates and creative direction provided.
+Deliverables
+8 total images (see details below)
+Dimensions: 2560×2560
+Resolution: 72 dpi
+Formats: JPG, PNG, PSD (layered)
+Due date: Nov 21, 2025
+Stakeholders
+Felippe Motta (GTM)
+Isaac Bonilla (PM)
+Mike Wall (Director, Marketing)
+Global Creative Guidelines
+These apply to all assets:
+Use provided product photography (listed under each image).
+Integrate partner logos where requested (Intel, AMD, NVIDIA, Hydro X, iCUE Link).
+Match ORIGIN PC / CORSAIR Enhanced Imagery visual style:
+Clean, futuristic lighting
+Subtle contrast, premium feel
+Studio-grade composition
+PSDs must include editable text, logo layers, and isolated product cutouts.
+Image-by-Image Breakdown
+IMAGE 1 — INTRO
+Headline: ARACHNID
+Copy: We didn’t just think “outside the box”; we got rid of the “box” altogether.
+Asset: Arachnid Environmental Studio-3.jpg
+Direction:
+Hero introduction image.
+Show the full system environment.
+Emphasize the “outside the box” message with open, unconventional framing.
+IMAGE 2 — Custom Liquid Cooling
+Headline: Dual Liquid Cooling
+Copy:
+High-performance pumps for both CPU and GPU keep temperatures in check, extending the longevity of your components.
+Logos to include:
+Hydro X logo
+iCUE Link logo
+Assets:
+images - BCAM6277.jpg
+hydro-series-logo.jpg
+icue-link-logo.jpg
+Direction:
+Highlight the liquid-cooling loop.
+Show clarity of tubing, pumps, and coolant flow.
+Place logos in lower corner, subtle but visible.
+IMAGE 3 — Form Factor
+Headline: Case Specifications
+Copy:
+Length: 21.50 in  
+Width: 16 in  
+Height: 27 in  
+Weight (empty chassis): 27.2 lbs
+Assets:
+DSC00631.jpg
+Dimension labeling reference: CORSAIR_AI_WORKSTATION_RENDER_09.png
+Direction:
+Present the chassis with clean measurement callouts.
+Follow style from reference image for labeling (arrows, typographic style, spacing).
+IMAGE 4 — Front I/O Panel
+Headline: The Front I/O Panel.
+Copy:
+It’s designed for convenient access to essential connectivity and control features.
+Asset:
+DSC00606.jpg
+Direction:
+Close-up of I/O ports.
+Ensure clarity of USB, audio, buttons, etc.
+Lighting should highlight texture and premium materials.
+IMAGE 5 — Intel Core
+Copy: Intel® Core™
+Asset: DSC00655.jpg
+Direction:
+This image is primarily a pairing of the product shot + Intel Core logo.
+Clean composition, logo placement bottom-left or similar.
+IMAGE 6 — Intel Core Ultra
+Copy: Intel® Core™ Ultra
+Asset: DSC00655.jpg
+Direction:
+Same system image as Image 5 but featuring the Intel Core Ultra logo variant.
+Must look distinct from Image 5 (e.g., color overlay, alternate crop, lighting tweak).
+IMAGE 7 — AMD
+Copy: AMD Ryzen 9000-series
+Asset: DSC00655.jpg
+Direction:
+Similar style to Images 5 & 6.
+Feature the AMD Ryzen logo prominently.
+Ensure visual differentiation between Intel and AMD variants.
+IMAGE 8 — NVIDIA 50 Series GPU
+Headline: Liquid-cooled NVIDIA 5090 GPU
+Assets:
+DSC00646.jpg
+nvidia-50-series-logo.jpg
+Direction:
+Show the GPU from a flattering angle.
+Highlight liquid-cooling components.
+Place NVIDIA logo cleanly, keep GPU as the hero.
+Technical Notes for the AI Model
+Maintain consistent color grading across the entire set.
+Keep text minimal, modern, and high-contrast for readability.
+Avoid over-editing; preserve authenticity of the hardware.
+Keep all logos vector-sharp; do not distort or stretch.
+Output PSDs with organized named layers (Text / Product / Logos / Background / Effects).
