@@ -367,19 +367,27 @@ TITLE AND SUBTITLE EXTRACTION RULES:
 
 LOGO DETECTION - CRITICAL (MULTIPLE LOGOS SUPPORTED):
 Each image specification can have ZERO, ONE, or MULTIPLE logos. Look for logo requirements in these locations:
-1. ASSET field: Check if asset filename contains "logo" (e.g., "intel_logo.png", "amd-logo.jpg")
-2. NOTES column: "Include Intel Core logo", "Add AMD Ryzen logo", "NVIDIA 50 Series logo required"
-3. LOGOS column: May list multiple logos like "Intel Core, NVIDIA 50 Series"
-4. COPY field: If copy text ends with "(Logo)" like "Powered by Intel Core (Logo)"
-5. Explicit mentions: "Intel Logo", "AMD Logo", "NVIDIA Logo", "Hydro X logo", "iCUE Link logo"
-6. Partner mentions in notes: "Hydro X & iCUE Link logo", "Intel Core Ultra logo"
-7. Multiple logos in same spec: "Include Intel Core and NVIDIA logos"
+1. ASSET field: Check if asset filename contains "logo" (e.g., "intel_logo.png", "amd-logo.jpg", "hydro-series-logo.jpg")
+2. COPY field PARENTHESES: "(Logo)", "(Intel logo)", "(AMD Ryzen Logo)", "(Intel Core Ultra logo)", etc.
+   - Extract the brand name from inside parentheses
+   - Common patterns: "(Logo)", "(Intel® Core™ Logo)", "(AMD Ryzen Logo)", "(NVIDIA logo)"
+3. NOTES column: "Include Intel Core logo", "Add AMD Ryzen logo", "NVIDIA 50 Series logo required"
+4. COPY field PREFIX: "Intel® Core™ (Logo)" - extract "Intel Core" from before (Logo)
+5. LOGOS column: May list multiple logos like "Intel Core, NVIDIA 50 Series"
+6. Explicit mentions: "Intel Logo", "AMD Logo", "NVIDIA Logo", "Hydro X logo", "iCUE Link logo"
+7. Partner mentions: "Hydro X & iCUE Link logo", "Intel Core Ultra logo"
+8. Multiple logos in same spec: "Include Intel Core and NVIDIA logos" or "(include Hydro X & iCUE Link logo)"
+
+IMPORTANT: The COPY field often has the pattern "Brand Name (Logo)" - extract "Brand Name" as the logo name.
 
 LOGO NAME EXTRACTION (SUPPORT MULTIPLE LOGOS):
 Extract ALL logo names mentioned for each image specification into an ARRAY:
-- If "Intel Core and NVIDIA 50 Series" are mentioned → ["Intel Core", "NVIDIA 50 Series"]
-- If "Hydro X & iCUE Link logo" is mentioned → ["Hydro X & iCUE Link"]
+- "Intel® Core™ (Logo)" → ["Intel Core"]
+- "AMD Ryzen 9000-series (AMD Ryzen Logo)" → ["AMD Ryzen"]
+- "(include Hydro X & iCUE Link logo)" → ["Hydro X & iCUE Link"]
+- "Intel Core and NVIDIA 50 Series" → ["Intel Core", "NVIDIA 50 Series"]
 - If no logos → []
+- Remove trademark symbols (®, ™) from logo names
 - Be specific about variants:
   * "Intel Core" vs "Intel Core Ultra" - these are DIFFERENT logos
   * "NVIDIA" vs "NVIDIA 50 Series" - these are DIFFERENT logos
@@ -390,10 +398,12 @@ For each image specification, extract:
 - image_number: The sequential number from the brief (1, 2, 3, etc.)
 - variant: The variant name if specified (e.g., "METAL DARK", "WOOD DARK", or null if not applicable)
 - title: The HEADLINE text EXACTLY as written (convert to uppercase). Do NOT append variant names unless already in the document.
-- subtitle: The COPY text EXACTLY as written (keep original case). IMPORTANT: If a logo annotation like "(Logo)" appears, extract the subtitle WITHOUT the "(Logo)" text - the logo will be overlaid separately.
-- asset: The ASSET filename (if mentioned)
-- logo_requested: true/false - Set to true if ANY logos are requested for this specification
-- logo_names: ARRAY of logo names (e.g., ["Intel Core"], ["AMD Ryzen", "NVIDIA"], or [] if none). ALWAYS use an array, even for single logo.
+- subtitle: The COPY text EXACTLY as written (keep original case). IMPORTANT: If a logo annotation like "(Logo)" or "(Intel logo)" appears, extract the subtitle WITHOUT the parenthetical text - the logo will be overlaid separately.
+- asset: The ASSET filename (if mentioned) - include ONLY the main product image, NOT logo files
+- logo_requested: true/false - Set to true if ANY logos are mentioned in COPY (even in parentheses), NOTES, LOGOS column, or ASSET field contains logo files
+- logo_names: ARRAY of logo names (e.g., ["Intel Core"], ["AMD Ryzen", "NVIDIA"], or [] if none). ALWAYS use an array, even for single logo. Extract from COPY field parentheses, ASSET logo filenames, or NOTES.
+
+CRITICAL: If ASSET field lists logo files (like "hydro-series-logo.jpg"), count them and add to logo_names array.
 
 For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS):
 
@@ -569,13 +579,21 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
     console.log('[DOCX Extraction] ✓ All specs validated successfully');
 
     // Separate product images from logo images based on INTERSPERSED pattern
-    // Pattern: [Product1, Product2, Logo2, Product3, Logo3, Logo3b, Product4...]
-    // Each product image is followed by its logo(s) if logo_requested=true
+    // Pattern: [BrandLogo, Product1, Product2, Logo2a, Logo2b, Product3, Logo3, Product4...]
+    // First image is usually brand logo (skip it)
+    // Each product image MAY be followed by its logo(s) if logo_requested=true
     console.log('[DOCX Extraction] Pairing product images with their adjacent logos...');
 
     const productImages = [];
     const embeddedLogosForSpecs = []; // Logos extracted from document, paired by spec index
+
+    // Skip first image if it looks like a brand logo (typically smaller and at position 0)
     let imageIndex = 0;
+    if (extractedImages.length > 0 && extractedImages[0].size < 500000) {
+      // First image under 500KB is likely a brand logo, skip it
+      console.log(`  → Skipping first image at position 0 (likely brand logo, size: ${extractedImages[0].size} bytes)`);
+      imageIndex = 1;
+    }
 
     for (let specIndex = 0; specIndex < imageSpecs.length; specIndex++) {
       const spec = imageSpecs[specIndex];
@@ -589,33 +607,47 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
 
       const productImage = extractedImages[imageIndex];
       productImages.push(productImage);
-      console.log(`  Spec #${specIndex + 1} "${spec.title}": Product image at position ${imageIndex}`);
+      console.log(`  Spec #${specIndex + 1} "${spec.title}": Product image at position ${imageIndex} (${productImage.size} bytes)`);
       imageIndex++;
 
-      // If this spec requests logos, the NEXT image(s) are the logos for this product
+      // If this spec requests logos, check if NEXT image(s) are logos
+      // Don't assume they exist - check before consuming
       const logosForThisSpec = [];
       if (spec.logo_requested === true && spec.logo_names && spec.logo_names.length > 0) {
         const logoCount = spec.logo_names.length;
         console.log(`    → Expects ${logoCount} logo(s):`, spec.logo_names);
 
         for (let logoIdx = 0; logoIdx < logoCount; logoIdx++) {
-          if (imageIndex >= extractedImages.length) {
-            console.warn(`    ⚠ Missing embedded logo ${logoIdx + 1}/${logoCount} for "${spec.title}" at position ${imageIndex}`);
-            break;
-          }
+          // Check if next image exists and looks like a logo
+          if (imageIndex < extractedImages.length) {
+            const nextImage = extractedImages[imageIndex];
+            const logoName = spec.logo_names[logoIdx];
 
-          const logoImage = extractedImages[imageIndex];
-          const base64Data = logoImage.buffer.toString('base64');
-          logosForThisSpec.push({
-            buffer: logoImage.buffer,
-            contentType: logoImage.contentType,
-            base64: `data:${logoImage.contentType};base64,${base64Data}`,
-            size: logoImage.size,
-            index: imageIndex,
-            associatedLogoName: spec.logo_names[logoIdx] || null
-          });
-          console.log(`    → Found embedded logo at position ${imageIndex} (for "${spec.logo_names[logoIdx]}")`);
-          imageIndex++;
+            // Heuristic: Next image is a logo if:
+            // 1. It's smaller than product images (typically < 500KB)
+            // 2. OR we're expecting multiple logos for this spec
+            // 3. OR the logo name matches common patterns
+            const looksLikeLogo = nextImage.size < 500000 || logoCount > 1;
+
+            if (looksLikeLogo) {
+              const base64Data = nextImage.buffer.toString('base64');
+              logosForThisSpec.push({
+                buffer: nextImage.buffer,
+                contentType: nextImage.contentType,
+                base64: `data:${nextImage.contentType};base64,${base64Data}`,
+                size: nextImage.size,
+                index: imageIndex,
+                associatedLogoName: logoName
+              });
+              console.log(`    → Found embedded logo at position ${imageIndex} (${nextImage.size} bytes) for "${logoName}"`);
+              imageIndex++;
+            } else {
+              console.warn(`    ⚠ Next image at position ${imageIndex} (${nextImage.size} bytes) doesn't look like a logo - will use registry logo for "${logoName}"`);
+              // Don't consume this image - it's probably the next product image
+            }
+          } else {
+            console.warn(`    ⚠ Missing embedded logo ${logoIdx + 1}/${logoCount} for "${spec.title}" at position ${imageIndex} - will use registry logo`);
+          }
         }
       }
 
@@ -653,6 +685,7 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
           totalLogosRequested++;
           console.log(`  - Looking for logo: "${logoName}"`);
 
+          // PRIORITY 1: Try to match logo name against registry
           const matchedLogo = findLogoByName(logoName);
           let logoAdded = false;
 
@@ -667,7 +700,7 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
             console.log(`    ✓ Matched "${logoName}" to "${matchedLogo.name}" (score: ${matchedLogo.matchScore})`);
             totalLogosMatched++;
 
-            // Download logo from Drive if available
+            // Download logo from Drive if available (PREFERRED)
             if (matchedLogo.driveId) {
               try {
                 const logoBuffer = await downloadFileFromDrive(matchedLogo.driveId);
@@ -679,33 +712,36 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
                   name: matchedLogo.name,
                   source: 'drive'
                 });
-                console.log(`    ✓ Downloaded logo from Drive: ${matchedLogo.driveId}`);
+                console.log(`    ✓ Using registry logo from Drive: ${matchedLogo.driveId}`);
                 logoAdded = true;
               } catch (driveErr) {
                 console.warn(`    ⚠ Could not download logo from Drive: ${driveErr.message}`);
+                // Will fall through to embedded logo
               }
             }
           }
 
-          // If no match found or Drive download failed, use embedded logo for this spec
-          if (!logoAdded) {
-            if (embeddedLogos.length > logoIdx) {
-              const embeddedLogo = embeddedLogos[logoIdx];
-              spec.logoBase64Array.push({
-                base64: embeddedLogo.base64,
-                contentType: embeddedLogo.contentType,
-                name: logoName,
-                source: 'embedded'
-              });
-              console.log(`    ✓ Using embedded logo at position ${embeddedLogo.index} for "${logoName}"`);
-            } else {
-              console.warn(`    ⚠ No matching logo found and no embedded logo available for: "${logoName}"`);
-              unmatchedLogoNames.push({ specIndex, spec: spec.title, logoName });
+          // PRIORITY 2: Use embedded logo if registry logo not available or download failed
+          if (!logoAdded && embeddedLogos.length > logoIdx) {
+            const embeddedLogo = embeddedLogos[logoIdx];
+            spec.logoBase64Array.push({
+              base64: embeddedLogo.base64,
+              contentType: embeddedLogo.contentType,
+              name: logoName,
+              source: 'embedded'
+            });
+            console.log(`    ✓ Using embedded logo at position ${embeddedLogo.index} for "${logoName}"`);
+            logoAdded = true;
+          }
 
-              const detectedLogos = detectLogosInText(logoName);
-              if (detectedLogos.length > 0) {
-                console.log(`    Possible alternatives:`, detectedLogos.map(l => l.name).join(', '));
-              }
+          // PRIORITY 3: Log error if no logo found anywhere
+          if (!logoAdded) {
+            console.warn(`    ⚠ No logo found for "${logoName}" (not in registry and no embedded logo)`);
+            unmatchedLogoNames.push({ specIndex, spec: spec.title, logoName });
+
+            const detectedLogos = detectLogosInText(logoName);
+            if (detectedLogos.length > 0) {
+              console.log(`    Possible alternatives:`, detectedLogos.map(l => l.name).join(', '));
             }
           }
         }
