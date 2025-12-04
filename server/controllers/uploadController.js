@@ -652,17 +652,26 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
       productImages.sort((a, b) => a.originalIndex - b.originalIndex);
     }
     
-    // Create empty logos array for each spec (will be populated by intelligent matching later)
-    const embeddedLogosForSpecs = imageSpecs.map(() => []);
-    
     // Convert logoImages to the format expected by intelligent matching
-    logoImages.forEach((logo) => {
+    logoImages.forEach((logo, idx) => {
       const base64Data = logo.buffer.toString('base64');
       logo.base64 = `data:${logo.contentType};base64,${base64Data}`;
+      logo.index = idx;
     });
     
+    // Store all classified logos for fallback matching
+    // These will be used when partner registry logos don't have Drive IDs configured
+    const classifiedLogos = logoImages.map((logo, idx) => ({
+      base64: logo.base64,
+      contentType: logo.contentType,
+      width: logo.width,
+      height: logo.height,
+      size: logo.size,
+      index: idx
+    }));
+    
     console.log(`[DOCX Extraction] ✓ Image classification complete`);
-    console.log(`[DOCX Extraction] Final: ${productImages.length} product images, ${logoImages.length} logos`)
+    console.log(`[DOCX Extraction] Final: ${productImages.length} product images, ${logoImages.length} logos (available as fallback)`)
 
     // INTELLIGENT LOGO MATCHING - Support multiple logos per spec
     console.log('[DOCX Extraction] Starting intelligent logo matching (supports multiple logos per image)...');
@@ -671,9 +680,11 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
     let totalLogosMatched = 0;
     const unmatchedLogoNames = [];
 
+    // Track which classified logos have been used (for fallback assignment)
+    let usedClassifiedLogoIndices = new Set();
+    
     for (let specIndex = 0; specIndex < imageSpecs.length; specIndex++) {
       const spec = imageSpecs[specIndex];
-      const embeddedLogos = embeddedLogosForSpecs[specIndex] || [];
 
       // Initialize matched logos array for this spec
       spec.matchedPartnerLogos = [];
@@ -721,25 +732,33 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
             }
           }
 
-          // If no match found or Drive download failed, use embedded logo for this spec
-          if (!logoAdded) {
-            if (embeddedLogos.length > logoIdx) {
-              const embeddedLogo = embeddedLogos[logoIdx];
-              spec.logoBase64Array.push({
-                base64: embeddedLogo.base64,
-                contentType: embeddedLogo.contentType,
-                name: logoName,
-                source: 'embedded'
-              });
-              console.log(`    ✓ Using embedded logo at position ${embeddedLogo.index} for "${logoName}"`);
-            } else {
-              console.warn(`    ⚠ No matching logo found and no embedded logo available for: "${logoName}"`);
-              unmatchedLogoNames.push({ specIndex, spec: spec.title, logoName });
-
-              const detectedLogos = detectLogosInText(logoName);
-              if (detectedLogos.length > 0) {
-                console.log(`    Possible alternatives:`, detectedLogos.map(l => l.name).join(', '));
+          // If no match found or Drive download failed, use classified logos from DOCX as fallback
+          if (!logoAdded && classifiedLogos.length > 0) {
+            // Find the next unused classified logo
+            for (let i = 0; i < classifiedLogos.length; i++) {
+              if (!usedClassifiedLogoIndices.has(i)) {
+                const fallbackLogo = classifiedLogos[i];
+                spec.logoBase64Array.push({
+                  base64: fallbackLogo.base64,
+                  contentType: fallbackLogo.contentType,
+                  name: logoName,
+                  source: 'docx-embedded'
+                });
+                usedClassifiedLogoIndices.add(i);
+                console.log(`    ✓ Using classified DOCX logo #${i + 1} (${fallbackLogo.width}x${fallbackLogo.height}) as fallback for "${logoName}"`);
+                logoAdded = true;
+                break;
               }
+            }
+          }
+
+          if (!logoAdded) {
+            console.warn(`    ⚠ No logo available for: "${logoName}" (no Drive ID configured and no DOCX logos remaining)`);
+            unmatchedLogoNames.push({ specIndex, spec: spec.title, logoName });
+
+            const detectedLogos = detectLogosInText(logoName);
+            if (detectedLogos.length > 0) {
+              console.log(`    Possible alternatives:`, detectedLogos.map(l => l.name).join(', '));
             }
           }
         }
@@ -771,7 +790,7 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
     return {
       imageSpecs,
       extractedImages: productImages,
-      logoImages: embeddedLogosForSpecs.flat() // Flatten all embedded logos for backwards compatibility
+      logoImages: classifiedLogos // All classified logos for backwards compatibility
     };
 
   } catch (error) {
