@@ -1132,13 +1132,13 @@ export async function uploadPDF(req, res) {
     console.log('[Upload Brief] Uploaded to Drive, ID:', result.id);
 
     console.log(`[Upload Brief] Extracting image specifications from ${fileType.toUpperCase()}...`);
-    let imageSpecs, extractedImages;
+    let imageSpecs, extractedImages, docxResult = null;
 
     if (isPDF) {
       imageSpecs = await extractPromptFromPDF(req.file.buffer, req.brand);
       extractedImages = [];
     } else {
-      const docxResult = await extractPromptFromDOCX(req.file.buffer, req.brand);
+      docxResult = await extractPromptFromDOCX(req.file.buffer, req.brand);
       imageSpecs = docxResult.imageSpecs;
       extractedImages = docxResult.extractedImages;
       
