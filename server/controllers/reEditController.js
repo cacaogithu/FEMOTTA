@@ -4,8 +4,74 @@ import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromD
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
 import { calculateDefaultParameters } from '../services/imageParameters.js';
+import { findLogoByName } from '../services/partnerLogos.js';
 import fetch from 'node-fetch';
 import sharp from 'sharp';
+
+/**
+ * Overlay a logo on an image buffer
+ * @param {Buffer} imageBuffer - The base image
+ * @param {string} logoBase64 - Base64-encoded logo data
+ * @param {string} position - Position for logo placement
+ * @returns {Promise<Buffer>} - Image with logo overlay
+ */
+async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-left') {
+  try {
+    const base64Data = logoBase64.replace(/^data:image\/\w+;base64,/, '');
+    const logoBuffer = Buffer.from(base64Data, 'base64');
+    
+    const imageMetadata = await sharp(imageBuffer).metadata();
+    const logoMetadata = await sharp(logoBuffer).metadata();
+    
+    const maxLogoWidth = Math.round(imageMetadata.width * 0.15);
+    const scale = maxLogoWidth / logoMetadata.width;
+    const newLogoWidth = Math.round(logoMetadata.width * scale);
+    const newLogoHeight = Math.round(logoMetadata.height * scale);
+    
+    const resizedLogo = await sharp(logoBuffer)
+      .resize(newLogoWidth, newLogoHeight)
+      .toBuffer();
+    
+    const margin = Math.round(imageMetadata.width * 0.03);
+    let left, top;
+    
+    switch (position) {
+      case 'bottom-left':
+        left = margin;
+        top = imageMetadata.height - newLogoHeight - margin;
+        break;
+      case 'bottom-right':
+        left = imageMetadata.width - newLogoWidth - margin;
+        top = imageMetadata.height - newLogoHeight - margin;
+        break;
+      case 'top-left':
+        left = margin;
+        top = margin;
+        break;
+      case 'top-right':
+        left = imageMetadata.width - newLogoWidth - margin;
+        top = margin;
+        break;
+      default:
+        left = margin;
+        top = imageMetadata.height - newLogoHeight - margin;
+    }
+    
+    const result = await sharp(imageBuffer)
+      .composite([{
+        input: resizedLogo,
+        left: Math.max(0, left),
+        top: Math.max(0, top)
+      }])
+      .toBuffer();
+    
+    console.log(`[Logo Overlay] Successfully overlaid logo at ${position} (${newLogoWidth}x${newLogoHeight})`);
+    return result;
+  } catch (error) {
+    console.error('[Logo Overlay] Error overlaying logo:', error.message);
+    return imageBuffer;
+  }
+}
 
 export async function reEditImages(req, res) {
   try {

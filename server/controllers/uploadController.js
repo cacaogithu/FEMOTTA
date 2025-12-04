@@ -1316,7 +1316,12 @@ async function processImagesWithGemini(jobId) {
         originalImageId: originalImage.driveId,
         originalName: originalImage.originalName,
         url: getPublicImageUrl(uploadedFile.id),
-        logoApplied: spec?.logo_requested === true && spec?.logoBase64 ? true : false
+        logoApplied: spec?.logo_requested === true && spec?.logoBase64 ? true : false,
+        title: spec?.title || null,
+        subtitle: spec?.subtitle || null,
+        logoRequested: spec?.logo_requested || false,
+        logoName: spec?.logo_name || null,
+        logoBase64: spec?.logoBase64 || null
       };
     } else {
       console.error(`❌ [Save] No valid image URL in result ${i + 1}`);
