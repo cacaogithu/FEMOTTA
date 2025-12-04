@@ -65,6 +65,28 @@ async function editImageUnified(imageUrl, prompt, options = {}) {
   }
 }
 
+// Helper function to calculate adaptive logo size based on aspect ratio
+function calculateAdaptiveLogoSize(imageWidth, logoWidth, logoHeight) {
+  const aspectRatio = logoWidth / logoHeight;
+  
+  // Base size: 10% of image width for normal logos (was 15%)
+  let basePercentage = 0.10;
+  
+  // Adaptive sizing for wide banners:
+  // - Normal logos (aspect 1:1 to 2:1): 10% width
+  // - Wide logos (aspect 2:1 to 3:1): 8% width  
+  // - Very wide banners (aspect > 3:1): 6% width (these are marketing banners)
+  if (aspectRatio > 3) {
+    basePercentage = 0.06;
+    console.log(`[Logo Sizing] Detected wide banner (aspect ${aspectRatio.toFixed(1)}:1) - using 6% width`);
+  } else if (aspectRatio > 2) {
+    basePercentage = 0.08;
+    console.log(`[Logo Sizing] Detected wide logo (aspect ${aspectRatio.toFixed(1)}:1) - using 8% width`);
+  }
+  
+  return Math.floor(imageWidth * basePercentage);
+}
+
 // Helper function to overlay a logo on an edited image
 async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-left') {
   try {
@@ -75,9 +97,12 @@ async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-le
     // Get image metadata
     const imageMetadata = await sharp(imageBuffer).metadata();
     const { width, height } = imageMetadata;
-
-    // Resize logo to be proportional (max 15% of image width)
-    const maxLogoWidth = Math.floor(width * 0.15);
+    
+    // Get original logo dimensions for adaptive sizing
+    const originalLogoMeta = await sharp(logoBuffer).metadata();
+    
+    // Calculate adaptive max width based on logo aspect ratio
+    const maxLogoWidth = calculateAdaptiveLogoSize(width, originalLogoMeta.width, originalLogoMeta.height);
     const resizedLogo = await sharp(logoBuffer)
       .resize(maxLogoWidth, null, { fit: 'inside', withoutEnlargement: true })
       .toBuffer();
@@ -161,8 +186,11 @@ async function overlayMultipleLogos(imageBuffer, logoBase64Array) {
         const base64Data = logoData.base64.replace(/^data:image\/\w+;base64,/, '');
         const logoBuffer = Buffer.from(base64Data, 'base64');
 
-        // Resize logo to be proportional (max 15% of image width)
-        const maxLogoWidth = Math.floor(width * 0.15);
+        // Get original logo dimensions for adaptive sizing
+        const originalLogoMeta = await sharp(logoBuffer).metadata();
+        
+        // Calculate adaptive max width based on logo aspect ratio
+        const maxLogoWidth = calculateAdaptiveLogoSize(width, originalLogoMeta.width, originalLogoMeta.height);
         const resizedLogo = await sharp(logoBuffer)
           .resize(maxLogoWidth, null, { fit: 'inside', withoutEnlargement: true })
           .toBuffer();
