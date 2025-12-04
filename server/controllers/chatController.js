@@ -1,8 +1,12 @@
 import OpenAI from 'openai';
-import { getJob } from '../utils/jobStore.js';
+import { getJob, updateJob } from '../utils/jobStore.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { getPublicImageUrl } from '../utils/googleDrive.js';
 import fetch from 'node-fetch';
+import { GeminiFlashChatService } from '../services/geminiFlashChat.js';
+import { parseParameterUpdatesFromChat, mergeParameterUpdates, generatePromptFromParameters } from '../services/imageParameters.js';
+
+const USE_GEMINI_CHAT = process.env.USE_GEMINI_CHAT === 'true';
 
 export async function handleChat(req, res) {
   try {
@@ -169,6 +173,59 @@ Be helpful, creative, and focus on creating visuals that convey performance and 
             required: ['newPrompt']
           }
         }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'adjustParameters',
+          description: 'Adjust specific visual parameters like font size, gradient opacity, margins without full re-generation. Use this for quick adjustments like "make the title bigger", "darker gradient", "move text up".',
+          parameters: {
+            type: 'object',
+            properties: {
+              imageIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Optional: Array of image IDs to adjust. If not provided, adjusts all images.'
+              },
+              adjustments: {
+                type: 'object',
+                description: 'Parameter adjustments to apply',
+                properties: {
+                  title: {
+                    type: 'object',
+                    properties: {
+                      fontSize: { type: 'number', description: 'New font size in pixels' },
+                      text: { type: 'string', description: 'New title text' },
+                      alignment: { type: 'string', enum: ['left', 'center', 'right'] }
+                    }
+                  },
+                  subtitle: {
+                    type: 'object',
+                    properties: {
+                      fontSize: { type: 'number', description: 'New font size in pixels' },
+                      text: { type: 'string', description: 'New subtitle text' }
+                    }
+                  },
+                  gradient: {
+                    type: 'object',
+                    properties: {
+                      opacity: { type: 'number', description: 'Opacity from 0.1 to 0.6' },
+                      heightPercent: { type: 'number', description: 'Height coverage from 10 to 40 percent' }
+                    }
+                  },
+                  margins: {
+                    type: 'object',
+                    properties: {
+                      topPercent: { type: 'number', description: 'Top margin from 2 to 25 percent' },
+                      leftPercent: { type: 'number', description: 'Left margin from 2 to 20 percent' }
+                    }
+                  }
+                }
+              }
+            },
+            required: ['adjustments']
+          }
+        }
       }
     ];
 
@@ -284,6 +341,108 @@ Be helpful, creative, and focus on creating visuals that convey performance and 
         return res.json({
           success: true,
           message: `I'll edit ${targetDescription} with this prompt:\n\n"${args.newPrompt}"\n\nIs this okay to proceed? (Reply with "yes" to confirm or "no" to cancel)`
+        });
+      }
+      
+      // Handle parameter adjustments (quick edits without full regeneration)
+      if (toolCall.function.name === 'adjustParameters') {
+        if (!jobId || !job) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid or missing job ID. Cannot adjust parameters.'
+          });
+        }
+
+        let args;
+        try {
+          args = JSON.parse(toolCall.function.arguments);
+        } catch (parseError) {
+          console.error('[Chat] Failed to parse adjustParameters arguments:', parseError);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to process parameter adjustment.'
+          });
+        }
+
+        const adjustments = args.adjustments;
+        const imageIds = args.imageIds || null;
+        
+        if (!adjustments || Object.keys(adjustments).length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'No adjustments specified.'
+          });
+        }
+
+        console.log('[Chat] Parameter adjustment requested:', JSON.stringify(adjustments));
+        
+        // Apply parameter adjustments to selected images
+        const imagesToAdjust = imageIds && imageIds.length > 0
+          ? job.editedImages.filter(img => imageIds.includes(img.editedImageId) || imageIds.includes(img.id))
+          : job.editedImages;
+        
+        let adjustedCount = 0;
+        const adjustmentSummary = [];
+        
+        for (const image of imagesToAdjust) {
+          if (!image.parameters) {
+            console.log(`[Chat] Image ${image.name} has no parameters, skipping adjustment`);
+            continue;
+          }
+          
+          // Merge the adjustments with existing parameters
+          const updatedParams = mergeParameterUpdates(image.parameters, adjustments);
+          image.parameters = updatedParams;
+          adjustedCount++;
+          
+          console.log(`[Chat] Updated parameters for ${image.name}, version: ${updatedParams.version}`);
+        }
+        
+        // Save the updated job
+        if (adjustedCount > 0) {
+          await updateJob(jobId, { editedImages: job.editedImages });
+          
+          // Build summary of what was changed
+          if (adjustments.title?.fontSize) adjustmentSummary.push(`title size to ${adjustments.title.fontSize}px`);
+          if (adjustments.subtitle?.fontSize) adjustmentSummary.push(`subtitle size to ${adjustments.subtitle.fontSize}px`);
+          if (adjustments.gradient?.opacity) adjustmentSummary.push(`gradient opacity to ${Math.round(adjustments.gradient.opacity * 100)}%`);
+          if (adjustments.gradient?.heightPercent) adjustmentSummary.push(`gradient height to ${adjustments.gradient.heightPercent}%`);
+          if (adjustments.margins?.topPercent) adjustmentSummary.push(`top margin to ${adjustments.margins.topPercent}%`);
+          if (adjustments.margins?.leftPercent) adjustmentSummary.push(`left margin to ${adjustments.margins.leftPercent}%`);
+          if (adjustments.title?.alignment) adjustmentSummary.push(`text alignment to ${adjustments.title.alignment}`);
+          
+          const summaryText = adjustmentSummary.length > 0 
+            ? `Changed: ${adjustmentSummary.join(', ')}` 
+            : 'Parameters updated';
+          
+          // Now trigger re-generation with updated parameters
+          const regenerateImages = imagesToAdjust.filter(img => img.parameters);
+          
+          if (regenerateImages.length > 0) {
+            // Generate new prompts from updated parameters
+            const regenerateIds = regenerateImages.map(img => img.editedImageId);
+            const newPrompt = generatePromptFromParameters(regenerateImages[0].parameters);
+            
+            // Store pending regeneration
+            job.pendingEdit = {
+              newPrompt: newPrompt,
+              imageIds: regenerateIds,
+              timestamp: Date.now(),
+              isParameterEdit: true
+            };
+            
+            console.log('[Chat] Stored pending parameter-based regeneration');
+            
+            return res.json({
+              success: true,
+              message: `I've updated the parameters for ${adjustedCount} image${adjustedCount > 1 ? 's' : ''}.\n\n${summaryText}\n\nWould you like me to regenerate the images with these new settings? (Reply "yes" to proceed)`
+            });
+          }
+        }
+        
+        return res.json({
+          success: true,
+          message: `I adjusted parameters for ${adjustedCount} images. ${adjustedCount === 0 ? 'Note: Some images may not have editable parameters yet - they need to be processed first.' : ''}`
         });
       }
     }

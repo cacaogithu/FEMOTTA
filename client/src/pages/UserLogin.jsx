@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import './UserLogin.css';
 
 function UserLogin() {
@@ -12,7 +12,25 @@ function UserLogin() {
 
   useEffect(() => {
     checkTestMode();
+    checkExistingAuth();
   }, []);
+
+  const checkExistingAuth = async () => {
+    const token = localStorage.getItem('userToken');
+    if (token) {
+      try {
+        const response = await fetch('/api/users/verify', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          navigate('/editor');
+        }
+      } catch (error) {
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('userInfo');
+      }
+    }
+  };
 
   const checkTestMode = async () => {
     try {
@@ -83,6 +101,10 @@ function UserLogin() {
     }
   };
 
+  const handleReplitLogin = () => {
+    window.location.href = '/api/login';
+  };
+
   if (testMode && loading) {
     return (
       <div className="user-login">
@@ -104,7 +126,7 @@ function UserLogin() {
             border: '1px solid rgba(255, 193, 7, 0.3)'
           }}>
             <div style={{ color: '#FFC107', fontSize: '16px', marginBottom: '10px' }}>
-              🧪 TEST MODE ACTIVE
+              TEST MODE ACTIVE
             </div>
             <div style={{ color: '#ccc', fontSize: '14px' }}>
               Auto-logging in for testing...
@@ -164,6 +186,23 @@ function UserLogin() {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
+
+        <div className="auth-divider">
+          <span>or</span>
+        </div>
+
+        <button 
+          type="button" 
+          onClick={handleReplitLogin} 
+          className="btn-replit-login"
+          disabled={loading}
+        >
+          Continue with Replit
+        </button>
+
+        <div className="auth-footer">
+          <p>Don't have an account? <Link to="/register">Create Account</Link></p>
+        </div>
       </div>
     </div>
   );

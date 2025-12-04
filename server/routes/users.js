@@ -140,6 +140,80 @@ router.get('/verify', verifyUserToken, (req, res) => {
   });
 });
 
+router.post('/register', async (req, res) => {
+  try {
+    const { email, username, password, firstName, lastName } = req.body;
+
+    if (!email || !username || !password) {
+      return res.status(400).json({ error: 'Email, username, and password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    const [existingEmail] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (existingEmail) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+
+    const [existingUsername] = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    if (existingUsername) {
+      return res.status(409).json({ error: 'Username already taken' });
+    }
+
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    const [newUser] = await db.insert(users).values({
+      email,
+      username,
+      passwordHash,
+      firstName: firstName || null,
+      lastName: lastName || null,
+      role: 'user',
+      active: true,
+    }).returning();
+
+    const token = jwt.sign(
+      {
+        role: 'user',
+        userId: newUser.id,
+        email: newUser.email,
+        username: newUser.username,
+        brandId: newUser.brandId,
+        timestamp: Date.now()
+      },
+      JWT_SECRET,
+      { expiresIn: USER_TOKEN_EXPIRY }
+    );
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        username: newUser.username,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        role: newUser.role,
+        brandId: newUser.brandId
+      },
+      message: 'Account created successfully',
+      expiresIn: USER_TOKEN_EXPIRY
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
 export function verifyUserToken(req, res, next) {
   const token = req.headers['authorization']?.replace('Bearer ', '') || 
                 req.headers['x-user-token'];

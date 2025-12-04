@@ -1,8 +1,11 @@
-import { editImageWithNanoBanana } from '../services/nanoBanana.js';
+import { editImageWithGemini } from '../services/geminiImage.js';
 import { getJobWithFallback, updateJob, getJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
+import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
+import { calculateDefaultParameters } from '../services/imageParameters.js';
 import fetch from 'node-fetch';
+import sharp from 'sharp';
 
 export async function reEditImages(req, res) {
   try {
@@ -102,36 +105,38 @@ export async function reEditImages(req, res) {
         continue;
       }
 
-      // Convert buffer to base64 for Wavespeed API
+      // Convert buffer to base64 for Gemini API
       const base64Image = `data:image/jpeg;base64,${editedImageBuffer.toString('base64')}`;
       const imageSizeKB = Math.round(base64Image.length / 1024);
       console.log(`[Re-edit] Converted EDITED image to base64: ${imageSizeKB} KB`);
       
-      // Send base64 image + new prompt to Wavespeed API
-      console.log(`[Re-edit] Calling Wavespeed API with prompt: "${newPrompt}"`);
+      // Send base64 image + new prompt to Gemini API
+      // Inject Saira typography and image preservation guidelines for consistency
+      const sairaGuidelines = getCompleteOverlayGuidelines();
+      const enhancedPrompt = `${sairaGuidelines}\n\nUSER RE-EDIT REQUEST:\n${newPrompt}`;
+      
+      console.log(`[Re-edit] Calling Gemini API with enhanced prompt (includes Saira guidelines)`);
       console.log(`[Re-edit] This may take 60-120 seconds for complex edits...`);
       
       let result;
       try {
-        result = await editImageWithNanoBanana(base64Image, newPrompt, {
-          enableSyncMode: true,
-          outputFormat: 'jpeg',
-          wavespeedApiKey: brandConfig.wavespeedApiKey,
-          isBase64: true  // Flag to indicate we're sending base64
+        result = await editImageWithGemini(base64Image, enhancedPrompt, {
+          geminiApiKey: brandConfig.geminiApiKey,
+          retries: 3
         });
-        console.log(`[Re-edit] Wavespeed API completed successfully`);
-      } catch (wavespeedError) {
-        console.error(`[Re-edit] Wavespeed API error:`, wavespeedError.message);
+        console.log(`[Re-edit] Gemini API completed successfully`);
+      } catch (geminiError) {
+        console.error(`[Re-edit] Gemini API error:`, geminiError.message);
         reEditedResults.push({
           error: true,
           name: image.name,
-          message: `Wavespeed API failed: ${wavespeedError.message}`
+          message: `Gemini API failed: ${geminiError.message}`
         });
         continue;
       }
 
       if (result.data && result.data.outputs && result.data.outputs.length > 0) {
-        console.log(`[Re-edit] Received result from Wavespeed, downloading edited image...`);
+        console.log(`[Re-edit] Received result from Gemini, downloading edited image...`);
         const reEditedImageUrl = result.data.outputs[0];
         
         const imageResponse = await fetch(reEditedImageUrl);
@@ -159,6 +164,24 @@ export async function reEditImages(req, res) {
         await makeFilePublic(uploadedFile.id);
         console.log(`[Re-edit] Upload complete! File ID: ${uploadedFile.id}`);
 
+        // Calculate parameters for the re-edited image
+        let imageWidth = 1920;
+        let imageHeight = 1080;
+        try {
+          const metadata = await sharp(Buffer.from(imageBuffer)).metadata();
+          imageWidth = metadata.width || 1920;
+          imageHeight = metadata.height || 1080;
+          console.log(`[Re-edit] Image dimensions: ${imageWidth}x${imageHeight}`);
+        } catch (dimError) {
+          console.warn(`[Re-edit] Could not get image dimensions:`, dimError.message);
+        }
+        
+        // Inherit existing parameters or calculate new ones
+        const existingParams = image.parameters || null;
+        const newParams = existingParams 
+          ? { ...existingParams, version: (existingParams.version || 1) + 1 }
+          : calculateDefaultParameters(imageWidth, imageHeight, image.title, image.subtitle);
+        
         reEditedResults.push({
           id: uploadedFile.id,
           name: displayName,
@@ -166,14 +189,19 @@ export async function reEditImages(req, res) {
           editedImageId: uploadedFile.id,
           originalImageId: image.originalImageId,
           originalName: image.originalName,
-          url: getPublicImageUrl(uploadedFile.id)
+          url: getPublicImageUrl(uploadedFile.id),
+          title: image.title || null,
+          subtitle: image.subtitle || null,
+          promptUsed: newPrompt,
+          parameters: newParams,
+          version: newParams.version
         });
       } else {
-        console.error(`[Re-edit] No images returned from Wavespeed API`);
+        console.error(`[Re-edit] No images returned from Gemini API`);
         reEditedResults.push({
           error: true,
           name: image.name,
-          message: 'Wavespeed API returned no edited images'
+          message: 'Gemini API returned no edited images'
         });
       }
     }

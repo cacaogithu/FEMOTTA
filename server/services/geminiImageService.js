@@ -15,9 +15,9 @@ export class GeminiImageService {
             this.genAI = new GoogleGenerativeAI(apiKey);
         }
 
-        // Default model for image generation/editing
+        // Default model for image generation/editing (using Gemini 3 Pro)
         this.defaultModel = 'gemini-3-pro-image-preview';
-        this.flashModel = 'gemini-2.5-flash-image';
+        this.flashModel = 'gemini-1.5-flash';
     }
 
     /**

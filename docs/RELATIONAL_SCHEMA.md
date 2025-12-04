@@ -1,11 +1,13 @@
 # Relational Schema Documentation
 ## Multi-Brand AI Marketing Image Editor Database
 
-**Document Version:** 1.0  
-**Last Updated:** November 3, 2025  
+**Document Version:** 2.0  
+**Last Updated:** December 2, 2025  
 **Database:** PostgreSQL 15+  
 **ORM:** Drizzle ORM  
 **Purpose:** Complete relational schema specification with DDL, constraints, and indexes
+
+**Note (December 2025):** The AI provider has been migrated from Wavespeed to Google Gemini. Database column names (`wavespeed_api_key`, `wavespeed_api_calls`) remain unchanged for backward compatibility, but now store Gemini API credentials and usage metrics.
 
 ---
 
@@ -125,7 +127,7 @@ CREATE TABLE brands (
 | edited_results_folder_id | TEXT | YES | NULL | Google Drive folder ID |
 | default_prompt_template | TEXT | YES | NULL | Default AI prompt |
 | ai_settings | JSONB | YES | NULL | AI configuration JSON |
-| wavespeed_api_key | TEXT | YES | NULL | Encrypted API key |
+| wavespeed_api_key | TEXT | YES | NULL | Encrypted API key (now stores Gemini API key) |
 | openai_api_key | TEXT | YES | NULL | Encrypted API key |
 | auth_password | TEXT | NO | - | bcrypt hashed password |
 | seats_purchased | INTEGER | NO | 1 | Maximum users allowed |

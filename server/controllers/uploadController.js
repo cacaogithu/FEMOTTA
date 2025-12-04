@@ -1,10 +1,14 @@
-```javascript
-import { uploadFileToDrive, makeFilePublic, getPublicImageUrl } from '../utils/googleDrive.js';
+import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { createJob, getJob, updateJob, addWorkflowStep } from '../utils/jobStore.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
-import { editMultipleImages, editImageWithNanoBanana } from '../services/nanoBanana.js';
+import { editMultipleImagesWithGemini, analyzeImageForParameters } from '../services/geminiImage.js';
+import { NanoBananaProService } from '../services/nanoBananaService.js';
+import { overlayTextOnImage } from '../services/canvasTextOverlay.js';
 import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
+import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
+import { generateAdaptivePrompt } from '../services/promptTemplates.js';
+import { findLogoByName, detectLogosInText } from '../services/partnerLogos.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
@@ -12,29 +16,48 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
 import sharp from 'sharp';
 
+async function editImageUnified(imageUrl, prompt, options = {}) {
+  const sairaGuidelines = getCompleteOverlayGuidelines();
+  const enhancedPrompt = `${sairaGuidelines}\n\nSPECIFIC IMAGE INSTRUCTIONS:\n${prompt}`;
+
+  try {
+    const nanoBanana = new NanoBananaProService(options.geminiApiKey);
+    console.log('[NanoBananaPro] Using service with dimension preservation');
+    
+    const result = await nanoBanana.editImage(imageUrl, enhancedPrompt, {
+      imageIndex: options.imageIndex || 0
+    });
+
+    return result[0];
+  } catch (error) {
+    console.error('[NanoBananaPro] ❌ Edit failed:', error.message);
+    throw error;
+  }
+}
+
 // Helper function to overlay a logo on an edited image
 async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-left') {
   try {
     // Extract base64 data from data URL
     const base64Data = logoBase64.replace(/^data:image\/\w+;base64,/, '');
     const logoBuffer = Buffer.from(base64Data, 'base64');
-    
+
     // Get image metadata
     const imageMetadata = await sharp(imageBuffer).metadata();
     const { width, height } = imageMetadata;
-    
+
     // Resize logo to be proportional (max 15% of image width)
     const maxLogoWidth = Math.floor(width * 0.15);
     const resizedLogo = await sharp(logoBuffer)
       .resize(maxLogoWidth, null, { fit: 'inside', withoutEnlargement: true })
       .toBuffer();
-    
+
     const logoMetadata = await sharp(resizedLogo).metadata();
-    
+
     // Calculate position based on option
     let left, top;
     const margin = Math.floor(width * 0.03); // 3% margin
-    
+
     switch (position) {
       case 'top-left':
         left = margin;
@@ -54,7 +77,7 @@ async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-le
         top = height - logoMetadata.height - margin;
         break;
     }
-    
+
     // Composite the logo onto the image
     const resultBuffer = await sharp(imageBuffer)
       .composite([{
@@ -64,7 +87,7 @@ async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-le
       }])
       .jpeg({ quality: 95 })
       .toBuffer();
-    
+
     console.log(`[Logo Overlay] Successfully overlaid logo at ${position} (${logoMetadata.width}x${logoMetadata.height})`);
     return resultBuffer;
   } catch (error) {
@@ -143,20 +166,49 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
 
 Your task is to carefully READ the document layout and extract ALL image specifications into structured JSON format.
 
+CRITICAL: TABLE-BASED BRIEF PARSING
+Many marketing briefs use TABLE STRUCTURES with columns like:
+- ASSET (image filename)
+- HEADLINE/TITLE (main text)
+- COPY (subtitle/description text)
+- NOTES (may contain logo requirements like "Include Intel Core logo")
+
+When parsing tables:
+1. Each TABLE ROW typically represents ONE image specification
+2. Look for IMAGE 1, IMAGE 2, etc. as row headers or section markers
+3. Extract the ASSET column for the image filename
+4. Extract HEADLINE/TITLE column for the main text
+5. Extract COPY column for the subtitle text
+6. Check NOTES column for logo requirements
+
 CRITICAL INSTRUCTIONS:
-1. Extract EVERY image variant mentioned in the brief(IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
+1. Extract EVERY image variant mentioned in the brief (IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
 2. If a brief mentions BOTH "Metal Dark" AND "Wood Dark" variants, create SEPARATE specifications for EACH variant
 3. Create one JSON object per variant, even if they share the same image number
 4. The total number of specifications should match the total number of product variant images described
 
 TITLE AND SUBTITLE EXTRACTION RULES:
 - ANALYZE the visual/textual layout of each image specification in the document
-- TITLE: Extract the main HEADLINE text - usually larger, bold, or emphasized text at the top of each spec
-- SUBTITLE: Extract the descriptive COPY text - usually smaller text below the headline
+- TITLE: Extract the main HEADLINE text - usually in a "HEADLINE" or "TITLE" column/field
+- SUBTITLE: Extract the descriptive COPY text - usually in a "COPY" or "DESCRIPTION" column/field
 - Extract titles and subtitles EXACTLY as written in the document
 - DO NOT add variant names (like "- METAL DARK") to titles unless they are already part of the written title in the document
 - DO NOT invent or modify titles - read what is actually written
 - If no subtitle exists, use empty string ""
+
+LOGO DETECTION - CRITICAL:
+Look for logo requirements in these locations:
+1. NOTES column: "Include Intel Core logo", "Add AMD Ryzen logo", "NVIDIA 50 Series logo required"
+2. COPY field: If copy text ends with "(Logo)" like "Powered by Intel Core (Logo)"
+3. Explicit mentions: "Intel Logo", "AMD Logo", "NVIDIA Logo", "Hydro X logo", "iCUE Link logo"
+4. Partner mentions in notes: "Hydro X & iCUE Link logo", "Intel Core Ultra logo"
+
+LOGO NAME EXTRACTION:
+Extract the EXACT partner logo name, including specific variants:
+- "Intel Core" vs "Intel Core Ultra" - these are DIFFERENT logos
+- "NVIDIA" vs "NVIDIA 50 Series" - these are DIFFERENT logos
+- "Hydro X" vs "Hydro X & iCUE Link" - extract as written
+- "AMD Ryzen" - for AMD processor images
 
 For each image specification, extract:
 - image_number: The sequential number from the brief (1, 2, 3, etc.)
@@ -164,14 +216,43 @@ For each image specification, extract:
 - title: The HEADLINE text EXACTLY as written (convert to uppercase). Do NOT append variant names unless already in the document.
 - subtitle: The COPY text EXACTLY as written (keep original case). IMPORTANT: If a logo annotation like "(Logo)" appears, extract the subtitle WITHOUT the "(Logo)" text - the logo will be overlaid separately.
 - asset: The ASSET filename (if mentioned)
-- logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", etc.)
-- logo_name: If logo_requested is true, extract the brand/logo name (e.g., "Intel Core", "AMD Ryzen", "NVIDIA GeForce"). Set to null if no logo requested.
+- logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", "include logo" in the NOTES, COPY, or any other field)
+- logo_name: If logo_requested is true, extract the SPECIFIC brand/logo name (e.g., "Intel Core", "Intel Core Ultra", "AMD Ryzen", "NVIDIA 50 Series", "Hydro X & iCUE Link"). Set to null if no logo requested.
 
-For the ai_prompt field, generate a plain text instruction(no markdown, no line breaks) using this template:
+For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS):
 
-"Apply a linear gradient overlay at the top 22% of the image, transitioning from rgba(20,20,20,0.35) at the top edge to fully transparent. Position text 32px from the top edge and 40px from the left edge. Render the title text '{title}' using Montserrat Extra Bold font at exactly 52px, uppercase, white color (#FFFFFF), with line-height 1.1 and max-width 85% of image width. Position subtitle text '{subtitle}' exactly 8px below the title, using Montserrat Regular font at exactly 18px, white color, line-height 1.3. Apply text shadow to both texts: 0px 1.5px 3px rgba(0,0,0,0.25). Preserve all original image details and product features. Output as high-resolution JPEG."
+"CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.
 
-Replace { title } and { subtitle } with the actual extracted values for EACH image variant.
+Add a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.
+
+Overlay the title '{title}' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:
+- UPPERCASE white letters
+- Positioned near the top left corner
+- Bold weight
+- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters
+
+Below the title, add the subtitle '{subtitle}' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:
+- Smaller than the title
+- White text with subtle drop shadow for readability
+- Same geometric Saira font family as title
+
+ABSOLUTE REQUIREMENTS:
+1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements
+2. ONLY add: subtle top gradient + title text + subtitle text
+3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)
+4. All text must be white with subtle shadow
+5. Professional marketing aesthetic - minimal and clean"
+
+CRITICAL PROMPT RULES:
+- Use ONLY natural language descriptions - NO technical specs
+- ALWAYS specify Saira font family by name (Saira Bold for titles, Saira Regular for subtitles)
+- EMPHASIZE that the original image must NOT be modified - only add overlays
+- NEVER include font names like 'Montserrat' or 'Arial' - ONLY Saira
+- NEVER include pixel values like '52px' or '18px'
+- NEVER include CSS values like 'rgba()' or '#FFFFFF'
+- NEVER include measurements like '22%' or '32px from top'
+- Describe the VISUAL RESULT, not technical implementation
+- Replace {title} and {subtitle} with the actual extracted values
 
 Return ONLY a valid JSON array with ALL image variant specifications, no additional text.
 
@@ -190,6 +271,16 @@ Example for document with variants and logo requests:
   {
     "image_number": 2,
     "variant": null,
+    "title": "CUSTOM COOLING",
+    "subtitle": "Precision-engineered liquid cooling",
+    "asset": "PC_COOLING_SHOT_01",
+    "logo_requested": true,
+    "logo_name": "Hydro X & iCUE Link",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 5,
+    "variant": null,
     "title": "INTEL CORE",
     "subtitle": "Intel Core Ultra 9 processor",
     "asset": "PC_INTERIOR_SHOT_01",
@@ -198,13 +289,33 @@ Example for document with variants and logo requests:
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
-    "image_number": 3,
+    "image_number": 6,
+    "variant": null,
+    "title": "INTEL CORE ULTRA",
+    "subtitle": "Next-gen Intel performance",
+    "asset": "PC_ULTRA_SHOT_01",
+    "logo_requested": true,
+    "logo_name": "Intel Core Ultra",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 7,
     "variant": null,
     "title": "AMD RYZEN",
     "subtitle": "AMD Ryzen 9000-series processor",
     "asset": "PC_AMD_VARIANT_01",
     "logo_requested": true,
     "logo_name": "AMD Ryzen",
+    "ai_prompt": "Add a dark gradient overlay..."
+  },
+  {
+    "image_number": 8,
+    "variant": null,
+    "title": "NVIDIA 50 SERIES",
+    "subtitle": "Ultimate gaming graphics",
+    "asset": "PC_GPU_SHOT_01",
+    "logo_requested": true,
+    "logo_name": "NVIDIA 50 Series",
     "ai_prompt": "Add a dark gradient overlay..."
   }
 ]`
@@ -283,24 +394,13 @@ if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
 console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
 console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
 
-// Filter out logos and non-product images
-// Strategy: Remove small images (logos are typically smaller) and only keep images needed for specs
-const MIN_IMAGE_SIZE = 50000; // 50KB minimum - logos are usually much smaller
-
-// First, filter by size to remove obvious logos/icons
-const productImages = extractedImages.filter(img => img.buffer.length >= MIN_IMAGE_SIZE);
-console.log(`[DOCX Extraction] After size filtering (>=${MIN_IMAGE_SIZE} bytes): ${productImages.length} images`);
-
-    console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
-    console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
-
     // Separate logos from product images based on size
     // Logos are typically smaller (under 50KB), product images are larger
     const LOGO_SIZE_THRESHOLD = 50000; // 50KB threshold
-    
+
     const logoImages = [];
     const productImages = [];
-    
+
     for (const img of extractedImages) {
       if (img.buffer.length < LOGO_SIZE_THRESHOLD) {
         // Convert logo to base64 for later use
@@ -316,38 +416,77 @@ console.log(`[DOCX Extraction] After size filtering (>=${MIN_IMAGE_SIZE} bytes):
         productImages.push(img);
       }
     }
-    
+
     console.log(`[DOCX Extraction] Separated: ${productImages.length} product images, ${logoImages.length} logo images`);
-    
+
     // Only take the number of product images we need for the specs
     const imagesToProcess = productImages.slice(0, imageSpecs.length);
-    
+
     console.log(`[DOCX Extraction] Final image count: ${imagesToProcess.length} (matching ${imageSpecs.length} specs)`);
-    
+
     if (imagesToProcess.length < imageSpecs.length) {
       console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
     }
 
-    // Attach logos to specs that request them (using AI-extracted logo_requested field)
-    if (logoImages.length > 0) {
-      let logoIndex = 0;
-      for (const spec of imageSpecs) {
-        // Check if this spec explicitly requested a logo (from AI extraction)
-        if (spec.logo_requested === true) {
-          // Assign logos in order - if multiple logos available, try to match by index
-          const logoToUse = logoImages[Math.min(logoIndex, logoImages.length - 1)];
-          spec.logoBase64 = logoToUse.base64;
-          spec.logoContentType = logoToUse.contentType;
-          console.log(`[DOCX Extraction] Attached logo to spec: "${spec.title}" (logo: ${spec.logo_name || 'unknown'})`);
-          logoIndex++;
+    // INTELLIGENT LOGO MATCHING using partner logos registry
+    // Instead of sequential assignment, use the logo_name to find the correct logo
+    console.log('[DOCX Extraction] Starting intelligent logo matching...');
+    
+    let matchedLogosCount = 0;
+    for (const spec of imageSpecs) {
+      if (spec.logo_requested === true && spec.logo_name) {
+        console.log(`[DOCX Extraction] Looking for logo: "${spec.logo_name}" for image "${spec.title}"`);
+        
+        const matchedLogo = findLogoByName(spec.logo_name);
+        
+        if (matchedLogo) {
+          spec.matchedPartnerLogo = {
+            key: matchedLogo.key,
+            name: matchedLogo.name,
+            driveId: matchedLogo.driveId,
+            localPath: matchedLogo.localPath,
+            matchScore: matchedLogo.matchScore
+          };
+          console.log(`[DOCX Extraction] ✓ Matched "${spec.logo_name}" to "${matchedLogo.name}" (score: ${matchedLogo.matchScore})`);
+          matchedLogosCount++;
+          
+          if (matchedLogo.driveId) {
+            try {
+              const logoBuffer = await downloadFileFromDrive(matchedLogo.driveId);
+              const base64Data = logoBuffer.toString('base64');
+              const contentType = 'image/png';
+              spec.logoBase64 = `data:${contentType};base64,${base64Data}`;
+              spec.logoContentType = contentType;
+              console.log(`[DOCX Extraction] ✓ Downloaded logo from Drive: ${matchedLogo.driveId}`);
+            } catch (driveErr) {
+              console.warn(`[DOCX Extraction] Could not download logo from Drive: ${driveErr.message}`);
+            }
+          }
+        } else {
+          console.warn(`[DOCX Extraction] ⚠ No matching logo found for: "${spec.logo_name}"`);
+          const detectedLogos = detectLogosInText(spec.logo_name);
+          if (detectedLogos.length > 0) {
+            console.log(`[DOCX Extraction] Possible alternatives detected:`, detectedLogos.map(l => l.name));
+          }
         }
+      } else if (spec.logo_requested === true && !spec.logo_name) {
+        console.warn(`[DOCX Extraction] ⚠ Logo requested but no logo_name extracted for: "${spec.title}"`);
       }
-      console.log(`[DOCX Extraction] Attached logos to ${logoIndex} image specifications`);
-    } else {
-      // Check for logo requests without available logo images
-      const specsNeedingLogos = imageSpecs.filter(s => s.logo_requested === true);
-      if (specsNeedingLogos.length > 0) {
-        console.warn(`[DOCX Extraction] Warning: ${specsNeedingLogos.length} specs request logos but no logo images found in document`);
+    }
+    
+    console.log(`[DOCX Extraction] Matched ${matchedLogosCount} logos using intelligent matching`);
+    
+    if (logoImages.length > 0) {
+      console.log(`[DOCX Extraction] Found ${logoImages.length} embedded logos in document (available as fallback)`);
+      let fallbackLogoIndex = 0;
+      for (const spec of imageSpecs) {
+        if (spec.logo_requested === true && !spec.logoBase64 && fallbackLogoIndex < logoImages.length) {
+          const fallbackLogo = logoImages[fallbackLogoIndex];
+          spec.logoBase64 = fallbackLogo.base64;
+          spec.logoContentType = fallbackLogo.contentType;
+          console.log(`[DOCX Extraction] Using embedded fallback logo for: "${spec.title}" (logo: ${spec.logo_name || 'unknown'})`);
+          fallbackLogoIndex++;
+        }
       }
     }
 
@@ -356,19 +495,6 @@ console.log(`[DOCX Extraction] After size filtering (>=${MIN_IMAGE_SIZE} bytes):
       extractedImages: imagesToProcess,
       logoImages: logoImages
     };
-
-if (imagesToProcess.length < imageSpecs.length) {
-  console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
-}
-
-if (extractedImages.length > imagesToProcess.length) {
-  console.log(`[DOCX Extraction] Filtered out ${extractedImages.length - imagesToProcess.length} images (likely logos/icons)`);
-}
-
-return {
-  imageSpecs,
-  extractedImages: imagesToProcess
-};
 
   } catch (error) {
   console.error('[DOCX Extraction] Error:', error.message);
@@ -439,9 +565,11 @@ Extract ALL images mentioned in the brief (IMAGE 1, IMAGE 2, IMAGE 3, etc.). For
 - subtitle: The COPY text (keep as written)
 - asset: The ASSET filename (if mentioned)
 
-For the ai_prompt field, generate a plain text instruction (no markdown, no line breaks) using this template:
+For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS):
 
-"Apply a linear gradient overlay at the top 22% of the image, transitioning from rgba(20,20,20,0.35) at the top edge to fully transparent. Position text 32px from the top edge and 40px from the left edge. Render the title text '{title}' using Montserrat Extra Bold font at exactly 52px, uppercase, white color (#FFFFFF), with line-height 1.1 and max-width 85% of image width. Position subtitle text '{subtitle}' exactly 8px below the title, using Montserrat Regular font at exactly 18px, white color, line-height 1.3. Apply text shadow to both texts: 0px 1.5px 3px rgba(0,0,0,0.25). Preserve all original image details and product features. Output as high-resolution JPEG."
+"Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title '{title}' in a clean, modern, geometric sans-serif font style (like Saira), bold white uppercase letters near the top left. Below the title, add the subtitle '{subtitle}' in the same geometric sans-serif font, smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image with modern geometric typography."
+
+CRITICAL: Use ONLY natural language - NO pixel values, NO CSS colors, NO technical measurements. Request Saira-style geometric sans-serif font for all text.
 
 Replace {title} and {subtitle} with the actual extracted values for EACH image.
 
@@ -636,10 +764,10 @@ export async function uploadPDF(req, res) {
     }
 
     const startTime = new Date();
-    
+
     let marketplacePreset = null;
     let driveDestinationFolderId = null;
-    
+
     try {
       if (req.body && req.body.marketplacePreset) {
         marketplacePreset = typeof req.body.marketplacePreset === 'string' 
@@ -654,7 +782,7 @@ export async function uploadPDF(req, res) {
     } catch (parseErr) {
       console.warn('[Upload Brief] Could not parse preset/folder settings:', parseErr.message);
     }
-    
+
     createJob({
       id: jobId,
       brandId: req.brand.id,
@@ -688,8 +816,9 @@ export async function uploadPDF(req, res) {
       });
 
       // Start processing in the background
-      processImagesWithNanoBanana(jobId).catch(async err => {
+      processImagesWithGemini(jobId).catch(async err => {
         console.error('Background processing error:', err);
+        console.error('Error stack:', err.stack);
         await updateJob(jobId, { 
           status: 'failed',
           error: err.message
@@ -775,8 +904,9 @@ export async function uploadImages(req, res) {
       message: 'Images uploaded successfully, processing started'
     });
 
-    processImagesWithNanoBanana(jobId).catch(async err => {
+    processImagesWithGemini(jobId).catch(async err => {
       console.error('Background processing error:', err);
+      console.error('Error stack:', err.stack);
       await updateJob(jobId, { 
         status: 'failed',
         error: err.message
@@ -789,7 +919,7 @@ export async function uploadImages(req, res) {
   }
 }
 
-async function processImagesWithNanoBanana(jobId) {
+async function processImagesWithGemini(jobId) {
   const job = getJob(jobId);
 
   if (!job) {
@@ -820,7 +950,7 @@ async function processImagesWithNanoBanana(jobId) {
   const presetModifier = job.marketplacePreset?.promptModifier || null;
   const presetMode = job.marketplacePreset?.aiMode || 'balanced';
   const presetId = job.marketplacePreset?.id || 'default';
-  
+
   if (presetModifier && typeof presetModifier === 'string' && presetModifier.trim()) {
     console.log(`[Marketplace Preset] Applying ${presetId} mode (${presetMode})`);
     console.log(`[Marketplace Preset] Prompt modifier length: ${presetModifier.length} chars`);
@@ -828,33 +958,61 @@ async function processImagesWithNanoBanana(jobId) {
     console.log(`[Marketplace Preset] Using ${presetId} mode (no prompt modifications)`);
   }
 
-  // Match images to specifications
-  // If we have more images than specs, intelligently cycle through specs
-  // This handles cases like logo images or product variant images
-  const imagePrompts = job.images.map((img, idx) => {
-    // Use modulo to cycle through specs if we have more images than specs
-    const specIndex = idx % job.imageSpecs.length;
+  // Analyze images for parameters before generating prompts
+  console.log(`[Parameter Analysis] Analyzing ${job.images.length} images for AI parameters...`);
+  const imageUrls = job.images.map(img => img.publicUrl);
+  let imageAnalyses = [];
+  try {
+    imageAnalyses = await Promise.all(
+      imageUrls.map(url => analyzeImageForParameters(url, { geminiApiKey: brandConfig.geminiApiKey }))
+    );
+    console.log(`[Parameter Analysis] Successfully analyzed ${imageAnalyses.length} images.`);
+  } catch (analysisError) {
+    console.error('[Parameter Analysis] Failed to analyze images:', analysisError.message);
+    // Decide how to handle this: fail job, or continue with default prompts?
+    // For now, we'll log and continue, hoping generateAdaptivePrompt can handle undefined analysis
+    // or we might fall back to generatePrompt if analysis is critical.
+    // For this example, we will proceed assuming analysis might be partial or missing.
+    imageAnalyses = new Array(job.images.length).fill(null); // Fill with null to indicate failure
+  }
+
+  // Match images to specifications and generate prompts using AI-analyzed parameters
+  const imagePrompts = job.images.map((img, i) => {
+    const specIndex = i % job.imageSpecs.length;
     const spec = job.imageSpecs[specIndex];
-    console.log(`Image ${idx + 1}: ${img.originalName} -> "${spec?.title || 'FALLBACK'}" (spec ${specIndex + 1}/${job.imageSpecs.length})`);
-    
-    let basePrompt = spec?.ai_prompt || job.imageSpecs[0].ai_prompt;
-    
+    const analysis = imageAnalyses[i]; // Use the analysis for this image
+
+    // Build logo info from spec if available
+    const logoInfo = spec.logo_requested ? {
+      logoRequested: true,
+      logoName: spec.logo_name || 'Brand logo'
+    } : null;
+
+    // Generate adaptive prompt using AI-analyzed parameters
+    let finalPrompt = generateAdaptivePrompt(
+      spec.title,
+      spec.subtitle,
+      analysis, // Pass the AI-analyzed parameters
+      job.marketplacePreset?.id || 'website',
+      logoInfo // Pass logo information
+    );
+
     if (presetModifier && typeof presetModifier === 'string' && presetModifier.trim()) {
-      basePrompt = `${presetModifier.trim()}\n\nORIGINAL INSTRUCTIONS:\n${basePrompt}`;
+      finalPrompt = `${finalPrompt}\n\nADDITIONAL REQUIREMENTS:\n${presetModifier}`;
     }
-    
-    return basePrompt;
+
+    return finalPrompt;
   });
 
   console.log(`[Matching Strategy] ${job.images.length} images mapped to ${job.imageSpecs.length} specifications using ${job.images.length > job.imageSpecs.length ? 'cyclic' : 'direct'} matching`);
 
   const hasActiveModifier = presetModifier && typeof presetModifier === 'string' && presetModifier.trim();
-  
+
   addWorkflowStep(jobId, {
     name: 'Prepare Processing',
     status: 'completed',
-    description: hasActiveModifier 
-      ? `Preparing images with ${job.marketplacePreset?.name || presetId} preset (${presetMode} mode)` 
+    description: hasActiveModifier
+      ? `Preparing images with ${job.marketplacePreset?.name || presetId} preset (${presetMode} mode)`
       : 'Preparing images with individual prompts for each image',
     details: {
       imageCount: job.images.length,
@@ -875,7 +1033,7 @@ async function processImagesWithNanoBanana(jobId) {
     }
   });
 
-  await updateJob(jobId, { 
+  await updateJob(jobId, {
     status: 'processing',
     processingStep: 'Processing images with individual prompts'
   });
@@ -893,21 +1051,19 @@ async function processImagesWithNanoBanana(jobId) {
           preview: p.substring(0, 100) + '...'
         };
       }),
-      api: 'Wavespeed Nano Banana',
-      endpoint: '/api/v3/google/nano-banana/edit',
+      api: 'Google Gemini',
+      endpoint: 'gemini-3-pro-image-preview',
       parameters: {
-        enable_sync_mode: true,
-        output_format: 'jpeg',
-        num_images: 1,
+        imageSize: '2K',
+        outputFormat: 'png',
         batch_size: 15
       }
     }
   });
 
-  const imageUrls = job.images.map(img => img.publicUrl);
-  console.log('Image URLs to process:', imageUrls);
+  console.log(`Image URLs to process: ${imageUrls.length} URLs`);
 
-  await updateJob(jobId, { 
+  await updateJob(jobId, {
     status: 'processing',
     processingStep: 'Editing images with AI (individual prompts per image)'
   });
@@ -915,16 +1071,17 @@ async function processImagesWithNanoBanana(jobId) {
   addWorkflowStep(jobId, {
     name: 'AI Processing Started',
     status: 'in_progress',
-    description: `Processing ${imageUrls.length} images with unique prompts`,
+    description: `Processing ${imageUrls.length} images with Nano Banana Pro (gemini-3-pro-image-preview)`,
     details: {
       totalImages: imageUrls.length,
       batchSize: 15,
-      uniquePrompts: true,
-      code: `// Each image processed with its own prompt\nconst batchSize = 15;\nfor (let i = 0; i < images.length; i += batchSize) {\n  const batch = images.slice(i, i + batchSize);\n  const results = await Promise.all(\n    batch.map((img, idx) => editWithAI(img, prompts[i + idx]))\n  );\n}`
+      model: 'gemini-3-pro-image-preview',
+      preserveDimensions: true,
+      code: `// Each image processed with Nano Banana Pro\n// Preserves original dimensions with empty aspectRatio/imageSize\nconst batchSize = 15;\nfor (let i = 0; i < images.length; i += batchSize) {\n  const batch = images.slice(i, i + batchSize);\n  const results = await Promise.all(\n    batch.map((img, idx) => editWithAI(img, prompts[i + idx]))\n  );\n}`
     }
   });
 
-  console.log('Calling Nano Banana API with individual prompts per image...');
+  console.log('Processing images with Nano Banana Pro (gemini-3-pro-image-preview)...');
 
   // Process images with their individual prompts
   const results = [];
@@ -961,28 +1118,54 @@ async function processImagesWithNanoBanana(jobId) {
       const imageIndex = i + idx;
       const specIndex = imageIndex % job.imageSpecs.length;
       const prompt = batchPrompts[idx];
-      const specTitle = job.imageSpecs[specIndex]?.title || 'N/A';
-      console.log(`  Image ${imageIndex + 1}: Using prompt for "${specTitle}"`);
+      const spec = job.imageSpecs[specIndex];
+      const specTitle = spec?.title || 'N/A';
+      const specSubtitle = spec?.subtitle || 'N/A';
+
+      console.log(`\n╔════════════════════════════════════════════════════════════════╗`);
+      console.log(`║ PROCESSING IMAGE ${imageIndex + 1}/${imageUrls.length}`);
+      console.log(`╠════════════════════════════════════════════════════════════════╣`);
+      console.log(`║ Title: ${specTitle}`);
+      console.log(`║ Subtitle: ${specSubtitle.substring(0, 50)}${specSubtitle.length > 50 ? '...' : ''}`);
+      console.log(`║ Using spec: ${specIndex + 1}/${job.imageSpecs.length}`);
+      console.log(`╚════════════════════════════════════════════════════════════════╝\n`);
 
       return editImageUnified(url, prompt, {
-        provider: brandConfig.preferredImageApi || 'wavespeed',
         geminiApiKey: brandConfig.geminiApiKey,
-        wavespeedApiKey: brandConfig.wavespeedApiKey,
-        enableSyncMode: true,
-        outputFormat: 'jpeg',
-        numImages: 1,
-        wavespeedApiKey: brandConfig.wavespeedApiKey
+        imageIndex
       }).then(async result => {
-        await updateJob(jobId, {
-          processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
-          progress: Math.round(((imageIndex + 1) / imageUrls.length) * 100),
-          currentImageIndex: imageIndex
-        });
+        console.log(`\n✅ SUCCESS - Image ${imageIndex + 1}/${imageUrls.length}: "${specTitle}"`);
+        try {
+          await updateJob(jobId, {
+            processingStep: `AI editing: ${imageIndex + 1} of ${imageUrls.length} images`,
+            progress: Math.round(((imageIndex + 1) / imageUrls.length) * 100),
+            currentImageIndex: imageIndex
+          });
+        } catch (updateErr) {
+          console.error(`[Batch] Error updating job progress:`, updateErr.message);
+        }
         return result;
+      }).catch(err => {
+        console.error(`\n❌ FAILED - Image ${imageIndex + 1}/${imageUrls.length}: "${specTitle}"`);
+        console.error(`   Error: ${err.message}`);
+        return { error: err.message, imageIndex };
       });
     });
 
-    const batchResults = await Promise.all(batchPromises);
+    console.log(`[Batch ${batchNumber}] Waiting for ${batchPromises.length} promises...`);
+    let batchResults;
+    try {
+      batchResults = await Promise.all(batchPromises);
+      console.log(`[Batch ${batchNumber}] All promises resolved. Results count: ${batchResults.length}`);
+      if (batchResults[0]) {
+        const firstResultType = typeof batchResults[0] === 'string' ? 'dataUrl' : 'object';
+        console.log(`[Batch ${batchNumber}] First result type: ${firstResultType}`);
+      }
+    } catch (batchErr) {
+      console.error(`[Batch ${batchNumber}] Promise.all failed:`, batchErr.message);
+      console.error(`[Batch ${batchNumber}] Error stack:`, batchErr.stack);
+      throw batchErr;
+    }
     results.push(...batchResults);
 
     addWorkflowStep(jobId, {
@@ -1006,27 +1189,28 @@ async function processImagesWithNanoBanana(jobId) {
   addWorkflowStep(jobId, {
     name: 'AI Processing Complete',
     status: 'completed',
-    description: `Successfully edited ${results.length} images`,
+    description: `Successfully edited ${results.length} images with Nano Banana Pro`,
     details: {
       totalProcessed: results.length,
-      apiResponse: 'Received edited images from Wavespeed API'
+      model: 'gemini-3-pro-image-preview',
+      features: ['Preserved dimensions', 'Dark gradient overlay', 'Saira font styling']
     }
   });
 
   const editedImages = [];
   const DEFAULT_EDITED_IMAGES_FOLDER = brandConfig.editedResultsFolderId;
   const EDITED_IMAGES_FOLDER = job.driveDestinationFolderId || DEFAULT_EDITED_IMAGES_FOLDER;
-  
+
   if (job.driveDestinationFolderId) {
-    console.log(`[NanoBanana] Using custom drive destination: ${EDITED_IMAGES_FOLDER}`);
+    console.log(`[Gemini] Using custom drive destination: ${EDITED_IMAGES_FOLDER}`);
   }
   if (job.marketplacePreset) {
-    console.log(`[NanoBanana] Marketplace preset applied: ${job.marketplacePreset.id}`);
+    console.log(`[Gemini] Marketplace preset applied: ${job.marketplacePreset.id}`);
   }
 
   console.log(`Saving ${results.length} edited images to Drive (brand: ${job.brandSlug})...`);
 
-  await updateJob(jobId, { 
+  await updateJob(jobId, {
     processingStep: 'Saving edited images to cloud storage'
   });
 
@@ -1046,25 +1230,74 @@ async function processImagesWithNanoBanana(jobId) {
     const specIndex = i % job.imageSpecs.length;
     const spec = job.imageSpecs[specIndex];
 
-    console.log(`Processing result ${i + 1}/${results.length}:`, result);
+    console.log(`\n[Save] Processing result ${i + 1}/${results.length} - "${spec?.title || 'N/A'}"`);
 
-    if (result.data && result.data.outputs && result.data.outputs.length > 0) {
-      const editedImageUrl = result.data.outputs[0];
-      console.log(`Downloading edited image from: ${editedImageUrl}`);
+    // Validate result exists and is not an error
+    if (!result) {
+      console.error(`❌ [Save] Image ${i + 1} - No result returned from AI processing`);
+      return null;
+    }
 
-      const imageResponse = await fetch(editedImageUrl);
-      let imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+    // Check for explicit error results from Gemini
+    if (result.error) {
+      console.error(`❌ [Save] Image ${i + 1} failed during AI processing: ${result.error}`);
+      return null;
+    }
+
+    // Handle multiple result formats:
+    // 1. Plain string (data URL from editImageUnified)
+    // 2. {outputs: [...]} format
+    // 3. {data: {outputs: [...]}} wrapped format
+    let editedImageUrl;
+    
+    if (typeof result === 'string' && result.startsWith('data:')) {
+      // Direct data URL string from editImageUnified
+      editedImageUrl = result;
+    } else {
+      // Object format with outputs array
+      const outputs = result.outputs || (result.data && result.data.outputs);
+      
+      if (!outputs || !Array.isArray(outputs) || outputs.length === 0) {
+        console.error(`❌ [Save] Image ${i + 1} - Invalid or missing outputs from AI processing`);
+        console.error(`   Result type: ${typeof result}`);
+        if (typeof result === 'object') console.error(`   Result keys: ${Object.keys(result).join(', ')}`);
+        return null;
+      }
+      editedImageUrl = outputs[0];
+    }
+
+    if (editedImageUrl && typeof editedImageUrl === 'string' && editedImageUrl.length > 0) {
+      const imageDataSize = Math.round(editedImageUrl.length / 1024);
+      console.log(`[Save] Image data received: ${imageDataSize}KB`);
+
+      let imageBuffer;
+      
+      // Handle data URLs directly (Node fetch doesn't support data: protocol)
+      if (editedImageUrl.startsWith('data:')) {
+        const matches = editedImageUrl.match(/^data:[^;]+;base64,(.+)$/);
+        if (matches && matches[1]) {
+          imageBuffer = Buffer.from(matches[1], 'base64');
+          console.log(`[Save] Decoded base64 data: ${Math.round(imageBuffer.length / 1024)}KB`);
+        } else {
+          console.error(`❌ [Save] Image ${i + 1} - Invalid data URL format`);
+          return null;
+        }
+      } else {
+        // Fetch from regular URL
+        const imageResponse = await fetch(editedImageUrl);
+        imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+      }
 
       // Check if this spec requires a logo overlay
       if (spec && spec.logoBase64 && spec.logo_requested === true) {
-        console.log(`[Logo Overlay] Applying logo to image ${i + 1} (${spec.logo_name || 'brand logo'})`);
+        console.log(`[Logo] Applying ${spec.logo_name || 'brand'} logo to image ${i + 1}`);
         imageBuffer = await overlayLogoOnImage(imageBuffer, spec.logoBase64, 'bottom-left');
       }
 
       const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
       const editedFileName = `${originalNameWithoutExt}_edited.jpg`;
 
-      console.log(`Uploading ${editedFileName} to Drive...`);
+      console.log(`[Drive] Uploading ${editedFileName}...`);
       const uploadedFile = await uploadFileToDrive(
         imageBuffer,
         editedFileName,
@@ -1074,7 +1307,7 @@ async function processImagesWithNanoBanana(jobId) {
 
       await makeFilePublic(uploadedFile.id);
 
-      console.log(`Saved edited image ${i + 1}/${results.length}: ${editedFileName}`);
+      console.log(`✅ [Save] Image ${i + 1}/${results.length} saved: ${editedFileName}`);
 
       return {
         id: uploadedFile.id,
@@ -1086,7 +1319,7 @@ async function processImagesWithNanoBanana(jobId) {
         logoApplied: spec?.logo_requested === true && spec?.logoBase64 ? true : false
       };
     } else {
-      console.error(`No edited image in result ${i + 1} - Missing data.outputs`);
+      console.error(`❌ [Save] No valid image URL in result ${i + 1}`);
       return null;
     }
   });
@@ -1112,7 +1345,7 @@ async function processImagesWithNanoBanana(jobId) {
   });
 
   console.log(`Successfully processed ${editedImages.length} images`);
-  await updateJob(jobId, { 
+  await updateJob(jobId, {
     status: 'completed',
     editedImages,
     processingStep: 'Complete',

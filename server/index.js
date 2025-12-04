@@ -18,6 +18,9 @@ import subaccountsRoutes from './routes/subaccounts.js';
 import mlRoutes from './routes/ml.js';
 import userRoutes from './routes/users.js';
 import historyRoutes from './routes/history.js';
+import canvasTestRoutes from './routes/canvasTest.js';
+import { setupAuth, isAuthenticated } from './replitAuth.js';
+import { storage } from './storage.js';
 
 dotenv.config();
 
@@ -27,9 +30,50 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+async function initializeAuth() {
+  try {
+    if (process.env.SESSION_SECRET && process.env.REPL_ID) {
+      await setupAuth(app);
+      console.log('[Auth] Replit Auth initialized successfully');
+      
+      app.get('/api/auth/user', isAuthenticated, async (req, res) => {
+        try {
+          const userId = req.user.claims.sub;
+          const user = await storage.getUserByReplitId(userId);
+          if (!user) {
+            return res.status(404).json({ message: "User not found" });
+          }
+          res.json({
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            profileImageUrl: user.profileImageUrl,
+            role: user.role,
+            brandId: user.brandId,
+          });
+        } catch (error) {
+          console.error("Error fetching user:", error);
+          res.status(500).json({ message: "Failed to fetch user" });
+        }
+      });
+    } else {
+      console.log('[Auth] Replit Auth not configured, using JWT-only authentication');
+    }
+  } catch (error) {
+    console.error('[Auth] Failed to initialize Replit Auth:', error.message);
+  }
+}
+
+initializeAuth();
 
 // Brand routes (no auth required for config/list)
 app.use('/api/brand', brandRoutes);
@@ -60,6 +104,7 @@ app.use('/api/psd', psdRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/psd', psdRoutes);
 app.use('/api/history', historyRoutes);
+app.use('/api/canvas-test', canvasTestRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });

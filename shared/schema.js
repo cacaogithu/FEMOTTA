@@ -1,5 +1,16 @@
-import { pgTable, text, serial, timestamp, integer, boolean, jsonb } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { pgTable, text, serial, timestamp, integer, boolean, jsonb, varchar, index } from 'drizzle-orm/pg-core';
+import { relations, sql } from 'drizzle-orm';
+
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
 
 // Subaccounts (formerly brands) - CRM-style multi-tenant accounts
 export const brands = pgTable('brands', {
@@ -57,14 +68,19 @@ export const brands = pgTable('brands', {
 // Users table - people who access the system
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  username: text('username').notNull().unique(),
+  replitId: varchar('replit_id').unique(),
+  email: text('email').unique(),
+  username: text('username').unique(),
   passwordHash: text('password_hash'),
-  role: text('role').notNull().default('user'), // 'admin', 'brand_admin', 'user'
+  firstName: varchar('first_name'),
+  lastName: varchar('last_name'),
+  profileImageUrl: varchar('profile_image_url'),
+  role: text('role').notNull().default('user'),
   brandId: integer('brand_id').references(() => brands.id),
 
   active: boolean('active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
   lastLoginAt: timestamp('last_login_at')
 });
 

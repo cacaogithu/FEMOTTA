@@ -1,8 +1,8 @@
 # Enhanced Entity Relationship Diagram (EERD)
 ## Multi-Brand AI Marketing Image Editor
 
-**Document Version:** 1.0  
-**Last Updated:** November 3, 2025  
+**Document Version:** 2.0  
+**Last Updated:** December 2, 2025  
 **Purpose:** Comprehensive data model showing entities, relationships, inheritance, and constraints
 
 ---
@@ -45,7 +45,7 @@ Primary entity representing client organizations with multi-tenant isolation.
 - `edited_results_folder_id` - Google Drive folder ID
 - `default_prompt_template` - Default AI prompt text
 - `ai_settings` - JSONB: AI configuration parameters
-- `wavespeed_api_key` - Encrypted API key
+- `gemini_api_key` - Encrypted API key (Note: database column may still be named wavespeed_api_key)
 - `openai_api_key` - Encrypted API key
 - `auth_password` - bcrypt hashed password
 - `seats_purchased` - Integer: maximum users allowed
@@ -178,7 +178,7 @@ AI-edited image versions with prompt tracking.
 - `drive_id` - Google Drive file ID
 - `public_url` - Shareable URL
 - `prompt_used` - Actual prompt sent to API
-- `ai_model` - Model name (e.g., "wavespeed-nano-banana")
+- `ai_model` - Model name (e.g., "gemini-3-pro-image-preview", "gemini-2.5-flash-image")
 - `processing_time_seconds` - Integer: API response time
 - `created_at` - Timestamp
 
@@ -266,7 +266,7 @@ Daily aggregated usage metrics per brand.
 - `jobs_failed` - Integer: failed jobs
 - `images_uploaded` - Integer: original images
 - `images_processed` - Integer: edited images
-- `wavespeed_api_calls` - Integer: API usage
+- `gemini_api_calls` - Integer: API usage (Note: database column may still be named wavespeed_api_calls)
 - `openai_api_calls` - Integer: API usage
 - `estimated_cost_usd` - Numeric: daily cost
 - `total_processing_time_seconds` - Integer: compute time

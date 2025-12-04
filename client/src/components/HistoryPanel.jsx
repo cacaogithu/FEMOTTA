@@ -1,6 +1,55 @@
 import { useState, useEffect } from 'react';
 import { authenticatedFetch } from '../utils/api';
+import BeforeAfterSlider from './BeforeAfterSlider';
+import ImagePreview from './ImagePreview';
+import ChatWidget from './ChatWidget';
+import FeedbackWidget from './FeedbackWidget';
+import WorkflowViewer from './WorkflowViewer';
 import './HistoryPanel.css';
+import './ResultsPage.css';
+
+function TimeMetricsPanel({ batchData }) {
+  if (!batchData?.timeSavedMinutes) return null;
+
+  return (
+    <div className="time-metrics-panel">
+      <h3>Time & Efficiency Metrics</h3>
+      <div className="metrics-grid">
+        <div className="metric metric-primary">
+          <span className="metric-icon">⚡</span>
+          <div className="metric-content">
+            <span className="metric-value">{batchData.timeSavedMinutes?.toFixed(1) || '0'} min</span>
+            <span className="metric-label">Time Saved</span>
+          </div>
+        </div>
+        <div className="metric">
+          <span className="metric-icon">🎯</span>
+          <div className="metric-content">
+            <span className="metric-value">{batchData.timeSavedPercent || '95'}%</span>
+            <span className="metric-label">Efficiency Gain</span>
+          </div>
+        </div>
+        <div className="metric">
+          <span className="metric-icon">🚀</span>
+          <div className="metric-content">
+            <span className="metric-value">{batchData.processingTimeMinutes?.toFixed(1) || '0'} min</span>
+            <span className="metric-label">Processing Time</span>
+          </div>
+        </div>
+        <div className="metric">
+          <span className="metric-icon">📊</span>
+          <div className="metric-content">
+            <span className="metric-value">{batchData.estimatedManualTimeMinutes || '0'} min</span>
+            <span className="metric-label">Manual Time Estimate</span>
+          </div>
+        </div>
+      </div>
+      <p className="metrics-note">
+        Automated AI processing saved approximately {batchData.timeSavedMinutes?.toFixed(1) || '0'} minutes compared to manual editing
+      </p>
+    </div>
+  );
+}
 
 function HistoryPanel({ onSelectBatch }) {
   const [batches, setBatches] = useState([]);
@@ -10,6 +59,10 @@ function HistoryPanel({ onSelectBatch }) {
   const [batchDetails, setBatchDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [psdGenerating, setPsdGenerating] = useState({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(Date.now());
+  const [imageSpecs, setImageSpecs] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -54,6 +107,9 @@ function HistoryPanel({ onSelectBatch }) {
       
       if (data.success) {
         setBatchDetails(data.batch);
+        if (data.batch?.imageSpecs) {
+          setImageSpecs(data.batch.imageSpecs);
+        }
       } else {
         setError(data.error || 'Failed to load batch details');
       }
@@ -61,6 +117,23 @@ function HistoryPanel({ onSelectBatch }) {
       setError('Failed to load batch details: ' + err.message);
     } finally {
       setDetailsLoading(false);
+    }
+  };
+
+  const handleRefreshImages = async () => {
+    if (!selectedBatch) return;
+    setIsRefreshing(true);
+    try {
+      const response = await authenticatedFetch(`/api/history/${selectedBatch}?t=${Date.now()}`);
+      const data = await response.json();
+      if (data.success) {
+        setBatchDetails(data.batch);
+        setRefreshToken(Date.now());
+      }
+    } catch (error) {
+      console.error('[HistoryPanel] Refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -72,14 +145,17 @@ function HistoryPanel({ onSelectBatch }) {
     }
   };
 
+  const handleBackToList = () => {
+    setSelectedBatch(null);
+    setBatchDetails(null);
+  };
+
   const handleDownloadZip = async () => {
     if (!selectedBatch) return;
     
     setDownloadingZip(true);
     try {
-      const response = await authenticatedFetch(
-        `/api/history/${selectedBatch}/download?type=zip`
-      );
+      const response = await authenticatedFetch(`/api/history/${selectedBatch}/download?type=zip`);
       
       if (!response.ok) {
         throw new Error('Download failed');
@@ -89,7 +165,7 @@ function HistoryPanel({ onSelectBatch }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selectedBatch}_batch.zip`;
+      a.download = `batch-${selectedBatch}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -101,12 +177,12 @@ function HistoryPanel({ onSelectBatch }) {
     }
   };
 
-  const handleDownloadImage = async (imageIndex, type = 'edited') => {
+  const handleDownloadImage = async (imageIndex) => {
     if (!selectedBatch) return;
     
     try {
       const response = await authenticatedFetch(
-        `/api/history/${selectedBatch}/download?type=${type}&imageIndex=${imageIndex}`
+        `/api/history/${selectedBatch}/download?type=edited&imageIndex=${imageIndex}`
       );
       
       if (!response.ok) {
@@ -117,7 +193,11 @@ function HistoryPanel({ onSelectBatch }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `image_${imageIndex}_${type}.jpg`;
+      
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const fileName = contentDisposition?.match(/filename="(.+)"/)?.[1] || `image_${imageIndex}.jpg`;
+      a.download = fileName;
+      
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -128,28 +208,47 @@ function HistoryPanel({ onSelectBatch }) {
   };
 
   const handleDownloadPsd = async (imageIndex) => {
-    if (!selectedBatch) return;
+    if (!selectedBatch || !batchDetails) return;
+    if (psdGenerating[imageIndex]) return;
+    
+    setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
     
     try {
-      const response = await authenticatedFetch(
-        `/api/history/${selectedBatch}/psd/${imageIndex}`
-      );
+      console.log('[History PSD] Starting server-side PSD generation...');
       
-      if (!response.ok) {
-        throw new Error('PSD download failed');
+      const variant = batchDetails.variants[imageIndex];
+      if (!variant) {
+        throw new Error('Image not found');
       }
       
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `image_${imageIndex}.psd`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // Use server-side PSD generation with ag-psd for proper editable text layers
+      // First get a signed URL to bypass fetch/blob issues
+      const signedResponse = await authenticatedFetch(`/api/psd/signed-url/${selectedBatch}/${imageIndex}`, {
+        method: 'POST'
+      });
+      
+      if (!signedResponse.ok) {
+        const errorData = await signedResponse.json();
+        throw new Error(errorData.error || 'Failed to get download URL');
+      }
+      
+      const { downloadUrl } = await signedResponse.json();
+      
+      // Download the PSD using the signed URL
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const filename = (variant.editedName || variant.originalName || `image_${imageIndex}`).replace(/\.[^/.]+$/, '') + '_editable.psd';
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('[History PSD] Server-side PSD download initiated');
+      
     } catch (err) {
-      setError('Failed to download PSD: ' + err.message);
+      setError('Failed to generate PSD: ' + err.message);
+    } finally {
+      setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
     }
   };
 
@@ -165,20 +264,92 @@ function HistoryPanel({ onSelectBatch }) {
     });
   };
 
-  const formatDuration = (seconds) => {
-    if (!seconds) return 'N/A';
-    if (seconds < 60) return `${seconds}s`;
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}m ${secs}s`;
-  };
-
   if (loading && batches.length === 0) {
     return (
       <div className="history-panel">
         <div className="history-loading">
           <div className="spinner"></div>
           <p>Loading history...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedBatch && batchDetails) {
+    return (
+      <div className="history-panel history-results-view">
+        <ChatWidget jobId={selectedBatch} onImageUpdated={handleRefreshImages} />
+        <div className="results-page">
+          <div className="container">
+            <header className="results-header">
+              <button className="back-to-history-btn" onClick={handleBackToList}>
+                ← Back to History
+              </button>
+              <h1>Your Images Are Ready!</h1>
+              <p>
+                {batchDetails.variants?.length || 0} images processed successfully
+                {isRefreshing && <span style={{ marginLeft: '10px', color: '#ffa500' }}>⚡ Refreshing...</span>}
+              </p>
+              <TimeMetricsPanel batchData={batchDetails} />
+              <div className="header-actions">
+                <button className="button button-primary" onClick={handleDownloadZip} disabled={downloadingZip}>
+                  {downloadingZip ? 'Preparing...' : 'Download All as ZIP'}
+                </button>
+                <button className="button button-secondary" onClick={handleBackToList}>
+                  Back to History
+                </button>
+              </div>
+            </header>
+
+            <div className="results-grid">
+              {batchDetails.variants?.map((variant, idx) => (
+                <div key={`${variant.editedDriveId || idx}-${refreshToken}`} className="result-card">
+                  {variant.originalDriveId && (variant.editedUrl || variant.editedDriveId) ? (
+                    <BeforeAfterSlider 
+                      key={`slider-${variant.editedDriveId}-${refreshToken}`}
+                      beforeImageId={variant.originalDriveId}
+                      afterImageId={variant.editedDriveId}
+                      name={variant.editedName}
+                      refreshToken={refreshToken}
+                    />
+                  ) : (
+                    <div className="image-container">
+                      <img 
+                        src={variant.editedUrl || `/api/images/${variant.editedDriveId}?t=${refreshToken}`} 
+                        alt={variant.editedName}
+                        className="result-image"
+                        onError={(e) => {e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23333"/></svg>';}}
+                      />
+                    </div>
+                  )}
+                  <div className="card-info">
+                    <h3>{variant.editedName}</h3>
+                    <div className="download-buttons">
+                      <button 
+                        className="button button-primary download-btn"
+                        onClick={() => handleDownloadImage(idx)}
+                      >
+                        Download JPG
+                      </button>
+                      <button 
+                        className="button button-secondary download-btn"
+                        onClick={() => handleDownloadPsd(idx)}
+                        disabled={psdGenerating[idx]}
+                      >
+                        {psdGenerating[idx] ? 'Generating...' : 'Download PSD'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {batchDetails.workflowSteps && batchDetails.workflowSteps.length > 0 && (
+              <WorkflowViewer workflowSteps={batchDetails.workflowSteps} />
+            )}
+
+            <FeedbackWidget jobId={selectedBatch} />
+          </div>
         </div>
       </div>
     );
@@ -200,145 +371,52 @@ function HistoryPanel({ onSelectBatch }) {
         </div>
       )}
 
-      <div className="history-content">
-        <div className="history-list">
-          {batches.length === 0 ? (
-            <div className="history-empty">
-              <p>No processing history yet.</p>
-              <p>Completed batches will appear here.</p>
-            </div>
-          ) : (
-            <>
+      <div className="history-grid-view">
+        {batches.length === 0 ? (
+          <div className="history-empty">
+            <p>No processing history yet.</p>
+            <p>Completed batches will appear here.</p>
+          </div>
+        ) : (
+          <>
+            <div className="history-batch-grid">
               {batches.map((batch) => (
                 <div
                   key={batch.id}
-                  className={`history-item ${selectedBatch === batch.id ? 'selected' : ''}`}
+                  className="history-batch-card"
                   onClick={() => handleBatchClick(batch)}
                 >
-                  <div className="history-item-thumbnail">
+                  <div className="batch-thumbnail">
                     {batch.thumbnailUrl ? (
                       <img src={batch.thumbnailUrl} alt="Batch preview" />
                     ) : (
-                      <div className="thumbnail-placeholder">No Preview</div>
+                      <div className="thumbnail-placeholder">
+                        <span>{batch.outputCount || 0}</span>
+                        <span className="thumbnail-label">images</span>
+                      </div>
                     )}
                   </div>
-                  <div className="history-item-info">
-                    <div className="history-item-date">
-                      {formatDate(batch.createdAt)}
-                    </div>
-                    <div className="history-item-stats">
-                      {batch.outputCount} images
-                    </div>
-                    <div className="history-item-prompt">
-                      {batch.promptSnippet}
-                    </div>
+                  <div className="batch-info">
+                    <div className="batch-date">{formatDate(batch.createdAt)}</div>
+                    <div className="batch-stats">{batch.outputCount} images processed</div>
+                    <div className="batch-prompt">{batch.promptSnippet}</div>
                   </div>
+                  <div className="batch-arrow">→</div>
                 </div>
               ))}
-
-              {pagination.hasMore && (
-                <button
-                  className="history-load-more"
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={loading}
-                >
-                  {loading ? 'Loading...' : 'Load More'}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="history-details">
-          {!selectedBatch ? (
-            <div className="history-details-empty">
-              <p>Select a batch to view details</p>
             </div>
-          ) : detailsLoading ? (
-            <div className="history-details-loading">
-              <div className="spinner"></div>
-              <p>Loading batch details...</p>
-            </div>
-          ) : batchDetails ? (
-            <>
-              <div className="details-header">
-                <h3>Batch Details</h3>
-                <button
-                  className="download-all-btn"
-                  onClick={handleDownloadZip}
-                  disabled={downloadingZip}
-                >
-                  {downloadingZip ? 'Preparing...' : 'Download All (ZIP)'}
-                </button>
-              </div>
 
-              <div className="details-meta">
-                <div className="meta-row">
-                  <span className="meta-label">Created:</span>
-                  <span className="meta-value">{formatDate(batchDetails.timestamps.created)}</span>
-                </div>
-                <div className="meta-row">
-                  <span className="meta-label">Processing Time:</span>
-                  <span className="meta-value">{formatDuration(batchDetails.metrics.processingTimeSeconds)}</span>
-                </div>
-                <div className="meta-row">
-                  <span className="meta-label">Time Saved:</span>
-                  <span className="meta-value highlight">{batchDetails.metrics.estimatedManualTimeMinutes || 0} minutes</span>
-                </div>
-                <div className="meta-row">
-                  <span className="meta-label">Images:</span>
-                  <span className="meta-value">{batchDetails.metrics.outputCount} edited</span>
-                </div>
-              </div>
-
-              <div className="details-prompt">
-                <h4>Prompt Used</h4>
-                <p>{batchDetails.promptText || batchDetails.briefText || 'No prompt available'}</p>
-              </div>
-
-              <div className="details-images">
-                <h4>Edited Images</h4>
-                <div className="images-grid">
-                  {batchDetails.variants.map((variant, index) => (
-                    <div key={index} className="image-card">
-                      <div className="image-preview">
-                        <img 
-                          src={variant.editedUrl} 
-                          alt={variant.editedName}
-                          onError={(e) => {
-                            e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23333"/><text x="50%" y="50%" text-anchor="middle" fill="%23666">Error</text></svg>';
-                          }}
-                        />
-                      </div>
-                      <div className="image-info">
-                        <span className="image-name">{variant.editedName}</span>
-                        {variant.title && (
-                          <span className="image-title">{variant.title}</span>
-                        )}
-                      </div>
-                      <div className="image-actions">
-                        <button 
-                          className="action-btn"
-                          onClick={() => handleDownloadImage(index, 'edited')}
-                          title="Download edited"
-                        >
-                          JPG
-                        </button>
-                        <button 
-                          className="action-btn"
-                          onClick={() => handleDownloadPsd(index)}
-                          title="Download PSD"
-                        >
-                          PSD
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : null}
-        </div>
+            {pagination.hasMore && (
+              <button
+                className="history-load-more"
+                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                disabled={loading}
+              >
+                {loading ? 'Loading...' : 'Load More'}
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

@@ -81,12 +81,12 @@ function ProcessingPage({ jobId, onComplete }) {
     if (errorText?.includes('INSUFFICIENT_CREDITS') || errorText?.toLowerCase().includes('insufficient credits')) {
       return {
         title: '⚠️ Insufficient API Credits',
-        message: 'The Wavespeed API account needs to be topped up with credits to continue processing images.',
-        details: 'Please add credits to your Wavespeed account and try again.'
+        message: 'The Gemini API account needs to be topped up with credits to continue processing images.',
+        details: 'Please add credits to your Google Cloud account and try again.'
       };
     }
     
-    if (errorText?.includes('Nano Banana')) {
+    if (errorText?.includes('Gemini') || errorText?.includes('generation')) {
       return {
         title: '⚠️ Image Processing Error',
         message: 'There was an error processing your images with the AI service.',

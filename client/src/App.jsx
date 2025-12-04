@@ -10,6 +10,7 @@ import BrandForm from './pages/admin/BrandForm';
 import SubaccountDetail from './pages/admin/SubaccountDetail';
 import BrandLogin from './pages/BrandLogin';
 import UserLogin from './pages/UserLogin';
+import UserRegister from './pages/UserRegister';
 import ProtectedRoute from './components/ProtectedRoute';
 import UserProtectedRoute from './components/UserProtectedRoute';
 import LogoutButton from './components/LogoutButton';
@@ -108,6 +109,7 @@ function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<UserLogin />} />
+      <Route path="/register" element={<UserRegister />} />
       
       {/* Main application routes - Protected */}
       <Route 

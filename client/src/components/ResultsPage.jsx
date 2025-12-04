@@ -63,17 +63,30 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
   const [results, setResults] = useState(initialResults);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshToken, setRefreshToken] = useState(Date.now());
+  const [imageSpecs, setImageSpecs] = useState([]);
+  const [psdGenerating, setPsdGenerating] = useState({});
 
   useEffect(() => {
     setResults(initialResults);
   }, [initialResults]);
+
+  useEffect(() => {
+    authenticatedFetch(`/api/upload/job/${jobId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.job?.imageSpecs) {
+          setImageSpecs(data.job.imageSpecs);
+        }
+      })
+      .catch(err => console.error('Failed to load image specs:', err));
+  }, [jobId]);
 
   const handleRefreshImages = async () => {
     setIsRefreshing(true);
     try {
       const response = await authenticatedFetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
       const data = await response.json();
-      
+
       if (data.status === 'completed' && data.results) {
         const newRefreshToken = Date.now();
         setResults({ ...data.results, _refreshTimestamp: newRefreshToken });
@@ -120,54 +133,42 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
     }
   };
 
-  const handleDownloadPsd = (imageIndex, originalName) => {
-    // Open PSD download in new tab to bypass iframe download restrictions
-    const url = `/api/psd/${jobId}/${imageIndex}`;
-    
-    // Opening in new window works better in iframe environments (Replit webview)
-    // The Content-Disposition header will trigger download automatically
-    const downloadWindow = window.open(url, '_blank');
-    
-    // Fallback: if popup blocked, use fetch + blob approach
-    if (!downloadWindow) {
-      handleDownloadPsdFallback(imageIndex, originalName);
-    }
-  };
+  const handleDownloadPsd = async (imageIndex, originalName) => {
+    if (psdGenerating[imageIndex]) return;
 
-  const handleDownloadPsdFallback = async (imageIndex, originalName) => {
+    setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
+
     try {
-      console.log('Using fallback PSD download method...');
-      const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
+      console.log('[PSD] Starting server-side PSD generation for:', originalName, 'index:', imageIndex);
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        if (errorData) {
-          console.error('PSD download error:', errorData);
-          if (errorData.jobStatus === 'processing') {
-            alert('⏳ Images are still processing. Please wait for processing to complete before downloading PSD files.');
-          } else if (errorData.details) {
-            alert(`❌ ${errorData.error}\n\n${errorData.details}`);
-          } else {
-            alert(`❌ ${errorData.error || 'Failed to download PSD'}`);
-          }
-        } else {
-          alert('❌ Failed to download PSD file. Please try again.');
-        }
-        return;
+      // Use server-side PSD generation with ag-psd for proper editable text layers
+      // First get a signed URL to bypass fetch/blob issues
+      const signedResponse = await authenticatedFetch(`/api/psd/signed-url/${jobId}/${imageIndex}`, {
+        method: 'POST'
+      });
+      
+      if (!signedResponse.ok) {
+        const errorData = await signedResponse.json();
+        throw new Error(errorData.error || 'Failed to get download URL');
       }
       
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${originalName.replace(/\.[^/.]+$/, '')}.psd`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const { downloadUrl } = await signedResponse.json();
+      
+      // Download the PSD using the signed URL (opens in new tab to trigger download)
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = originalName.replace(/\.[^/.]+$/, '') + '_editable.psd';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log('[PSD] Server-side PSD download initiated');
+
     } catch (error) {
-      console.error('PSD download error:', error);
-      alert('❌ Failed to download PSD file. Please try again.');
+      console.error('[PSD] Generation error:', error);
+      alert(`Failed to generate PSD: ${error.message}`);
+    } finally {
+      setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
     }
   };
 
@@ -225,9 +226,10 @@ function ResultsPage({ results: initialResults, onReset, jobId }) {
                   </button>
                   <button 
                     className="button button-secondary download-btn"
-                    onClick={() => handleDownloadPsd(idx, image.originalName)}
+                    onClick={() => handleDownloadPsd(idx, image.originalName || image.name)}
+                    disabled={psdGenerating[idx]}
                   >
-                    Download PSD
+                    {psdGenerating[idx] ? 'Generating...' : 'Download PSD'}
                   </button>
                 </div>
               </div>

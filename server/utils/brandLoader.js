@@ -15,7 +15,7 @@ export async function getBrandApiKeys(job) {
   const brand = await loadBrandForJob(job);
   
   return {
-    wavespeedApiKey: brand.wavespeedApiKey || process.env.WAVESPEED_API_KEY,
+    geminiApiKey: brand.geminiApiKey || process.env.GEMINI_API_KEY,
     openaiApiKey: brand.openaiApiKey || process.env.OPENAI_API_KEY,
     editedResultsFolderId: brand.editedResultsFolderId || '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB' // Corsair fallback
   };

@@ -1,10 +1,12 @@
 # Database Verification Report
 ## Multi-Brand AI Marketing Image Editor - PostgreSQL Database
 
-**Verification Date:** November 3, 2025  
+**Verification Date:** December 2, 2025  
 **Database Type:** PostgreSQL (Neon)  
 **ORM:** Drizzle ORM  
 **Status:** ✅ VERIFIED & OPERATIONAL
+
+**Note:** Database column names `wavespeed_api_key` and `wavespeed_api_calls` now store Google Gemini credentials and usage metrics (migrated December 2025).
 
 ---
 
@@ -69,7 +71,7 @@ All 10 required tables have been created successfully:
 - `brief_folder_id`, `product_images_folder_id`, `edited_results_folder_id` - Google Drive folders
 - `default_prompt_template` (TEXT) - Default AI prompt
 - `ai_settings` (JSONB) - AI configuration
-- `wavespeed_api_key`, `openai_api_key` - Encrypted API keys
+- `wavespeed_api_key`, `openai_api_key` - Encrypted API keys (wavespeed_api_key now stores Gemini key)
 - `auth_password` (TEXT) - bcrypt hashed password
 - `seats_purchased`, `seats_used` (INTEGER) - User limit tracking
 - `workflow_config` (JSONB) - UI customization
@@ -224,7 +226,7 @@ All 10 required tables have been created successfully:
 - `date` (TIMESTAMP)
 - `jobs_created`, `jobs_completed`, `jobs_failed` (INTEGER)
 - `images_uploaded`, `images_processed` (INTEGER)
-- `wavespeed_api_calls`, `openai_api_calls` (INTEGER)
+- `wavespeed_api_calls`, `openai_api_calls` (INTEGER) - wavespeed_api_calls now tracks Gemini usage
 - `estimated_cost_cents` (INTEGER)
 - `total_processing_seconds`, `total_time_saved_seconds` (INTEGER)
 - `created_at` (TIMESTAMP)
@@ -448,7 +450,7 @@ Using '@neondatabase/serverless' driver for database querying
 
 ### 9.2 API Key Security
 ⚠️ API keys stored in plaintext (encryption recommended for production):
-- `brands.wavespeed_api_key`
+- `brands.wavespeed_api_key` (now stores Gemini API key)
 - `brands.openai_api_key`
 
 **Recommendation:** Implement encryption at rest for production deployment.
@@ -533,7 +535,7 @@ None required - database is production-ready.
    ```
 
 2. **Implement API Key Encryption:**
-   - Encrypt `wavespeed_api_key` and `openai_api_key` at application layer
+   - Encrypt `wavespeed_api_key` (Gemini) and `openai_api_key` at application layer
    - Use environment-based master encryption key
 
 3. **Set Up Backup Strategy:**

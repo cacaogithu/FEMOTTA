@@ -1,11 +1,12 @@
-import { editMultipleImages } from '../services/nanoBanana.js';
+import { editMultipleImagesWithNanoBananaPro } from '../services/nanoBananaImage.js';
 import { getJob, updateJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, getPublicImageUrl } from '../utils/googleDrive.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import { analyzeResultQuality } from '../services/mlLearning.js';
 import { archiveBatchToStorage } from '../services/historyService.js';
-import logger from '../utils/logger.js';
+import { calculateDefaultParameters } from '../services/imageParameters.js';
+import sharp from 'sharp';
 
 export async function processImages(req, res) {
   try {
@@ -30,14 +31,12 @@ export async function processImages(req, res) {
 
     await updateJob(jobId, {
       status: 'processing',
-      processingStep: 'Editing images with Nano Banana AI',
+      processingStep: 'Editing images with Nano Banana Pro AI',
       imageUrls
     });
 
-    const results = await editMultipleImages(imageUrls, job.promptText, {
-      enableSyncMode: true,
-      outputFormat: 'jpeg',
-      numImages: 1
+    const results = await editMultipleImagesWithNanoBananaPro(imageUrls, job.promptText, {
+      retries: 3
     });
 
     await updateJob(jobId, {
@@ -57,6 +56,8 @@ export async function processImages(req, res) {
     }
 
     const editedImages = [];
+    const psdGenerationPromises = []; // Track PSD generation for parallel processing
+    
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const originalImage = job.images[i];
@@ -64,18 +65,32 @@ export async function processImages(req, res) {
       if (result.images && result.images.length > 0) {
         const editedImageUrl = result.images[0].url;
 
-        const imageResponse = await fetch(editedImageUrl);
-        const imageBuffer = await imageResponse.arrayBuffer();
+        let imageBuffer;
+        let mimeType = 'image/jpeg';
+        
+        if (editedImageUrl.startsWith('data:')) {
+          const matches = editedImageUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            mimeType = matches[1];
+            imageBuffer = Buffer.from(matches[2], 'base64');
+          } else {
+            throw new Error('Invalid data URL format');
+          }
+        } else {
+          const imageResponse = await fetch(editedImageUrl);
+          imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+        }
 
         const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
-        const editedFileName = `${originalNameWithoutExt}_edited.jpg`;
+        const extension = mimeType.includes('png') ? 'png' : 'jpg';
+        const editedFileName = `${originalNameWithoutExt}_edited.${extension}`;
 
-        const stream = Readable.from(Buffer.from(imageBuffer));
+        const stream = Readable.from(imageBuffer);
 
         const uploadedFile = await uploadFileToDrive(
           stream,
           editedFileName,
-          'image/jpeg',
+          mimeType,
           targetFolderId
         );
 
@@ -103,8 +118,28 @@ export async function processImages(req, res) {
 
         // Get title/subtitle from imageSpecs if available (for PSD text layers)
         const imageSpec = job.imageSpecs && job.imageSpecs[i] ? job.imageSpecs[i] : null;
-
-        editedImages.push({
+        
+        // Get image dimensions for parameter calculation
+        let imageWidth = 1920;
+        let imageHeight = 1080;
+        try {
+          const metadata = await sharp(imageBuffer).metadata();
+          imageWidth = metadata.width || 1920;
+          imageHeight = metadata.height || 1080;
+          console.log(`[Parameters] Image ${i + 1} dimensions: ${imageWidth}x${imageHeight}`);
+        } catch (dimError) {
+          console.warn(`[Parameters] Could not get image dimensions, using defaults:`, dimError.message);
+        }
+        
+        // Calculate and store parameters for this image
+        const parameters = calculateDefaultParameters(
+          imageWidth,
+          imageHeight,
+          imageSpec?.title || null,
+          imageSpec?.subtitle || null
+        );
+        
+        const editedImageData = {
           id: uploadedFile.id,
           name: editedFileName,
           editedImageId: uploadedFile.id,
@@ -113,9 +148,39 @@ export async function processImages(req, res) {
           url: publicEditedUrl,
           title: imageSpec?.title || null,
           subtitle: imageSpec?.subtitle || null,
-          promptUsed: job.promptText || null
-        });
+          promptUsed: job.promptText || null,
+          parameters: parameters,
+          version: 1
+        };
+        
+        editedImages.push(editedImageData);
+        
+        // Optionally: Start PSD generation in parallel (non-blocking)
+        // This prepares PSD files in the background without blocking PNG delivery
+        if (options.generatePSD) {
+          const psdPromise = generatePSDInBackground(
+            jobId, 
+            i, 
+            originalImage.driveId, 
+            uploadedFile.id,
+            imageSpec
+          ).catch(err => {
+            console.error(`[PSD Background] Failed for image ${i}:`, err.message);
+          });
+          
+          psdGenerationPromises.push(psdPromise);
+        }
       }
+    }
+    
+    // Wait for all background PSD generation to complete (non-blocking for user)
+    if (psdGenerationPromises.length > 0) {
+      console.log(`[PSD Background] Generating ${psdGenerationPromises.length} PSDs in parallel...`);
+      Promise.all(psdGenerationPromises).then(() => {
+        console.log('[PSD Background] All PSDs generated successfully');
+      }).catch(err => {
+        console.error('[PSD Background] Some PSDs failed:', err.message);
+      });
     }
 
     // Calculate time metrics
