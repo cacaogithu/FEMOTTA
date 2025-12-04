@@ -102,14 +102,31 @@ export async function createFolder(folderName, parentFolderId) {
 }
 
 export async function downloadFileFromDrive(fileId) {
-  const drive = await getUncachableGoogleDriveClient();
-  
-  const response = await drive.files.get(
-    { fileId: fileId, alt: 'media' },
-    { responseType: 'arraybuffer' }
-  );
+  try {
+    const drive = await getUncachableGoogleDriveClient();
+    
+    const response = await drive.files.get(
+      { fileId: fileId, alt: 'media' },
+      { responseType: 'arraybuffer' }
+    );
 
-  return response.data;
+    if (!response.data) {
+      throw new Error(`No data returned for file ${fileId}`);
+    }
+
+    const buffer = Buffer.from(response.data);
+    
+    if (buffer.length < 1000) {
+      console.error(`[Google Drive] Downloaded file ${fileId} is suspiciously small: ${buffer.length} bytes`);
+      throw new Error(`Downloaded file is too small (${buffer.length} bytes) - likely invalid`);
+    }
+    
+    console.log(`[Google Drive] Successfully downloaded file ${fileId}: ${buffer.length} bytes`);
+    return buffer;
+  } catch (error) {
+    console.error(`[Google Drive] Failed to download file ${fileId}:`, error.message);
+    throw error;
+  }
 }
 
 export async function makeFilePublic(fileId) {
@@ -126,4 +143,47 @@ export async function makeFilePublic(fileId) {
 
 export function getPublicImageUrl(fileId) {
   return `https://drive.google.com/uc?export=view&id=${fileId}`;
+}
+
+export function extractFolderIdFromUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  
+  const patterns = [
+    /^https?:\/\/drive\.google\.com\/drive\/folders\/([a-zA-Z0-9_-]+)/,
+    /^https?:\/\/drive\.google\.com\/drive\/u\/\d+\/folders\/([a-zA-Z0-9_-]+)/,
+    /^([a-zA-Z0-9_-]{25,})$/
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.trim().match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  
+  return null;
+}
+
+export async function uploadToDrive(folderIdOrUrl, fileBuffer, fileName, mimeType = 'application/octet-stream') {
+  const folderId = extractFolderIdFromUrl(folderIdOrUrl) || folderIdOrUrl;
+  
+  if (!folderId) {
+    throw new Error('Invalid folder ID or URL provided');
+  }
+  
+  console.log(`[Google Drive] Uploading ${fileName} to folder ${folderId}...`);
+  
+  const result = await uploadFileToDrive(fileBuffer, fileName, mimeType, folderId);
+  await makeFilePublic(result.id);
+  const publicUrl = getPublicImageUrl(result.id);
+  
+  console.log(`[Google Drive] Upload complete: ${result.id}`);
+  
+  return {
+    id: result.id,
+    name: result.name,
+    publicUrl,
+    webViewLink: result.webViewLink,
+    webContentLink: result.webContentLink
+  };
 }

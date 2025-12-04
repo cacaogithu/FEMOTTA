@@ -1,7 +1,25 @@
 # Multi-Brand AI Marketing Image Editor
 
 ## Overview
-A professional, multi-tenant SaaS platform for AI-powered marketing image editing. This platform allows users to upload marketing briefs (PDF, DOCX, or text prompt) and product images, which are then processed by the Wavespeed Nano Banana API for instant AI-powered image editing. Key capabilities include brand-specific theming, interactive before/after image comparisons, an AI chat assistant for selective re-editing, and the ability to download layered PSD files. The system delivers significant ROI by enhancing efficiency and reducing the time required for marketing image production.
+A professional, multi-tenant SaaS platform for AI-powered marketing image editing. This platform allows users to upload marketing briefs (PDF, DOCX, or text prompt) and product images for instant AI-powered editing. Key capabilities include brand-specific theming, interactive before/after image comparisons, an AI chat assistant for selective re-editing, and the ability to download layered PSD files with editable text. The system enhances efficiency and reduces the time required for marketing image production, with a vision to become the leading AI-powered image editing solution for marketing teams globally.
+
+## Recent Changes
+- **December 2025**: Fixed re-edit workflow to preserve and re-apply logos after AI processing - logos now stored with each edited image and re-overlaid after re-edits
+- **December 2025**: Added FORBIDDEN TERMS protection to prevent technical parameters (px, opacity, font names) from appearing as text in generated images
+- **December 2025**: Enhanced prompt separation in `sairaReference.js` - styling instructions now clearly marked as non-renderable with explicit blocklists
+- **December 2025**: Implemented intelligent partner logo matching system (`server/services/partnerLogos.js`) - matches logo names from briefs to predefined registry instead of sequential assignment
+- **December 2025**: Enhanced DOCX extraction with improved table parsing - better extraction of logo requirements from table-structured briefs
+- **December 2025**: Added admin endpoints for partner logo management (`/api/admin/partner-logos/*`) - upload, configure, and search logos
+- **December 2025**: Implemented parameter storage system (`server/services/imageParameters.js`) - stores font sizes, positions, gradient settings with each edited image
+- **December 2025**: Enhanced PSD generation to use stored parameters for precise text positioning and gradient configuration
+- **December 2025**: Added chat-based parameter editing via `adjustParameters` function - allows quick adjustments without full regeneration
+- **December 2025**: Updated re-edit workflow to preserve and increment version numbers for parameter tracking
+- **December 2025**: Created Gemini Flash chat service (`server/services/geminiFlashChat.js`) - optional integration for future use
+- **December 2025**: Created CORSAIR-specific PRD (docs/CORSAIR_PRD.md) focusing on single-client perfection before multi-tenancy
+- **December 2025**: Standardized on Nano Banana Pro (gemini-3-pro-image-preview) for all image generation
+- **December 2025**: Migrated from raw REST API to `@google/genai` SDK for improved reliability
+- **December 2025**: ML Feedback system deferred until CORSAIR client satisfaction achieved
+- **December 2025**: Added CANVAS_TEST_ENABLED feature flag for canvas test route security
 
 ## User Preferences
 - I prefer clear and concise explanations.
@@ -14,151 +32,117 @@ A professional, multi-tenant SaaS platform for AI-powered marketing image editin
 - The system should prevent the processing of embedded logos from DOCX files and focus only on relevant product images.
 
 ## System Architecture
-The application is a multi-tenant SaaS platform built with a React.js frontend (Vite), a Node.js/Express backend, and a PostgreSQL database (Neon). It utilizes Google Drive for file storage and integrates directly with the Wavespeed Nano Banana API for image processing.
+The application is a multi-tenant SaaS platform built with a React.js frontend (Vite), a Node.js/Express backend, and a PostgreSQL database (Neon). It utilizes Google Drive for file storage and integrates with Google Gemini for AI-powered image editing.
 
-### CRM-Style Subaccount Management (New!)
-The platform has evolved from simple brand isolation to a comprehensive CRM system for managing subaccounts:
-
-**Database Schema:**
-- **Subaccount Tables**: `brands` (renamed conceptually to subaccounts), `subaccount_users`, `subaccount_prompts`, `prompt_versions`, `subaccount_usage_daily`, `feedback`, `edited_images`
-- **CRM Columns**: `seats_purchased`, `seats_used`, `workflow_config`, `monthly_job_limit`, `monthly_image_limit`
-
-**User Management:**
-- Multi-user support per subaccount with role-based access control (owner, admin, member, viewer)
-- Seat tracking and limits - enforce maximum users per subaccount
-- User invitation system with tokens
-- bcrypt-hashed passwords for each subaccount user
-
-**Prompt Management:**
-- Prompt template library per subaccount
-- Version control for prompts with performance tracking
-- Activate/deprecate prompt versions
-- Link prompts to edited images for analytics
-
-**Usage Analytics:**
-- Daily usage tracking: jobs created/completed/failed, images uploaded/processed
-- API call tracking (Wavespeed, OpenAI)
-- Cost estimation per subaccount
-- Time savings metrics (processing time vs. manual estimate)
-
-**Output Quality Analytics:**
-- Rating system (1-5 stars) with detailed metrics (goal alignment, creativity, technical quality)
-- Feedback collection linked to specific edited images
-- Rating trends over time
-- Prompt performance analysis
-
-**Workflow Customization:**
-- JSON-based workflow configuration storage
-- Visual workflow builder (UI placeholder ready)
-- Per-subaccount workflow customization
-
-**Admin CRM Dashboard:**
-- **Overview Tab**: Key metrics (users, jobs, images, prompts), usage limits
-- **Users Tab**: Add/remove users, role assignment, seat tracking, last login tracking
-- **Prompts Tab**: Template library with versions, categories, default flags
-- **Workflow Tab**: Workflow preview and customization (coming soon)
-- **Analytics Tab**: Usage stats, cost tracking, time saved metrics
-
-**Security:**
-- All CRM endpoints protected by `verifyAdminToken` middleware
-- Admin-only access to user management, prompt control, and analytics
-- JWT-based admin authentication with token expiration
-
-### Multi-Tenant Architecture
-- **Brand Isolation**: Each brand operates with isolated Google Drive folders, branding assets, and AI configurations.
-- **Dynamic Theming**: The frontend dynamically loads brand-specific logos, colors, and prompts from the database.
-- **Secure Credential Management**: API keys are loaded securely per-request using a `brandLoader` utility without exposing them in job states.
-- **Admin Security**: Brand management is protected by `X-Admin-Key` header authentication.
-
-### Authentication & Authorization System
-- **Brand-Specific Authentication**: Each brand/sub-account has its own login credentials with bcrypt-hashed passwords stored securely.
-- **JWT Token-Based Auth**: Brand logins generate JWT tokens (role: 'brand') that include brandId, brandSlug, and brandName.
-- **Automatic Token Inclusion**: Frontend uses `authenticatedFetch`, `postJSON`, and `postFormData` utilities that automatically attach brand tokens from localStorage to all API requests.
-- **Middleware Enforcement**: `brandContextMiddleware` verifies JWT tokens and enforces brand data isolation - users can only access their own brand's jobs, images, and results.
-- **Blob URL Strategy**: Image previews (BeforeAfterSlider, ImagePreview) load images via authenticatedFetch and convert to blob URLs, ensuring all image access is authenticated.
-- **Parent-Child Brands**: Supports sub-accounts (e.g., LifeTrek Medical under Corsair) with isolated authentication and data.
-- **Login Routes**: Brand-specific login pages available at `/:brandSlug/login` (e.g., `/lifetrek-medical/login`).
-- **Backward Compatibility**: Unauthenticated requests default to 'corsair' brand for legacy support.
+### Multi-Tenant CRM-Style Platform
+- **Brand Isolation**: Isolated Google Drive folders, branding assets, and AI configurations per brand/subaccount.
+- **Dynamic Theming**: Frontend dynamically loads brand-specific assets.
+- **CRM System**: Manages subaccounts with user management (role-based access, seat tracking), per-subaccount prompt template library with version control, and usage/output quality analytics.
+- **Admin Dashboard**: Comprehensive dashboard for managing users, prompts, workflows, and analytics, secured with `verifyAdminToken` middleware.
+- **Authentication**: Dual authentication system supporting:
+  - **Replit Auth (SSO)**: OpenID Connect integration via `server/replitAuth.js` supporting Google, GitHub, X, Apple, and email/password login. Sessions stored in PostgreSQL via connect-pg-simple.
+  - **Local Registration**: Self-signup via `/register` page with bcrypt-hashed passwords (`client/src/pages/UserRegister.jsx`).
+  - **Brand-specific logins**: `/:brandSlug/login` with JWT tokens containing `brandId`, `brandSlug`, and `brandName`. `brandContextMiddleware` enforces data isolation.
+  - **Key files**: `server/replitAuth.js` (OIDC setup), `server/storage.js` (user operations), `client/src/hooks/useAuth.js` (frontend hook).
+  - **Required env vars for production**: SESSION_SECRET, REPL_ID, ISSUER_URL.
 
 ### UI/UX Decisions
-- **Aesthetic**: Features a sleek, dark gaming aesthetic with brand-specific theming.
-- **Interactive Elements**: Includes before/after comparison sliders for edited images and a floating AI chat assistant widget.
-- **Workflow Visualization**: Provides live display of processing steps and a results gallery with download options.
-- **Metrics Dashboard**: A `TimeMetricsPanel` displays "Time Saved," "Efficiency Gain," "Processing Time," and "Manual Estimate."
+- **Aesthetic**: Sleek, dark gaming aesthetic with brand-specific theming.
+- **Interactive Elements**: Before/after comparison sliders and a floating AI chat assistant.
+- **Workflow Visualization**: Live display of processing steps and results gallery.
+- **Metrics Dashboard**: `TimeMetricsPanel` showing "Time Saved," "Efficiency Gain," etc.
+- **Navigation**: Editor and History tabs for workflow switching.
 
-### Technical Implementations
-- **Triple Input Modes**: Supports PDF, DOCX, or text prompts; DOCX includes intelligent image filtering to skip logos.
-- **Parallel Processing**: Images are processed in parallel batches of 15 using `Promise.all` for efficiency, with real-time progress updates.
-- **AI Chat with Function Calling**: Leverages GPT-4 for natural language re-editing of selected images.
-- **ML Feedback System**: Incorporates a 5-star rating and text feedback mechanism, powered by GPT-4 for continuous prompt improvement.
-- **Job-based Architecture**: Ensures concurrent user support by isolating each job with a unique ID and dedicated storage.
-- **PSD Download**: Generates layered PSD files for each image (Original + AI Edited) using `ag-psd` and `node-canvas`.
-
-### Feature Specifications
-- **File Upload Interface**: Client-side validation, multi-image upload, and support for large files.
-- **Results Gallery**: Offers individual image download, bulk ZIP download, and PSD download.
-- **AI Chat Capabilities**: Provides context-aware responses and selective image re-editing.
-- **Time Tracking**: Comprehensive backend tracking for processing time, estimated manual time, and time saved.
-
-## Recent Changes
-
-### October 29, 2025 - Critical Bug Fixes & Job Persistence
-**AI Re-Edit Functionality:**
-- Fixed AI chat re-edit to properly download edited images from Google Drive and convert to base64 before sending to Wavespeed API
-- Updated `nanoBanana.js` service to support base64 image input with `isBase64` flag
-- Re-edit workflow now: downloads edited image → converts to base64 → sends to Wavespeed → saves new result to Drive
-
-**Job Persistence System:**
-- Implemented hybrid job storage system combining in-memory cache with PostgreSQL persistence
-- Added new JSONB fields to `jobs` table: `promptText`, `processingStep`, `imagesData`, `editedImagesData`, `imageProgress`
-- Jobs now survive backend restarts - no more "Job not found" errors for PSD downloads
-- Created `getJobWithFallback()` utility that checks memory first, then loads from database automatically
-- Updated PSD and re-edit controllers to use database fallback for reliable job retrieval
-- All job state (including images, prompts, progress) persists to database asynchronously without blocking main thread
-
-**Technical Improvements:**
-- Fixed import path in `jobStore.js` to correctly reference `server/db.js`
-- Enhanced error handling for database operations with try/catch wrappers
-- Backend and frontend workflows running successfully
-
-### October 26, 2025 - CRM & ML Features
-**CRM System Implementation:**
-- Transformed brand management into comprehensive subaccount CRM system
-- Added 6 new database tables for CRM features (users, prompts, analytics, feedback)
-- Built SubaccountDetail admin dashboard with 6-tab interface
-- Implemented multi-user management with RBAC and seat limits
-- Created prompt template library with versioning system
-- Integrated usage analytics and output quality tracking
-- Secured all CRM endpoints with admin authentication
-- Updated terminology from "brands" to "subaccounts" in admin UI
-
-**ML Phase 1: Smart Prompt Optimization (NEW!):**
-- Created `MLAnalysisService` using GPT-4 for intelligent feedback analysis
-- Analyzes prompt performance across rating metrics (overall, goal alignment, creativity, technical quality)
-- Generates AI-powered prompt improvement suggestions based on low-rated feedback patterns
-- Identifies what makes high-performing prompts successful
-- Built API endpoints: `/api/ml/analyze/:subaccountId`, `/api/ml/insights/:subaccountId`, `/api/ml/suggest-improvement/:promptId/:versionId`
-- Added **ML Insights** tab (🤖) to SubaccountDetail dashboard with:
-  - One-click analysis button to run GPT-4 prompt optimization
-  - Performance breakdown table showing ratings by prompt version
-  - AI-generated improvement cards with problem analysis, improved prompts, key changes, and expected impact
-  - Success rate tracking and feedback count metrics
-- All ML endpoints secured with admin authentication
-- Zero infrastructure requirements - uses existing OpenAI GPT-4 API integration
-
-**Active Subaccounts:**
-- **Corsair** (Primary): Login at `/corsair/login` (password: corsair2025)
-- **LifeTrek Medical** (Sub-account): Login at `/lifetrek-medical/login` (password: lifetrek2025)
-
-Both subaccounts have 5 seats purchased, 0 currently used.
+### Core Technical Implementations
+- **Processing Pipeline**: Multi-stage (Uploading, Extracting, Rendering, Exporting) with visual feedback and parallel batch processing.
+- **History & Archival System**: Automatic archival of jobs to local storage and PostgreSQL, with a dedicated UI tab for viewing past batches and re-downloading (ZIP, individual images, PSDs).
+- **Marketplace-Specific Presets**: Pre-configured output settings with AI behavior modifications for platforms like Amazon (Strict Compliance), Alibaba (Creative Marketing), and a general Website preset. These include AI prompt modifiers, aspect ratio, dimension limits, margins, padding, background, and color vibrance adjustments.
+- **Custom Google Drive Destinations**: Users can specify a custom Google Drive folder URL for output uploads with validation and folder ID extraction.
+- **PSD Export with Editable Text Layers**: Server-side PSD generation using ag-psd library. Creates true layered PSDs with fully editable text layers that work natively in Adobe Photoshop. Text layers reference Saira font family (Saira-Bold for titles, Saira-Regular for subtitles). The PSD download uses signed URLs via `/api/psd/signed-url/:jobId/:imageIndex` endpoint for reliable file delivery.
+- **Smart Logo Detection & Overlay**: Automatically detects logo requests in brief text using OpenAI extraction (`logo_requested: true/false`, `logo_name`). Small embedded images (<50KB) in DOCX are classified as logos. When a spec requests a logo, the system overlays it programmatically using Sharp with proportional sizing (15% of image width) and proper margins.
+- **Intelligent Partner Logo Matching**: Uses `server/services/partnerLogos.js` to match AI-extracted logo names to predefined partner logos (Intel Core, Intel Core Ultra, AMD Ryzen, NVIDIA 50 Series, Hydro X & iCUE Link). Supports fuzzy matching for partial names and variations. Admin API available at `/api/admin/partner-logos/*` for managing Drive IDs and uploading logos.
+- **Triple Input Modes**: Supports PDF, DOCX (with intelligent image filtering), or text prompts.
+- **AI Chat with Vision**: Chat assistant with vision capabilities for precise re-editing based on visual analysis and natural language commands. Currently uses GPT-4o, planned migration to Gemini Flash 1.5 for understanding with Nano Banana Pro for image generation.
+- **Google Gemini Image API**: Uses `@google/genai` SDK via `server/services/nanoBananaService.js` for true image editing that preserves original product images.
+  - **Production Model**: `gemini-3-pro-image-preview` (Nano Banana Pro) - Always used for image generation, 4K resolution, superior text rendering
+  - Model enforced via `GEMINI_IMAGE_MODEL` environment variable (should always be set to gemini-3-pro-image-preview)
+- **ML Feedback System**: GPT-4 powered 5-star rating and text feedback for continuous prompt improvement and prompt optimization.
+- **Job-based Architecture**: Isolates each job with a unique ID and dedicated storage (in-memory cache and PostgreSQL persistence).
+- **Iterative Re-editing**: Re-edits download the previously edited image to build on prior AI work, allowing for sequential refinements.
 
 ## External Dependencies
-- **PostgreSQL Database (Neon)**: Used for multi-tenant data storage (subaccounts, users, jobs, images, prompts, analytics).
-- **Google Drive API**: Manages storage for briefs, product images, and edited results, with brand-specific folder isolation.
-- **Wavespeed Nano Banana API**: Primary integration for AI-powered image editing.
-- **OpenAI API (GPT-4)**: Powers the AI Chat Assistant, function calling, and the ML feedback system.
-- **Mammoth.js**: Extracts text and images from DOCX files.
-- **pdfjs-dist**: Processes PDF files for text extraction.
-- **ag-psd** and **node-canvas**: Used for generating layered PSD files.
-- **Drizzle ORM**: Facilitates PostgreSQL schema management and queries.
-- **bcrypt**: Password hashing for admin and subaccount user authentication.
+- **PostgreSQL Database (Neon)**: Multi-tenant data storage.
+- **Google Drive API**: File storage for briefs, product images, and results.
+- **Google Gemini Image API**: Primary AI-powered image editing provider using `@google/genai` SDK. Uses Nano Banana Pro (gemini-3-pro-image-preview) exclusively for production-quality output with up to 4K resolution in PNG format.
+- **OpenAI API (GPT-4o)**: AI Chat Assistant with vision, function calling, ML feedback system.
+- **ag-psd**: Server-side PSD generation with editable text layers.
+- **Mammoth.js**: Extracts text and images from DOCX.
+- **pdfjs-dist**: Processes PDF files.
+- **Drizzle ORM**: PostgreSQL schema management and queries.
+- **bcrypt**: Password hashing.
+- **archiver**: ZIP file generation for batch downloads.
+
+## Environment Variables
+### Required
+- `DATABASE_URL` - PostgreSQL connection string
+- `GEMINI_API_KEY` - Google Gemini API key for image editing
+- `OPENAI_API_KEY` - OpenAI API key for chat and analysis
+- `JWT_SECRET` - JWT token signing secret
+- `SESSION_SECRET` - Session encryption secret
+
+### Required for Production
+- `GEMINI_IMAGE_MODEL` - Must be set to `gemini-3-pro-image-preview` (Nano Banana Pro) for production quality
+
+### Optional
+- `CANVAS_TEST_ENABLED` - Enable canvas test route (default: false)
+
+## Current Focus: CORSAIR
+The platform is currently focused on perfecting the image editing experience for CORSAIR before expanding to multi-tenant architecture. See `docs/CORSAIR_PRD.md` for the detailed product requirements and implementation to-do list.
+
+## Typography System
+- **Saira Font Family**: All text overlays use the Saira geometric sans-serif font exclusively
+  - Saira Bold for titles (uppercase, white, top-left positioning)
+  - Saira Regular for subtitles (sentence case, white, below title)
+- **Curated Reference System**: `server/services/sairaReference.js` provides canonical typography guidelines that are automatically injected into all Gemini prompts
+- **Image Preservation**: Prompts explicitly forbid modifying the original image - only text overlays and subtle gradients are added
+- **Character-for-Character Accuracy**: Prompts include explicit instructions to copy text exactly as provided, preventing AI spelling modifications
+
+## AI Prompt System
+The prompt system (`server/services/promptTemplates.js`) uses a strict structure to prevent unwanted text from appearing in generated images:
+
+- **RENDER_TEXT Section**: Contains ONLY the literal title and subtitle strings in key=value format (TITLE="...", SUBTITLE="...")
+- **GUIDANCE Section**: Styling instructions explicitly marked as non-renderable with "(do NOT draw any of this)" disclaimer
+- **FORBIDDEN Section**: Explicit list of terms that should never appear (numbers, percentages, technical terms like "gradient", "opacity", "px", etc.)
+- **PRESERVE IMAGE Section**: Instructions to keep original product image unchanged
+- **TEXT ACCURACY Section**: Explicit instructions to copy text character-for-character without modifications
+
+**Important**: Logo overlays are handled by post-processing (`overlayLogoOnImage` using Sharp library), NOT by the AI prompt. This prevents duplication and ensures consistent logo placement.
+
+## File Structure
+```
+├── client/                 # React frontend (Vite)
+│   ├── src/
+│   │   ├── components/     # UI components
+│   │   ├── pages/          # Page components
+│   │   ├── hooks/          # Custom React hooks
+│   │   └── services/       # API service layer
+│   └── vite.config.js
+├── server/                 # Node.js/Express backend
+│   ├── controllers/        # Route controllers
+│   ├── routes/             # API routes
+│   ├── services/           # Business logic services
+│   │   ├── nanoBananaService.js    # Google Gemini image editing
+│   │   ├── promptTemplates.js      # AI prompt generation
+│   │   └── sairaReference.js       # Typography guidelines
+│   ├── middleware/         # Express middleware
+│   └── utils/              # Utility functions
+├── docs/                   # Strategy documentation
+│   ├── PRD.md              # Product Requirements
+│   ├── EERD.md             # Entity Relationship Diagram
+│   ├── RELATIONAL_SCHEMA.md # Database schema
+│   └── DATABASE_VERIFICATION.md
+├── fonts/                  # Saira font files
+│   ├── Saira-Bold.ttf
+│   └── Saira-Regular.ttf
+└── storage/                # Local file storage
+```

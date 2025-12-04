@@ -1,8 +1,77 @@
-import { editImageWithNanoBanana } from '../services/nanoBanana.js';
-import { getJobWithFallback, updateJob } from '../utils/jobStore.js';
+import { editImageWithGemini } from '../services/geminiImage.js';
+import { getJobWithFallback, updateJob, getJob } from '../utils/jobStore.js';
 import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromDrive } from '../utils/googleDrive.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
+import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
+import { calculateDefaultParameters } from '../services/imageParameters.js';
+import { findLogoByName } from '../services/partnerLogos.js';
 import fetch from 'node-fetch';
+import sharp from 'sharp';
+
+/**
+ * Overlay a logo on an image buffer
+ * @param {Buffer} imageBuffer - The base image
+ * @param {string} logoBase64 - Base64-encoded logo data
+ * @param {string} position - Position for logo placement
+ * @returns {Promise<Buffer>} - Image with logo overlay
+ */
+async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-left') {
+  try {
+    const base64Data = logoBase64.replace(/^data:image\/\w+;base64,/, '');
+    const logoBuffer = Buffer.from(base64Data, 'base64');
+    
+    const imageMetadata = await sharp(imageBuffer).metadata();
+    const logoMetadata = await sharp(logoBuffer).metadata();
+    
+    const maxLogoWidth = Math.round(imageMetadata.width * 0.15);
+    const scale = maxLogoWidth / logoMetadata.width;
+    const newLogoWidth = Math.round(logoMetadata.width * scale);
+    const newLogoHeight = Math.round(logoMetadata.height * scale);
+    
+    const resizedLogo = await sharp(logoBuffer)
+      .resize(newLogoWidth, newLogoHeight)
+      .toBuffer();
+    
+    const margin = Math.round(imageMetadata.width * 0.03);
+    let left, top;
+    
+    switch (position) {
+      case 'bottom-left':
+        left = margin;
+        top = imageMetadata.height - newLogoHeight - margin;
+        break;
+      case 'bottom-right':
+        left = imageMetadata.width - newLogoWidth - margin;
+        top = imageMetadata.height - newLogoHeight - margin;
+        break;
+      case 'top-left':
+        left = margin;
+        top = margin;
+        break;
+      case 'top-right':
+        left = imageMetadata.width - newLogoWidth - margin;
+        top = margin;
+        break;
+      default:
+        left = margin;
+        top = imageMetadata.height - newLogoHeight - margin;
+    }
+    
+    const result = await sharp(imageBuffer)
+      .composite([{
+        input: resizedLogo,
+        left: Math.max(0, left),
+        top: Math.max(0, top)
+      }])
+      .toBuffer();
+    
+    console.log(`[Logo Overlay] Successfully overlaid logo at ${position} (${newLogoWidth}x${newLogoHeight})`);
+    return result;
+  } catch (error) {
+    console.error('[Logo Overlay] Error overlaying logo:', error.message);
+    return imageBuffer;
+  }
+}
 
 export async function reEditImages(req, res) {
   try {
@@ -25,7 +94,7 @@ export async function reEditImages(req, res) {
     }
 
     // Match by editedImageId (Google Drive ID) which is what the AI provides
-    const imagesToReEdit = imageIds 
+    const imagesToReEdit = imageIds
       ? job.editedImages.filter(img => imageIds.includes(img.editedImageId) || imageIds.includes(img.id))
       : job.editedImages;
 
@@ -34,25 +103,25 @@ export async function reEditImages(req, res) {
       const foundEditedIds = imagesToReEdit.map(img => img.editedImageId);
       const foundInternalIds = imagesToReEdit.map(img => img.id);
       const invalidIds = imageIds.filter(id => !foundEditedIds.includes(id) && !foundInternalIds.includes(id));
-      
+
       if (invalidIds.length > 0) {
         console.warn('[Re-edit] Invalid image IDs provided:', invalidIds);
         console.log('[Re-edit] Available editedImageIds:', job.editedImages.map(img => img.editedImageId));
         console.log('[Re-edit] Available internal IDs:', job.editedImages.map(img => img.id));
       }
-      
+
       if (imagesToReEdit.length === 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'No valid images found to re-edit',
           invalidIds,
-          availableIds: job.editedImages.map(img => ({ 
-            id: img.id, 
+          availableIds: job.editedImages.map(img => ({
+            id: img.id,
             editedImageId: img.editedImageId,
-            name: img.name 
+            name: img.name
           }))
         });
       }
-      
+
       console.log(`[Re-edit] Editing ${imagesToReEdit.length} of ${imageIds.length} requested images`);
     } else if (imagesToReEdit.length === 0) {
       return res.status(400).json({ error: 'No edited images found for this job' });
@@ -63,67 +132,223 @@ export async function reEditImages(req, res) {
     for (const image of imagesToReEdit) {
       console.log(`[Re-edit] Processing image: ${image.name} (editedImageId: ${image.editedImageId})`);
       
-      // Download the EDITED image from Google Drive (not the original)
-      const editedImageBuffer = await downloadFileFromDrive(image.editedImageId);
+      // Download the EDITED image from Google Drive to build on previous work
+      // This enables iterative refinement - each re-edit builds on top of the last
+      const editedImageId = image.editedImageId;
       
-      if (!editedImageBuffer) {
-        console.error(`[Re-edit] Failed to download edited image: ${image.editedImageId}`);
+      if (!editedImageId) {
+        console.error(`[Re-edit] No edited image ID found for ${image.name}`);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: 'Edited image ID not found - cannot re-edit'
+        });
         continue;
       }
       
-      // Convert buffer to base64 for Wavespeed API
-      const base64Image = `data:image/jpeg;base64,${editedImageBuffer.toString('base64')}`;
-      console.log(`[Re-edit] Converted image to base64, length: ${base64Image.length}`);
+      console.log(`[Re-edit] Downloading EDITED image: ${editedImageId} (preserving previous edits)`);
       
-      // Send base64 image + new prompt to Wavespeed API
-      const result = await editImageWithNanoBanana(base64Image, newPrompt, {
-        enableSyncMode: true,
-        outputFormat: 'jpeg',
-        wavespeedApiKey: brandConfig.wavespeedApiKey,
-        isBase64: true  // Flag to indicate we're sending base64
-      });
+      let editedImageBuffer;
+      try {
+        editedImageBuffer = await downloadFileFromDrive(editedImageId);
+      } catch (downloadError) {
+        console.error(`[Re-edit] Failed to download edited image ${editedImageId}:`, downloadError.message);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: `Failed to download edited image: ${downloadError.message}`
+        });
+        continue;
+      }
+      
+      if (!editedImageBuffer || editedImageBuffer.length < 1000) {
+        console.error(`[Re-edit] Downloaded edited image is invalid or too small: ${editedImageId}`);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: 'Downloaded edited image file is invalid or corrupted'
+        });
+        continue;
+      }
 
-      if (result.images && result.images.length > 0) {
-        const reEditedImageUrl = result.images[0].url;
+      // Convert buffer to base64 for Gemini API
+      const base64Image = `data:image/jpeg;base64,${editedImageBuffer.toString('base64')}`;
+      const imageSizeKB = Math.round(base64Image.length / 1024);
+      console.log(`[Re-edit] Converted EDITED image to base64: ${imageSizeKB} KB`);
+      
+      // Send base64 image + new prompt to Gemini API
+      // Inject Saira typography and image preservation guidelines for consistency
+      const sairaGuidelines = getCompleteOverlayGuidelines();
+      const enhancedPrompt = `${sairaGuidelines}\n\nUSER RE-EDIT REQUEST:\n${newPrompt}`;
+      
+      console.log(`[Re-edit] Calling Gemini API with enhanced prompt (includes Saira guidelines)`);
+      console.log(`[Re-edit] This may take 60-120 seconds for complex edits...`);
+      
+      let result;
+      try {
+        result = await editImageWithGemini(base64Image, enhancedPrompt, {
+          geminiApiKey: brandConfig.geminiApiKey,
+          retries: 3
+        });
+        console.log(`[Re-edit] Gemini API completed successfully`);
+      } catch (geminiError) {
+        console.error(`[Re-edit] Gemini API error:`, geminiError.message);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: `Gemini API failed: ${geminiError.message}`
+        });
+        continue;
+      }
+
+      if (result.data && result.data.outputs && result.data.outputs.length > 0) {
+        console.log(`[Re-edit] Received result from Gemini, downloading edited image...`);
+        const reEditedImageUrl = result.data.outputs[0];
         
         const imageResponse = await fetch(reEditedImageUrl);
-        const imageBuffer = await imageResponse.arrayBuffer();
+        let finalImageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+        console.log(`[Re-edit] Downloaded edited image: ${Math.round(finalImageBuffer.length / 1024)} KB`);
+        
+        // Re-apply logo overlay if the original image had one
+        // This ensures logos are preserved correctly after re-editing
+        let logoApplied = false;
+        if (image.logoRequested && image.logoBase64) {
+          console.log(`[Re-edit] Re-applying ${image.logoName || 'brand'} logo to image`);
+          try {
+            finalImageBuffer = await overlayLogoOnImage(finalImageBuffer, image.logoBase64, 'bottom-left');
+            logoApplied = true;
+          } catch (logoError) {
+            console.error(`[Re-edit] Failed to re-apply logo:`, logoError.message);
+          }
+        } else if (image.logoRequested && image.logoName && !image.logoBase64) {
+          // Try to find logo from registry if not stored
+          console.log(`[Re-edit] Looking up logo "${image.logoName}" from registry...`);
+          const matchedLogo = findLogoByName(image.logoName);
+          if (matchedLogo && matchedLogo.driveId) {
+            try {
+              const logoBuffer = await downloadFileFromDrive(matchedLogo.driveId);
+              const logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+              finalImageBuffer = await overlayLogoOnImage(finalImageBuffer, logoBase64, 'bottom-left');
+              logoApplied = true;
+              console.log(`[Re-edit] Successfully applied logo from registry`);
+            } catch (logoFetchError) {
+              console.error(`[Re-edit] Failed to fetch logo from registry:`, logoFetchError.message);
+            }
+          }
+        }
         
         const timestamp = Date.now();
-        const reEditedFileName = `${image.name.replace('_edited.jpg', '')}_reedited_${timestamp}.jpg`;
+        const reEditedFileName = `${image.name.replace('_edited.jpg', '').replace(/_reedited_\d+/, '')}_reedited_${timestamp}.jpg`;
         
+        // Create clean display name from original name
+        const baseDisplayName = (image.originalName || image.name)
+          .replace(/\.(jpg|jpeg|png)$/i, '')
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase());
+        const displayName = `${baseDisplayName} (Re-edited)`;
+        
+        console.log(`[Re-edit] Uploading to Drive as: ${reEditedFileName}`);
         const uploadedFile = await uploadFileToDrive(
-          Buffer.from(imageBuffer),
+          finalImageBuffer,
           reEditedFileName,
           'image/jpeg',
           brandConfig.editedResultsFolderId
         );
 
         await makeFilePublic(uploadedFile.id);
+        console.log(`[Re-edit] Upload complete! File ID: ${uploadedFile.id}`);
 
+        // Calculate parameters for the re-edited image
+        let imageWidth = 1920;
+        let imageHeight = 1080;
+        try {
+          const metadata = await sharp(finalImageBuffer).metadata();
+          imageWidth = metadata.width || 1920;
+          imageHeight = metadata.height || 1080;
+          console.log(`[Re-edit] Image dimensions: ${imageWidth}x${imageHeight}`);
+        } catch (dimError) {
+          console.warn(`[Re-edit] Could not get image dimensions:`, dimError.message);
+        }
+        
+        // Inherit existing parameters or calculate new ones
+        const existingParams = image.parameters || null;
+        const newParams = existingParams 
+          ? { ...existingParams, version: (existingParams.version || 1) + 1 }
+          : calculateDefaultParameters(imageWidth, imageHeight, image.title, image.subtitle);
+        
         reEditedResults.push({
           id: uploadedFile.id,
-          name: reEditedFileName,
+          name: displayName,
+          fileName: reEditedFileName,
           editedImageId: uploadedFile.id,
           originalImageId: image.originalImageId,
           originalName: image.originalName,
-          url: getPublicImageUrl(uploadedFile.id)
+          url: getPublicImageUrl(uploadedFile.id),
+          title: image.title || null,
+          subtitle: image.subtitle || null,
+          promptUsed: newPrompt,
+          parameters: newParams,
+          version: newParams.version,
+          logoApplied: logoApplied,
+          logoRequested: image.logoRequested || false,
+          logoName: image.logoName || null,
+          logoBase64: image.logoBase64 || null
+        });
+      } else {
+        console.error(`[Re-edit] No images returned from Gemini API`);
+        reEditedResults.push({
+          error: true,
+          name: image.name,
+          message: 'Gemini API returned no edited images'
         });
       }
     }
 
     // When editing specific images: keep others unchanged, replace only the edited ones
     // When editing all images: replace entire array with new results
+    console.log('[Re-edit] BEFORE UPDATE:');
+    console.log('[Re-edit] - imageIds requested:', imageIds);
+    console.log('[Re-edit] - job.editedImages count:', job.editedImages.length);
+    console.log('[Re-edit] - reEditedResults count:', reEditedResults.length);
+    console.log('[Re-edit] - Re-edited originalImageIds:', reEditedResults.map(r => ({ name: r.name, originalImageId: r.originalImageId })));
+    
+    // Build set of originalImageIds being re-edited for efficient lookup
+    const reEditedOriginalIds = new Set(reEditedResults.map(r => r.originalImageId).filter(Boolean));
+    
     const updatedEditedImages = imageIds && imageIds.length > 0
       ? [
-          ...job.editedImages.filter(img => !imageIds.includes(img.editedImageId) && !imageIds.includes(img.id)),
+          ...job.editedImages.filter(img => {
+            // Match by originalImageId (the stable reference to the source image)
+            // Fall back to editedImageId/id for backwards compatibility
+            const matchesOriginalId = img.originalImageId && reEditedOriginalIds.has(img.originalImageId);
+            const matchesEditedId = imageIds.includes(img.editedImageId) || imageIds.includes(img.id);
+            const shouldKeep = !matchesOriginalId && !matchesEditedId;
+            
+            if (!shouldKeep) {
+              console.log(`[Re-edit] REPLACING old version: ${img.name} (originalImageId: ${img.originalImageId})`);
+            }
+            return shouldKeep;
+          }),
           ...reEditedResults
         ]
       : reEditedResults;
 
-    updateJob(jobId, {
-      editedImages: updatedEditedImages
+    console.log('[Re-edit] AFTER MERGE:');
+    console.log('[Re-edit] - updatedEditedImages count:', updatedEditedImages.length);
+    console.log('[Re-edit] - Image 13 details:', updatedEditedImages.find(img => img.name && img.name.includes('13')));
+
+    await updateJob(jobId, {
+      editedImages: updatedEditedImages,
+      results: {
+        ...job.results,
+        images: updatedEditedImages
+      }
     });
+    
+    console.log('[Re-edit] Job updated successfully. Verifying...');
+    const verifyJob = getJob(jobId);
+    console.log('[Re-edit] Verified job.editedImages count:', verifyJob.editedImages.length);
+    console.log('[Re-edit] Verified Image 13:', verifyJob.editedImages.find(img => img.name && img.name.includes('13')));
 
     res.json({
       success: true,
@@ -133,9 +358,9 @@ export async function reEditImages(req, res) {
 
   } catch (error) {
     console.error('Re-edit error:', error);
-    res.status(500).json({ 
-      error: 'Failed to re-edit images', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Failed to re-edit images',
+      details: error.message
     });
   }
 }

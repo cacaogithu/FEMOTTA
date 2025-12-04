@@ -1,0 +1,242 @@
+{
+  "jobId": "job_1764190737395",
+  "brandId": 1,
+  "brandSlug": "corsair",
+  "archivedAt": "2025-11-26T21:00:14.120Z",
+  "inputImages": [
+    {
+      "name": "docx_image_1.jpeg",
+      "driveId": "1IQAQwsF4ReGE0F8VP5YeKU9DItQWYA0S",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1IQAQwsF4ReGE0F8VP5YeKU9DItQWYA0S"
+    },
+    {
+      "name": "docx_image_2.jpeg",
+      "driveId": "1pVZiotGLE_bu7iQBoVpfxy1GdUZxd933",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1pVZiotGLE_bu7iQBoVpfxy1GdUZxd933"
+    },
+    {
+      "name": "docx_image_3.jpeg",
+      "driveId": "1WKAOVO-hiywlrg76KLp84nlymJHk1JO5",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1WKAOVO-hiywlrg76KLp84nlymJHk1JO5"
+    },
+    {
+      "name": "docx_image_4.jpeg",
+      "driveId": "1hnp06T7c5iHt_Zbyyupsbl2Xsm3-ibN6",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1hnp06T7c5iHt_Zbyyupsbl2Xsm3-ibN6"
+    },
+    {
+      "name": "docx_image_5.jpeg",
+      "driveId": "10hnklSCTeYwd33THYCwh3SeXaMAgccdZ",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=10hnklSCTeYwd33THYCwh3SeXaMAgccdZ"
+    },
+    {
+      "name": "docx_image_6.jpeg",
+      "driveId": "1qctcOUTThiicCB5KUwqeKRdriIPgdtwS",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1qctcOUTThiicCB5KUwqeKRdriIPgdtwS"
+    },
+    {
+      "name": "docx_image_7.jpeg",
+      "driveId": "1i4HkE7YfeEG5u7hKGju5Jk4GLRsLTst_",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1i4HkE7YfeEG5u7hKGju5Jk4GLRsLTst_"
+    },
+    {
+      "name": "docx_image_8.png",
+      "driveId": "1J_SZoRuPJaGhh-WgJAWhUK57uIvVt3O3",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1J_SZoRuPJaGhh-WgJAWhUK57uIvVt3O3"
+    },
+    {
+      "name": "docx_image_9.png",
+      "driveId": "1EjdwYt_O0EkXbkfLbs05S6UwKLLNmRjA",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1EjdwYt_O0EkXbkfLbs05S6UwKLLNmRjA"
+    }
+  ],
+  "editedImages": [
+    {
+      "name": "docx_image_1_edited.jpg",
+      "driveId": "18Yg0hkD6_85hxI1OhNgGKggTsrh1zGnE",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=18Yg0hkD6_85hxI1OhNgGKggTsrh1zGnE"
+    },
+    {
+      "name": "docx_image_2_edited.jpg",
+      "driveId": "1kGSKW7uKCHLs8EHlQ8T2babxAdJDmLN8",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1kGSKW7uKCHLs8EHlQ8T2babxAdJDmLN8"
+    },
+    {
+      "name": "docx_image_3_edited.jpg",
+      "driveId": "1RuLWFQy10b1CPA6FLUhwCWqM7MvT1D8g",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1RuLWFQy10b1CPA6FLUhwCWqM7MvT1D8g"
+    },
+    {
+      "name": "docx_image_4_edited.jpg",
+      "driveId": "1yDDx9fJMl-8uGNxv0rLOFgjWb5iaXhNq",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1yDDx9fJMl-8uGNxv0rLOFgjWb5iaXhNq"
+    },
+    {
+      "name": "docx_image_5_edited.jpg",
+      "driveId": "1uzB-kUQao9WOjH3CdxMUqidssP1SBXd4",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1uzB-kUQao9WOjH3CdxMUqidssP1SBXd4"
+    },
+    {
+      "name": "docx_image_6_edited.jpg",
+      "driveId": "1hh-QuSOSBsYEhx8rZkxTDGx89mB990bb",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1hh-QuSOSBsYEhx8rZkxTDGx89mB990bb"
+    },
+    {
+      "name": "docx_image_7_edited.jpg",
+      "driveId": "1m9zgdphfdzp5IGdEi71dXuI7qr5Ity73",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1m9zgdphfdzp5IGdEi71dXuI7qr5Ity73"
+    },
+    {
+      "name": "docx_image_8_edited.jpg",
+      "driveId": "1aiaV2fBghqvcy5ZN_b23Se-sFL1I8KrG",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1aiaV2fBghqvcy5ZN_b23Se-sFL1I8KrG"
+    },
+    {
+      "name": "docx_image_9_edited.jpg",
+      "driveId": "1p6l4FHQeKUlc8PZZMMr8KmsKcbHJc-t3",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1p6l4FHQeKUlc8PZZMMr8KmsKcbHJc-t3"
+    }
+  ],
+  "imageSpecs": [
+    {
+      "image_number": 1,
+      "variant": null,
+      "title": "MILLENNIUM",
+      "subtitle": "Power, Precision, Sophistication",
+      "asset": "Prime Neuron  (1 of 2).jpg",
+      "logo_requested": false,
+      "logo_name": null,
+      "ai_prompt": "Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title 'MILLENNIUM' in large bold uppercase white letters near the top left. Below the title, add the subtitle 'Power, Precision, Sophistication' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
+    },
+    {
+      "image_number": 2,
+      "variant": null,
+      "title": "LIQUID COOLED GPU AND CPU",
+      "subtitle": "The MILLENNIUM, featuring AIO (All In One Cooling) liquid cooling, provides strong performance for demanding tasks and gaming.",
+      "asset": "Prime Neuron  (4 of 18).jpg",
+      "logo_requested": false,
+      "logo_name": null,
+      "ai_prompt": "Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title 'LIQUID COOLED GPU AND CPU' in large bold uppercase white letters near the top left. Below the title, add the subtitle 'The MILLENNIUM, featuring AIO (All In One Cooling) liquid cooling, provides strong performance for demanding tasks and gaming.' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
+    },
+    {
+      "image_number": 3,
+      "variant": null,
+      "title": "FULL SIZE TOWER",
+      "subtitle": "The  GENESIS featuring the Prime case. Designed in the USA by ORIGIN PC, this case represents our commitment to quality and innovation.",
+      "asset": "Prime Neuron  (1 of 18).jpg",
+      "logo_requested": false,
+      "logo_name": null,
+      "ai_prompt": "Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title 'FULL SIZE TOWER' in large bold uppercase white letters near the top left. Below the title, add the subtitle 'The  GENESIS featuring the Prime case. Designed in the USA by ORIGIN PC, this case represents our commitment to quality and innovation.' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
+    },
+    {
+      "image_number": 4,
+      "variant": null,
+      "title": "CUSTOMIZABLE FRONT I/O PANEL",
+      "subtitle": "Front I/O Panel, It’s designed for convenient access to essential connectivity and control features.",
+      "asset": "Prime Genesis (14 of 30).jpg",
+      "logo_requested": false,
+      "logo_name": null,
+      "ai_prompt": "Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title 'CUSTOMIZABLE FRONT I/O PANEL' in large bold uppercase white letters near the top left. Below the title, add the subtitle 'Front I/O Panel, It’s designed for convenient access to essential connectivity and control features.' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
+    },
+    {
+      "image_number": 5,
+      "variant": null,
+      "title": "INTEL 14TH GENERATION",
+      "subtitle": "Intel® Core™",
+      "asset": "Prime Neuron  (2 of 18).jpg",
+      "logo_requested": false,
+      "logo_name": null,
+      "ai_prompt": "Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title 'INTEL 14TH GENERATION' in large bold uppercase white letters near the top left. Below the title, add the subtitle 'Intel® Core™' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
+    },
+    {
+      "image_number": 5,
+      "variant": null,
+      "title": "INTEL INSIDE",
+      "subtitle": "Intel® Core™ Ultra",
+      "asset": "Prime Neuron  (2 of 18).jpg",
+      "logo_requested": true,
+      "logo_name": "Intel",
+      "ai_prompt": "Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title 'INTEL INSIDE' in large bold uppercase white letters near the top left. Below the title, add the subtitle 'Intel® Core™ Ultra' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image.",
+      "logoBase64": "data:image/jpeg;base64,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",
+      "logoContentType": "image/jpeg"
+    },
+    {
+      "image_number": 6,
+      "variant": null,
+      "title": "AMD CPU",
+      "subtitle": "AMD Ryzen 9000-series",
+      "asset": "Prime Neuron  (2 of 18).jpg",
+      "logo_requested": true,
+      "logo_name": "AMD Ryzen",
+      "ai_prompt": "Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title 'AMD CPU' in large bold uppercase white letters near the top left. Below the title, add the subtitle 'AMD Ryzen 9000-series' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image.",
+      "logoBase64": "data:image/png;base64,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",
+      "logoContentType": "image/png"
+    },
+    {
+      "image_number": 7,
+      "variant": null,
+      "title": "NVIDIA 50 SERIES GPU",
+      "subtitle": "NVIDIA® GeForce RTX® 50 Series GPUs are beyond fast.",
+      "asset": "millennium-50-series.jpg + nvidia-50-series-logo.jpg",
+      "logo_requested": false,
+      "logo_name": null,
+      "ai_prompt": "Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title 'NVIDIA 50 SERIES GPU' in large bold uppercase white letters near the top left. Below the title, add the subtitle 'NVIDIA® GeForce RTX® 50 Series GPUs are beyond fast.' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
+    },
+    {
+      "image_number": 8,
+      "variant": null,
+      "title": "BUILT BY PROS",
+      "subtitle": "No corners cut. ORIGIN PC systems are built with the highest standard components.",
+      "asset": "built-by-pros.psd",
+      "logo_requested": false,
+      "logo_name": null,
+      "ai_prompt": "Edit this product image by adding a subtle dark gradient at the top that fades to transparent. Overlay the title 'BUILT BY PROS' in large bold uppercase white letters near the top left. Below the title, add the subtitle 'No corners cut. ORIGIN PC systems are built with the highest standard components.' in smaller white text. Both texts should have a subtle shadow for readability. Keep all original product details, colors, and image quality intact. This should look like a professional marketing image."
+    }
+  ],
+  "timestamps": {
+    "created": "2025-11-26T20:59:49.116Z",
+    "started": "2025-11-26T20:59:49.116Z",
+    "completed": "2025-11-26T21:00:14.120Z"
+  },
+  "metrics": {},
+  "marketplacePreset": {
+    "id": "default",
+    "name": "Default",
+    "description": "Standard output settings - balanced for general use",
+    "aspectRatio": null,
+    "aspectRatioOptions": [
+      "1:1",
+      "4:3",
+      "16:9"
+    ],
+    "maxWidth": 2000,
+    "maxHeight": 2000,
+    "minDimension": 800,
+    "marginRules": {
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    },
+    "productFill": "85-95%",
+    "backgroundPadding": 0,
+    "acceptedFormats": [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ],
+    "outputFormat": "jpeg",
+    "outputQuality": 90,
+    "aiMode": "balanced",
+    "promptRules": {
+      "background": "preserve original or subtle enhancement",
+      "textOverlays": true,
+      "shading": "moderate shadows allowed",
+      "lighting": "preserve original lighting",
+      "colorVibrance": 0,
+      "badges": false,
+      "lifestyleContext": false
+    }
+  },
+  "driveDestinationFolderId": null
+}

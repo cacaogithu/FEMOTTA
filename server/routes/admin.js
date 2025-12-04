@@ -4,6 +4,7 @@ import multer from 'multer';
 import { scrapeWebsiteForBranding } from '../services/websiteScraper.js';
 import { analyzeBrandbook } from '../services/brandbookAnalyzer.js';
 import { uploadFileToDrive, makeFilePublic } from '../utils/googleDrive.js';
+import { getAllPartnerLogos, updateLogoDriveId, registerPartnerLogo, findLogoByName } from '../services/partnerLogos.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -234,6 +235,132 @@ router.delete('/brands/:id', verifyAdminToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Delete brand error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/partner-logos', verifyAdminToken, (req, res) => {
+  try {
+    const logos = getAllPartnerLogos();
+    res.json({
+      success: true,
+      logos: logos
+    });
+  } catch (error) {
+    console.error('Get partner logos error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/partner-logos/:logoKey', verifyAdminToken, (req, res) => {
+  try {
+    const { logoKey } = req.params;
+    const { driveId } = req.body;
+    
+    if (!driveId) {
+      return res.status(400).json({ error: 'driveId is required' });
+    }
+    
+    const success = updateLogoDriveId(logoKey, driveId);
+    
+    if (!success) {
+      return res.status(404).json({ error: `Logo "${logoKey}" not found in registry` });
+    }
+    
+    res.json({
+      success: true,
+      message: `Updated Drive ID for ${logoKey}`
+    });
+  } catch (error) {
+    console.error('Update partner logo error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/partner-logos', verifyAdminToken, (req, res) => {
+  try {
+    const { key, name, keywords, driveId, localPath } = req.body;
+    
+    if (!key || !name) {
+      return res.status(400).json({ error: 'key and name are required' });
+    }
+    
+    registerPartnerLogo(key, {
+      name,
+      keywords: keywords || [key.toLowerCase()],
+      driveId: driveId || null,
+      localPath: localPath || null
+    });
+    
+    res.json({
+      success: true,
+      message: `Registered new partner logo: ${name}`
+    });
+  } catch (error) {
+    console.error('Register partner logo error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/partner-logos/upload', verifyAdminToken, upload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    const logoKey = req.body.logoKey;
+    if (!logoKey) {
+      return res.status(400).json({ error: 'logoKey is required' });
+    }
+    
+    const assetsFolderId = process.env.GOOGLE_DRIVE_PARTNER_LOGOS_FOLDER_ID || 
+                           process.env.GOOGLE_DRIVE_ASSETS_FOLDER_ID || 
+                           '1oBX3lAfZQq9gt4fMhBe7JBh7aKo-k697';
+    
+    const result = await uploadFileToDrive(
+      req.file.buffer,
+      `partner_logo_${logoKey.replace(/\s+/g, '_')}.png`,
+      req.file.mimetype,
+      assetsFolderId
+    );
+    
+    await makeFilePublic(result.id);
+    
+    const updated = updateLogoDriveId(logoKey, result.id);
+    
+    const publicUrl = `https://drive.google.com/uc?export=view&id=${result.id}`;
+    
+    res.json({
+      success: true,
+      fileId: result.id,
+      publicUrl: publicUrl,
+      logoKey: logoKey,
+      updated: updated,
+      message: updated ? `Uploaded and linked to ${logoKey}` : 'Uploaded but logo key not found in registry'
+    });
+  } catch (error) {
+    console.error('Partner logo upload error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/partner-logos/search', verifyAdminToken, (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({ error: 'query parameter is required' });
+    }
+    
+    const result = findLogoByName(query);
+    
+    res.json({
+      success: true,
+      query: query,
+      match: result
+    });
+  } catch (error) {
+    console.error('Partner logo search error:', error);
     res.status(500).json({ error: error.message });
   }
 });

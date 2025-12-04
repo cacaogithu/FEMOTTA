@@ -59,7 +59,46 @@ function TimeMetricsPanel({ jobId }) {
   );
 }
 
-function ResultsPage({ results, onReset, jobId }) {
+function ResultsPage({ results: initialResults, onReset, jobId }) {
+  const [results, setResults] = useState(initialResults);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(Date.now());
+  const [imageSpecs, setImageSpecs] = useState([]);
+  const [psdGenerating, setPsdGenerating] = useState({});
+
+  useEffect(() => {
+    setResults(initialResults);
+  }, [initialResults]);
+
+  useEffect(() => {
+    authenticatedFetch(`/api/upload/job/${jobId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.job?.imageSpecs) {
+          setImageSpecs(data.job.imageSpecs);
+        }
+      })
+      .catch(err => console.error('Failed to load image specs:', err));
+  }, [jobId]);
+
+  const handleRefreshImages = async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await authenticatedFetch(`/api/results/poll/${jobId}?t=${Date.now()}`);
+      const data = await response.json();
+
+      if (data.status === 'completed' && data.results) {
+        const newRefreshToken = Date.now();
+        setResults({ ...data.results, _refreshTimestamp: newRefreshToken });
+        setRefreshToken(newRefreshToken);
+      }
+    } catch (error) {
+      console.error('[ResultsPage] Refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleDownloadAll = async () => {
     try {
       const response = await authenticatedFetch(`/api/results/download/${jobId}`);
@@ -79,7 +118,7 @@ function ResultsPage({ results, onReset, jobId }) {
 
   const handleDownloadImage = async (editedImageId, name) => {
     try {
-      const response = await authenticatedFetch(`/api/images/${editedImageId}`);
+      const response = await authenticatedFetch(`/api/images/${editedImageId}?t=${Date.now()}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -94,49 +133,55 @@ function ResultsPage({ results, onReset, jobId }) {
     }
   };
 
-  const handleDownloadPsd = (imageIndex, originalName) => {
-    // Open PSD download in new tab to bypass iframe download restrictions
-    const url = `/api/psd/${jobId}/${imageIndex}`;
-    
-    // Opening in new window works better in iframe environments (Replit webview)
-    // The Content-Disposition header will trigger download automatically
-    const downloadWindow = window.open(url, '_blank');
-    
-    // Fallback: if popup blocked, use fetch + blob approach
-    if (!downloadWindow) {
-      handleDownloadPsdFallback(imageIndex, originalName);
-    }
-  };
+  const handleDownloadPsd = async (imageIndex, originalName) => {
+    if (psdGenerating[imageIndex]) return;
 
-  const handleDownloadPsdFallback = async (imageIndex, originalName) => {
+    setPsdGenerating(prev => ({ ...prev, [imageIndex]: true }));
+
     try {
-      console.log('Using fallback PSD download method...');
-      const response = await authenticatedFetch(`/api/psd/${jobId}/${imageIndex}`);
-      if (!response.ok) {
-        throw new Error('Failed to download PSD');
+      console.log('[PSD] Starting server-side PSD generation for:', originalName, 'index:', imageIndex);
+      
+      // Use server-side PSD generation with ag-psd for proper editable text layers
+      // First get a signed URL to bypass fetch/blob issues
+      const signedResponse = await authenticatedFetch(`/api/psd/signed-url/${jobId}/${imageIndex}`, {
+        method: 'POST'
+      });
+      
+      if (!signedResponse.ok) {
+        const errorData = await signedResponse.json();
+        throw new Error(errorData.error || 'Failed to get download URL');
       }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${originalName.replace(/\.[^/.]+$/, '')}.psd`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      
+      const { downloadUrl } = await signedResponse.json();
+      
+      // Download the PSD using the signed URL (opens in new tab to trigger download)
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = originalName.replace(/\.[^/.]+$/, '') + '_editable.psd';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log('[PSD] Server-side PSD download initiated');
+
     } catch (error) {
-      console.error('PSD download error:', error);
-      alert('Failed to download PSD file. Please try again.');
+      console.error('[PSD] Generation error:', error);
+      alert(`Failed to generate PSD: ${error.message}`);
+    } finally {
+      setPsdGenerating(prev => ({ ...prev, [imageIndex]: false }));
     }
   };
 
   return (
     <div className="results-page">
-      <ChatWidget jobId={jobId} />
+      <ChatWidget jobId={jobId} onImageUpdated={handleRefreshImages} />
       <div className="container">
         <header className="results-header">
           <h1>Your Images Are Ready!</h1>
-          <p>{results.images?.length || 0} images processed successfully</p>
+          <p>
+            {results?.images?.length || 0} images processed successfully
+            {isRefreshing && <span style={{ marginLeft: '10px', color: '#ffa500' }}>⚡ Refreshing...</span>}
+          </p>
           <TimeMetricsPanel jobId={jobId} />
           <div className="header-actions">
             <button className="button button-primary" onClick={handleDownloadAll}>
@@ -149,20 +194,24 @@ function ResultsPage({ results, onReset, jobId }) {
         </header>
 
         <div className="results-grid">
-          {results.images?.map((image, idx) => (
-            <div key={idx} className="result-card">
+          {results?.images?.map((image, idx) => (
+            <div key={`${image.editedImageId || image.id}-${idx}`} className="result-card">
               {image.originalImageId && image.editedImageId ? (
                 <BeforeAfterSlider 
+                  key={`slider-${image.editedImageId}-${refreshToken}`}
                   beforeImageId={image.originalImageId}
                   afterImageId={image.editedImageId}
                   name={image.name}
+                  refreshToken={refreshToken}
                 />
               ) : (
                 <div className="image-container">
                   <ImagePreview 
+                    key={`preview-${image.editedImageId || image.id}-${refreshToken}`}
                     imageId={image.editedImageId || image.id}
                     alt={image.name}
                     className="result-image"
+                    refreshToken={refreshToken}
                   />
                 </div>
               )}
@@ -177,9 +226,10 @@ function ResultsPage({ results, onReset, jobId }) {
                   </button>
                   <button 
                     className="button button-secondary download-btn"
-                    onClick={() => handleDownloadPsd(idx, image.originalName)}
+                    onClick={() => handleDownloadPsd(idx, image.originalName || image.name)}
+                    disabled={psdGenerating[idx]}
                   >
-                    Download PSD
+                    {psdGenerating[idx] ? 'Generating...' : 'Download PSD'}
                   </button>
                 </div>
               </div>

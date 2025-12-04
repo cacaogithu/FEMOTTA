@@ -1,7 +1,7 @@
 modules = ["nodejs-20", "python-3.11", "postgresql-16"]
 [agent]
 expertMode = true
-integrations = ["google-drive:1.0.0", "javascript_database:1.0.0"]
+integrations = ["google-drive:1.0.0", "javascript_database:1.0.0", "javascript_gemini:1.0.0"]
 
 [nix]
 channel = "stable-25_05"
@@ -27,25 +27,25 @@ args = "Backend"
 name = "Frontend"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd client && npm run dev"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev --prefix client"
+waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Backend"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd server && npm start"
-waitForPort = 3000
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node server/index.js"
+waitForPort = 3000
 
 [[ports]]
 localPort = 3000
@@ -68,13 +68,39 @@ localPort = 35625
 externalPort = 3001
 
 [[ports]]
+localPort = 35629
+externalPort = 6000
+
+[[ports]]
+localPort = 37175
+externalPort = 6800
+
+[[ports]]
+localPort = 38975
+externalPort = 5173
+
+[[ports]]
+localPort = 41783
+externalPort = 8008
+
+[[ports]]
 localPort = 41979
 externalPort = 4200
+
+[[ports]]
+localPort = 42699
+externalPort = 8000
 
 [[ports]]
 localPort = 42777
 externalPort = 3002
 
 [deployment]
-run = ["sh", "-c", "cd server && node index.js"]
-build = ["sh", "-c", "cd client && npm install && npm run build && cd ../server && npm install"]
+run = ["sh", "-c", "cd server && npm install && npm start"]
+build = ["sh", "-c", "cd client && npm install && npm run build"]
+deploymentTarget = "cloudrun"
+
+[userenv]
+
+[userenv.shared]
+GEMINI_IMAGE_MODEL = "gemini-3-pro-image-preview"

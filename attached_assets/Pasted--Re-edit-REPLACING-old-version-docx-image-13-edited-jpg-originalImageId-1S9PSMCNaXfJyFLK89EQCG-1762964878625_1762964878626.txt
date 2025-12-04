@@ -1,0 +1,91 @@
+]
+[Re-edit] REPLACING old version: docx_image_13_edited.jpg (originalImageId: 1S9PSMCNaXfJyFLK89EQCGxZuIQ3cqUTh)
+[Re-edit] AFTER MERGE:
+[Re-edit] - updatedEditedImages count: 15
+[Re-edit] - Image 13 details: {
+  id: '1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3',
+  name: 'Docx Image 13 (Re-edited)',
+  fileName: 'docx_image_13_reedited_1762964755408.jpg',
+  editedImageId: '1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3',
+  originalImageId: '1S9PSMCNaXfJyFLK89EQCGxZuIQ3cqUTh',
+  originalName: 'docx_image_13.jpeg',
+  url: 'https://drive.google.com/uc?export=view&id=1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3'
+}
+[JobStore] Saving job job_1762964546109 to database. Status: completed, EditedImages: 15
+[Chat Vision] Attached image 13 (docx_image_14_edited.jpg) to conversation
+[Chat] AI wants to edit images with prompt: Remove the title "TOUCH-SENSOR SPOTLIGHT REAR I/O" from the image.
+[Chat] Targeting specific images: [ '1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3' ]
+[Chat] Stored pending edit, awaiting user confirmation
+[Chat] User confirmed edit. Triggering asynchronously: Remove the title "TOUCH-SENSOR SPOTLIGHT REAR I/O" from the image.
+[Re-edit] Editing 1 of 1 requested images
+[Re-edit] Processing image: Docx Image 13 (Re-edited) (editedImageId: 1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3)
+[Re-edit] Downloading EDITED image: 1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3 (preserving previous edits)
+[Google Drive] Successfully downloaded file 1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3: 173749 bytes
+[Re-edit] Converted EDITED image to base64: 226 KB
+[Re-edit] Calling Wavespeed API with prompt: "Remove the title "TOUCH-SENSOR SPOTLIGHT REAR I/O" from the image."
+[Re-edit] This may take 60-120 seconds for complex edits...
+[Google Drive] Successfully downloaded file 19LmYZcTxvGsj7RGWbC7_J9uI-8ONgw9p: 82807 bytes
+[Google Drive] Successfully downloaded file 10QA3L_IunJ-9q6aYuL8gPm4VWvobX2oU: 232694 bytes
+[Google Drive] Successfully downloaded file 1k0ziG8byucOKgoK88SR9hbgYbLeVU-gr: 221466 bytes
+[Google Drive] Successfully downloaded file 18kSYIiHXlQQ3crSw3sAWLfboSttCl8AH: 82807 bytes
+[Google Drive] Successfully downloaded file 1S9PSMCNaXfJyFLK89EQCGxZuIQ3cqUTh: 57160 bytes
+[Google Drive] Successfully downloaded file 19LmYZcTxvGsj7RGWbC7_J9uI-8ONgw9p: 82807 bytes
+[Google Drive] Successfully downloaded file 1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3: 173749 bytes
+[Google Drive] Successfully downloaded file 10QA3L_IunJ-9q6aYuL8gPm4VWvobX2oU: 232694 bytes
+[Google Drive] Successfully downloaded file 1k0ziG8byucOKgoK88SR9hbgYbLeVU-gr: 221466 bytes
+[Google Drive] Successfully downloaded file 18kSYIiHXlQQ3crSw3sAWLfboSttCl8AH: 82807 bytes
+[Google Drive] Successfully downloaded file 1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3: 173749 bytes
+[Google Drive] Successfully downloaded file 1S9PSMCNaXfJyFLK89EQCGxZuIQ3cqUTh: 57160 bytes
+[Wavespeed API] Full response: {
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "a162cec27d1440499b7113a72c7b2801",
+    "model": "google/nano-banana/edit",
+    "outputs": [
+      "https://d1q70pf5vjeyhc.cloudfront.net/predictions/a162cec27d1440499b7113a72c7b2801/1.jpg"
+    ],
+    "urls": {
+      "get": "https://api.wavespeed.ai/api/v3/predictions/a162cec27d1440499b7113a72c7b2801/result"
+    },
+    "has_nsfw_contents": [
+      false
+    ],
+    "status": "completed",
+    "created_at": "2025-11-12T16:26:59.364Z",
+    "error": "",
+    "executionTime": 11286,
+    "timings": {
+      "inference": 11286
+    }
+  }
+}
+[Wavespeed API] Response keys: [ 'code', 'message', 'data' ]
+[Re-edit] Wavespeed API completed successfully
+[Re-edit] Received result from Wavespeed, downloading edited image...
+[Re-edit] Downloaded edited image: 181 KB
+[Re-edit] Uploading to Drive as: Docx Image 13 (Re-edited)_reedited_1762964831045.jpg
+[Re-edit] Upload complete! File ID: 1kcEKSuvsvgz9M-s951onhDKY7pKo-8Ne
+[Re-edit] BEFORE UPDATE:
+[Re-edit] - imageIds requested: [ '1cAlb4HGpRV3TAyPj494MHoL0LL8bFIN3' ]
+[Re-edit] - job.editedImages count: 15
+[Re-edit] - reEditedResults count: 1
+[Re-edit] - Re-edited originalImageIds: [
+  {
+    name: 'Docx Image 13 (Re-edited)',
+    originalImageId: '1S9PSMCNaXfJyFLK89EQCGxZuIQ3cqUTh'
+  }
+]
+[Re-edit] REPLACING old version: Docx Image 13 (Re-edited) (originalImageId: 1S9PSMCNaXfJyFLK89EQCGxZuIQ3cqUTh)
+[Re-edit] AFTER MERGE:
+[Re-edit] - updatedEditedImages count: 15
+[Re-edit] - Image 13 details: {
+  id: '1kcEKSuvsvgz9M-s951onhDKY7pKo-8Ne',
+  name: 'Docx Image 13 (Re-edited)',
+  fileName: 'Docx Image 13 (Re-edited)_reedited_1762964831045.jpg',
+  editedImageId: '1kcEKSuvsvgz9M-s951onhDKY7pKo-8Ne',
+  originalImageId: '1S9PSMCNaXfJyFLK89EQCGxZuIQ3cqUTh',
+  originalName: 'docx_image_13.jpeg',
+  url: 'https://drive.google.com/uc?export=view&id=1kcEKSuvsvgz9M-s951onhDKY7pKo-8Ne'
+}
+[JobStore] Saving job job_1762964546109 to database. Status: completed, EditedImages: 15
