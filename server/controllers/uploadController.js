@@ -568,35 +568,67 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
 
     console.log('[DOCX Extraction] ✓ All specs validated successfully');
 
-    // Separate product images from logo images based on document structure
-    // In table-based briefs, images appear in order: first N images are products, rest are logos
-    // The number of product images should match the number of specs
-    const productImagesCount = imageSpecs.length;
-    const productImages = extractedImages.slice(0, productImagesCount);
-    const logoImages = extractedImages.slice(productImagesCount); // Logos come AFTER product images
+    // Separate product images from logo images based on INTERSPERSED pattern
+    // Pattern: [Product1, Product2, Logo2, Product3, Logo3, Logo3b, Product4...]
+    // Each product image is followed by its logo(s) if logo_requested=true
+    console.log('[DOCX Extraction] Pairing product images with their adjacent logos...');
 
-    console.log(`[DOCX Extraction] Separated by position: ${productImages.length} product images, ${logoImages.length} embedded logo images`);
+    const productImages = [];
+    const embeddedLogosForSpecs = []; // Logos extracted from document, paired by spec index
+    let imageIndex = 0;
 
-    // Validate image count matches spec count
-    if (productImages.length !== imageSpecs.length) {
-      const errorMsg = `Image count mismatch: Found ${productImages.length} product images but need ${imageSpecs.length} specifications. Each spec must have a corresponding product image.`;
-      console.error(`[DOCX Extraction] ❌ ${errorMsg}`);
-      throw new Error(errorMsg);
+    for (let specIndex = 0; specIndex < imageSpecs.length; specIndex++) {
+      const spec = imageSpecs[specIndex];
+
+      // First image for this spec is the product image
+      if (imageIndex >= extractedImages.length) {
+        const errorMsg = `Missing product image for spec #${specIndex + 1} "${spec.title}". Expected image at position ${imageIndex} but only have ${extractedImages.length} images.`;
+        console.error(`[DOCX Extraction] ❌ ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+
+      const productImage = extractedImages[imageIndex];
+      productImages.push(productImage);
+      console.log(`  Spec #${specIndex + 1} "${spec.title}": Product image at position ${imageIndex}`);
+      imageIndex++;
+
+      // If this spec requests logos, the NEXT image(s) are the logos for this product
+      const logosForThisSpec = [];
+      if (spec.logo_requested === true && spec.logo_names && spec.logo_names.length > 0) {
+        const logoCount = spec.logo_names.length;
+        console.log(`    → Expects ${logoCount} logo(s):`, spec.logo_names);
+
+        for (let logoIdx = 0; logoIdx < logoCount; logoIdx++) {
+          if (imageIndex >= extractedImages.length) {
+            console.warn(`    ⚠ Missing embedded logo ${logoIdx + 1}/${logoCount} for "${spec.title}" at position ${imageIndex}`);
+            break;
+          }
+
+          const logoImage = extractedImages[imageIndex];
+          const base64Data = logoImage.buffer.toString('base64');
+          logosForThisSpec.push({
+            buffer: logoImage.buffer,
+            contentType: logoImage.contentType,
+            base64: `data:${logoImage.contentType};base64,${base64Data}`,
+            size: logoImage.size,
+            index: imageIndex,
+            associatedLogoName: spec.logo_names[logoIdx] || null
+          });
+          console.log(`    → Found embedded logo at position ${imageIndex} (for "${spec.logo_names[logoIdx]}")`);
+          imageIndex++;
+        }
+      }
+
+      embeddedLogosForSpecs.push(logosForThisSpec);
     }
 
-    console.log(`[DOCX Extraction] ✓ Image count matches spec count (${imageSpecs.length})`);
+    // Log summary
+    console.log(`[DOCX Extraction] ✓ Paired ${productImages.length} product images with their logos`);
+    console.log(`[DOCX Extraction] ✓ Used ${imageIndex}/${extractedImages.length} total images`);
 
-    // Convert logo images to base64 for easier handling
-    const logoImagesWithBase64 = logoImages.map((img, idx) => {
-      const base64Data = img.buffer.toString('base64');
-      return {
-        buffer: img.buffer,
-        contentType: img.contentType,
-        base64: `data:${img.contentType};base64,${base64Data}`,
-        size: img.size,
-        index: productImagesCount + idx // Track original position in document
-      };
-    });
+    if (imageIndex < extractedImages.length) {
+      console.warn(`[DOCX Extraction] ⚠ ${extractedImages.length - imageIndex} unused images at end of document (positions ${imageIndex}-${extractedImages.length - 1})`);
+    }
 
     // INTELLIGENT LOGO MATCHING - Support multiple logos per spec
     console.log('[DOCX Extraction] Starting intelligent logo matching (supports multiple logos per image)...');
@@ -605,7 +637,10 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
     let totalLogosMatched = 0;
     const unmatchedLogoNames = [];
 
-    for (const spec of imageSpecs) {
+    for (let specIndex = 0; specIndex < imageSpecs.length; specIndex++) {
+      const spec = imageSpecs[specIndex];
+      const embeddedLogos = embeddedLogosForSpecs[specIndex] || [];
+
       // Initialize matched logos array for this spec
       spec.matchedPartnerLogos = [];
       spec.logoBase64Array = []; // Support multiple logos
@@ -613,11 +648,13 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
       if (spec.logo_requested === true && spec.logo_names && spec.logo_names.length > 0) {
         console.log(`[DOCX Extraction] Processing ${spec.logo_names.length} logo(s) for "${spec.title}":`, spec.logo_names);
 
-        for (const logoName of spec.logo_names) {
+        for (let logoIdx = 0; logoIdx < spec.logo_names.length; logoIdx++) {
+          const logoName = spec.logo_names[logoIdx];
           totalLogosRequested++;
           console.log(`  - Looking for logo: "${logoName}"`);
 
           const matchedLogo = findLogoByName(logoName);
+          let logoAdded = false;
 
           if (matchedLogo) {
             spec.matchedPartnerLogos.push({
@@ -643,17 +680,32 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
                   source: 'drive'
                 });
                 console.log(`    ✓ Downloaded logo from Drive: ${matchedLogo.driveId}`);
+                logoAdded = true;
               } catch (driveErr) {
                 console.warn(`    ⚠ Could not download logo from Drive: ${driveErr.message}`);
               }
             }
-          } else {
-            console.warn(`    ⚠ No matching logo found for: "${logoName}"`);
-            unmatchedLogoNames.push({ spec: spec.title, logoName });
+          }
 
-            const detectedLogos = detectLogosInText(logoName);
-            if (detectedLogos.length > 0) {
-              console.log(`    Possible alternatives:`, detectedLogos.map(l => l.name).join(', '));
+          // If no match found or Drive download failed, use embedded logo for this spec
+          if (!logoAdded) {
+            if (embeddedLogos.length > logoIdx) {
+              const embeddedLogo = embeddedLogos[logoIdx];
+              spec.logoBase64Array.push({
+                base64: embeddedLogo.base64,
+                contentType: embeddedLogo.contentType,
+                name: logoName,
+                source: 'embedded'
+              });
+              console.log(`    ✓ Using embedded logo at position ${embeddedLogo.index} for "${logoName}"`);
+            } else {
+              console.warn(`    ⚠ No matching logo found and no embedded logo available for: "${logoName}"`);
+              unmatchedLogoNames.push({ specIndex, spec: spec.title, logoName });
+
+              const detectedLogos = detectLogosInText(logoName);
+              if (detectedLogos.length > 0) {
+                console.log(`    Possible alternatives:`, detectedLogos.map(l => l.name).join(', '));
+              }
             }
           }
         }
@@ -662,47 +714,13 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
       }
     }
 
-    console.log(`[DOCX Extraction] Logo matching complete: ${totalLogosMatched}/${totalLogosRequested} logos matched`);
+    console.log(`[DOCX Extraction] Logo matching complete: ${totalLogosMatched}/${totalLogosRequested} logos matched from registry`);
 
     if (unmatchedLogoNames.length > 0) {
       console.warn(`[DOCX Extraction] ⚠ Unmatched logos (${unmatchedLogoNames.length}):`);
       unmatchedLogoNames.forEach(({ spec, logoName }) => {
         console.warn(`  - "${logoName}" for "${spec}"`);
       });
-    }
-
-    // Use embedded logos as fallback for unmatched logos
-    if (logoImagesWithBase64.length > 0 && unmatchedLogoNames.length > 0) {
-      console.log(`[DOCX Extraction] Attempting to use ${logoImagesWithBase64.length} embedded logo(s) as fallback...`);
-
-      let fallbackLogoIndex = 0;
-      for (const spec of imageSpecs) {
-        if (spec.logo_requested && spec.logo_names && spec.logo_names.length > 0) {
-          // For each logo name that wasn't matched, try to use embedded logos
-          const unmatchedForThisSpec = spec.logo_names.filter(name =>
-            !spec.matchedPartnerLogos.some(m =>
-              m.name.toLowerCase().includes(name.toLowerCase()) ||
-              name.toLowerCase().includes(m.name.toLowerCase())
-            )
-          );
-
-          for (const unmatchedName of unmatchedForThisSpec) {
-            if (fallbackLogoIndex < logoImagesWithBase64.length) {
-              const fallbackLogo = logoImagesWithBase64[fallbackLogoIndex];
-              spec.logoBase64Array.push({
-                base64: fallbackLogo.base64,
-                contentType: fallbackLogo.contentType,
-                name: unmatchedName,
-                source: 'embedded_fallback'
-              });
-              console.log(`  ✓ Using embedded logo #${fallbackLogoIndex + 1} as fallback for "${unmatchedName}" in "${spec.title}"`);
-              fallbackLogoIndex++;
-            } else {
-              console.warn(`  ⚠ No more embedded logos available for "${unmatchedName}" in "${spec.title}"`);
-            }
-          }
-        }
-      }
     }
 
     // Log final logo assignment summary
@@ -719,7 +737,7 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
     return {
       imageSpecs,
       extractedImages: productImages,
-      logoImages: logoImagesWithBase64
+      logoImages: embeddedLogosForSpecs.flat() // Flatten all embedded logos for backwards compatibility
     };
 
   } catch (error) {
