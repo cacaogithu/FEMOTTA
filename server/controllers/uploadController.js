@@ -8,7 +8,8 @@ import { shouldUseImprovedPrompt } from '../services/mlLearning.js';
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
 import { generateAdaptivePrompt } from '../services/promptTemplates.js';
-import { findLogoByName, detectLogosInText } from '../services/partnerLogos.js';
+import { findLogoByName, detectLogosInText, getLogoData } from '../services/partnerLogos.js';
+import { saveLogoFromBase64 } from '../services/logoStorage.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
@@ -772,8 +773,21 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
             console.log(`    ✓ Matched "${logoName}" to "${matchedLogo.name}" (score: ${matchedLogo.matchScore})`);
             totalLogosMatched++;
 
-            // Download logo from Drive if available
-            if (matchedLogo.driveId) {
+            // PRIORITY 1: Try local storage first (fastest, no API calls)
+            const localLogoData = await getLogoData(matchedLogo);
+            if (localLogoData) {
+              spec.logoBase64Array.push({
+                base64: localLogoData.base64,
+                contentType: 'image/png',
+                name: localLogoData.name,
+                source: 'local'
+              });
+              console.log(`    ✓ Loaded logo from local storage: ${matchedLogo.localPath}`);
+              logoAdded = true;
+            }
+            
+            // PRIORITY 2: Download from Drive if available and local not found
+            if (!logoAdded && matchedLogo.driveId) {
               try {
                 const logoBuffer = await downloadFileFromDrive(matchedLogo.driveId);
                 const base64Data = logoBuffer.toString('base64');
@@ -792,7 +806,7 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
             }
           }
 
-          // If no match found or Drive download failed, use classified logos from DOCX as fallback
+          // If no match found or local/Drive not available, use classified logos from DOCX as fallback
           if (!logoAdded && classifiedLogos.length > 0) {
             // Find the next unused classified logo
             for (let i = 0; i < classifiedLogos.length; i++) {
@@ -807,6 +821,17 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
                 usedClassifiedLogoIndices.add(i);
                 console.log(`    ✓ Using classified DOCX logo #${i + 1} (${fallbackLogo.width}x${fallbackLogo.height}) as fallback for "${logoName}"`);
                 logoAdded = true;
+                
+                // AUTO-SAVE: Save extracted logo locally for future use
+                try {
+                  const savedInfo = await saveLogoFromBase64(fallbackLogo.base64, logoName);
+                  if (savedInfo) {
+                    console.log(`    ✓ Auto-saved logo to local storage: ${savedInfo.localPath} (${savedInfo.dimensions.width}x${savedInfo.dimensions.height}, aspect ${savedInfo.aspectRatio.toFixed(1)}:1)`);
+                  }
+                } catch (saveErr) {
+                  console.warn(`    ⚠ Could not auto-save logo: ${saveErr.message}`);
+                }
+                
                 break;
               }
             }

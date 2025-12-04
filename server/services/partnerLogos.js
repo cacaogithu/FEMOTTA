@@ -5,6 +5,8 @@
  * This registry is used to match AI-extracted logo_name values to actual logo files
  */
 
+import { getLogoAsBase64 } from './logoStorage.js';
+
 const PARTNER_LOGOS = {
   'intel core': {
     name: 'Intel Core',
@@ -243,11 +245,41 @@ export function registerPartnerLogo(key, config) {
   console.log(`[PartnerLogos] Registered new logo: ${config.name || key}`);
 }
 
+/**
+ * Get logo data (base64) from local storage if available
+ * Falls back to null if not found locally
+ */
+export async function getLogoData(logoEntry) {
+  if (!logoEntry) return null;
+  
+  // First try local path
+  if (logoEntry.localPath) {
+    console.log(`[PartnerLogos] Checking local path: ${logoEntry.localPath}`);
+    const base64 = await getLogoAsBase64(logoEntry.localPath);
+    if (base64) {
+      console.log(`[PartnerLogos] Loaded "${logoEntry.name}" from local storage`);
+      return {
+        base64,
+        name: logoEntry.name,
+        source: 'local'
+      };
+    }
+  }
+  
+  // TODO: Add Drive fallback if driveId is set
+  if (logoEntry.driveId) {
+    console.log(`[PartnerLogos] Drive ID available for "${logoEntry.name}" but not implemented`);
+  }
+  
+  return null;
+}
+
 export default {
   findLogoByName,
   detectLogosInText,
   updateLogoDriveId,
   getAllPartnerLogos,
   registerPartnerLogo,
+  getLogoData,
   PARTNER_LOGOS
 };

@@ -37,6 +37,11 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Serve static assets (logos, etc.)
+const assetsPath = path.join(__dirname, '../assets');
+app.use('/assets', express.static(assetsPath));
+console.log('[Static] Serving assets from:', assetsPath);
+
 async function initializeAuth() {
   try {
     if (process.env.SESSION_SECRET && process.env.REPL_ID) {
