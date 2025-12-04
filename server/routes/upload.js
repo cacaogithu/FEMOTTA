@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { uploadPDF, uploadImages, uploadTextPrompt, getJobInfo, uploadStructuredBrief, uploadPDFWithImages } from '../controllers/uploadController.js';
+import { uploadPDF, uploadImages, uploadTextPrompt, getJobInfo, uploadStructuredBrief, uploadPDFWithImages, confirmLogos } from '../controllers/uploadController.js';
 import { brandContextMiddleware } from '../middleware/brandContext.js';
 
 const router = express.Router();
@@ -102,6 +102,9 @@ router.post('/pdf-with-images',
 );
 
 router.get('/job/:jobId', getJobInfo);
+
+// Logo confirmation endpoint
+router.post('/confirm-logos', express.json(), confirmLogos);
 
 export default router;
 

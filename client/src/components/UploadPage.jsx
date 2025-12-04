@@ -4,6 +4,7 @@ import marketplacePresets, { getPresetById, getPresetList } from '../config/mark
 import BriefMethodSelector from './BriefMethodSelector';
 import StructuredBriefForm from './StructuredBriefForm';
 import PDFWithImagesPanel from './PDFWithImagesPanel';
+import LogoConfirmationPanel from './LogoConfirmationPanel';
 import './UploadPage.css';
 
 const validateDriveFolderUrl = (url) => {
@@ -40,6 +41,10 @@ function UploadPage({ onComplete }) {
   const [selectedPreset, setSelectedPreset] = useState('default');
   const [driveDestinationUrl, setDriveDestinationUrl] = useState('');
   const [driveUrlError, setDriveUrlError] = useState('');
+  
+  // Logo confirmation state
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationData, setConfirmationData] = useState(null);
   
   const pdfInputRef = useRef(null);
   const imagesInputRef = useRef(null);
@@ -250,6 +255,19 @@ function UploadPage({ onComplete }) {
       const responseData = briefType === 'pdf' ? pdfData : textData;
       const hasEmbeddedImages = responseData?.embeddedImageCount > 0;
       
+      // Check if logo confirmation is required
+      if (responseData?.requiresConfirmation) {
+        console.log('[Upload] Showing logo confirmation panel');
+        setConfirmationData({
+          jobId: responseData.jobId,
+          imageSpecs: responseData.imageSpecs,
+          images: responseData.images
+        });
+        setShowConfirmation(true);
+        setUploading(false);
+        return;
+      }
+      
       if (images.length > 0 && !hasEmbeddedImages) {
         const imagesFormData = new FormData();
         images.forEach(image => {
@@ -280,6 +298,49 @@ function UploadPage({ onComplete }) {
     (briefType === 'pdf' && pdfFile && (isDOCX || images.length > 0)) ||
     (briefType === 'text' && textPrompt.trim() && images.length > 0)
   );
+
+  // Handler for logo confirmation
+  const handleLogoConfirm = (jobId) => {
+    setShowConfirmation(false);
+    setConfirmationData(null);
+    onComplete(jobId);
+  };
+
+  const handleLogoCancel = () => {
+    setShowConfirmation(false);
+    setConfirmationData(null);
+    setPdfFile(null);
+    setImages([]);
+  };
+
+  // If showing confirmation panel, render it
+  if (showConfirmation && confirmationData) {
+    return (
+      <div className="upload-page">
+        <div className="upload-container" style={{ maxWidth: '1200px' }}>
+          <header className="header">
+            <div className="logo-container">
+              <img
+                src="/assets/corsair-logo.png"
+                alt="CORSAIR"
+                className="corsair-logo"
+              />
+            </div>
+            <h1>AI Image Editor</h1>
+            <p>Review and confirm logo assignments before processing</p>
+          </header>
+          
+          <LogoConfirmationPanel
+            jobId={confirmationData.jobId}
+            imageSpecs={confirmationData.imageSpecs}
+            images={confirmationData.images}
+            onConfirm={handleLogoConfirm}
+            onCancel={handleLogoCancel}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="upload-page">

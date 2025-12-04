@@ -1215,7 +1215,7 @@ export async function uploadPDF(req, res) {
       pdfName: result.name,
       imageSpecs: imageSpecs,
       images: uploadedImages,
-      status: uploadedImages.length > 0 ? 'processing' : 'pdf_uploaded',
+      status: uploadedImages.length > 0 ? 'awaiting_confirmation' : 'pdf_uploaded',
       createdAt: startTime,
       startTime: startTime,
       imageCount: uploadedImages.length,
@@ -1225,9 +1225,9 @@ export async function uploadPDF(req, res) {
 
     console.log('[Upload Brief] Job created and persisted:', jobId);
 
-    // If we have images from DOCX, start processing immediately
+    // If we have images from DOCX, return for logo confirmation instead of auto-processing
     if (uploadedImages.length > 0) {
-      console.log('[Upload Brief] Starting automatic processing with embedded images...');
+      console.log('[Upload Brief] Returning specs for logo confirmation...');
 
       res.json({
         success: true,
@@ -1236,17 +1236,10 @@ export async function uploadPDF(req, res) {
         fileName: result.name,
         imageCount: imageSpecs.length,
         embeddedImageCount: uploadedImages.length,
-        message: `Brief uploaded with ${uploadedImages.length} embedded images. Processing started automatically.`
-      });
-
-      // Start processing in the background
-      processImagesWithGemini(jobId).catch(async err => {
-        console.error('Background processing error:', err);
-        console.error('Error stack:', err.stack);
-        await updateJob(jobId, { 
-          status: 'failed',
-          error: err.message
-        });
+        requiresConfirmation: true,
+        imageSpecs: imageSpecs,
+        images: uploadedImages,
+        message: `Brief uploaded with ${uploadedImages.length} embedded images. Please confirm logo assignments.`
       });
     } else {
       res.json({
@@ -2245,4 +2238,116 @@ export async function getJobInfo(req, res) {
   }
 
   res.json(job);
+}
+
+export async function confirmLogos(req, res) {
+  try {
+    const { jobId, confirmedSpecs } = req.body;
+
+    if (!jobId) {
+      return res.status(400).json({ error: 'Job ID is required' });
+    }
+
+    if (!confirmedSpecs || !Array.isArray(confirmedSpecs)) {
+      return res.status(400).json({ error: 'Confirmed specs are required' });
+    }
+
+    const job = await getJob(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.status !== 'awaiting_confirmation') {
+      return res.status(400).json({ error: 'Job is not awaiting confirmation' });
+    }
+
+    console.log('[Confirm Logos] Processing confirmation for job:', jobId);
+    console.log('[Confirm Logos] Confirmed specs count:', confirmedSpecs.length);
+
+    // Map logo IDs to proper logo names for the system
+    const logoIdToName = {
+      'intel-core': 'Intel Core',
+      'intel-core-ultra': 'Intel Core Ultra',
+      'amd-ryzen': 'AMD Ryzen',
+      'nvidia': 'NVIDIA',
+      'nvidia-50-series': 'NVIDIA 50 Series',
+      'hydro-x': 'Hydro X',
+      'icue-link': 'iCUE Link',
+      'corsair': 'Corsair',
+      'origin-pc': 'Origin PC'
+    };
+
+    // Build a map of confirmed specs by imageIndex for efficient lookup
+    const confirmedSpecsMap = new Map();
+    confirmedSpecs.forEach(spec => {
+      if (spec && typeof spec.imageIndex === 'number') {
+        confirmedSpecsMap.set(spec.imageIndex, spec);
+      }
+    });
+
+    // Update image specs with confirmed logo assignments (preserve server-managed fields)
+    const updatedSpecs = job.imageSpecs.map((originalSpec, idx) => {
+      const confirmedSpec = confirmedSpecsMap.get(idx);
+      
+      // If no confirmation data for this index, preserve original logos
+      if (!confirmedSpec) {
+        console.log(`[Confirm Logos] Image ${idx + 1} "${originalSpec.title}": No confirmation, preserving original logos`);
+        return originalSpec;
+      }
+      
+      const selectedLogos = confirmedSpec.selectedLogos || [];
+      
+      // Validate that all selected logos are known IDs
+      const validLogos = selectedLogos.filter(logoId => logoIdToName[logoId]);
+      if (validLogos.length !== selectedLogos.length) {
+        const unknownLogos = selectedLogos.filter(logoId => !logoIdToName[logoId]);
+        console.warn(`[Confirm Logos] Image ${idx + 1}: Unknown logo IDs ignored: ${unknownLogos.join(', ')}`);
+      }
+      
+      // Map valid IDs to canonical display names
+      const logoNames = validLogos.map(logoId => logoIdToName[logoId]);
+      
+      console.log(`[Confirm Logos] Image ${idx + 1} "${originalSpec.title}": ${logoNames.length} logos - ${logoNames.join(', ') || 'None'}`);
+      
+      // Only update logo-related fields, preserve all other server-managed fields
+      return {
+        ...originalSpec,
+        logo_names: logoNames,
+        logoNames: logoNames,
+        logo_requested: logoNames.length > 0
+      };
+    });
+
+    // Update job with confirmed specs and change status to processing
+    await updateJob(jobId, {
+      imageSpecs: updatedSpecs,
+      status: 'processing'
+    });
+
+    console.log('[Confirm Logos] Job updated, starting processing...');
+
+    // Return success immediately
+    res.json({
+      success: true,
+      jobId,
+      message: 'Logo assignments confirmed. Processing started.'
+    });
+
+    // Start processing in the background
+    processImagesWithGemini(jobId).catch(async err => {
+      console.error('[Confirm Logos] Background processing error:', err);
+      console.error('[Confirm Logos] Error stack:', err.stack);
+      await updateJob(jobId, { 
+        status: 'failed',
+        error: err.message
+      });
+    });
+
+  } catch (error) {
+    console.error('[Confirm Logos] Error:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to confirm logos',
+      details: error.message
+    });
+  }
 }
