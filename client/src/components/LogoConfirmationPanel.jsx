@@ -52,14 +52,26 @@ function LogoConfirmationPanel({ jobId, imageSpecs, images, onConfirm, onCancel 
         })
         .filter(Boolean);
       
+      // Get image URL from images array
+      const imageData = images && images[idx];
+      const imageUrl = imageData?.publicUrl || imageData?.url || null;
+      
       return {
         imageIndex: idx,
         title: spec.title,
         subtitle: spec.subtitle,
         selectedLogos: normalizedLogos,
-        imageUrl: images[idx]?.publicUrl || null
+        imageUrl: imageUrl
       };
     });
+    
+    console.log('[LogoConfirmation] Initialized specs with images:', initialSpecs.map((s, i) => ({
+      index: i,
+      title: s.title,
+      imageUrl: s.imageUrl,
+      logos: s.selectedLogos
+    })));
+    
     setConfirmedSpecs(initialSpecs);
   }, [imageSpecs, images]);
 

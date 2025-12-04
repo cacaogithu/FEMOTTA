@@ -907,8 +907,16 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
       }
     });
 
+    // Normalize logo_names to expanded format for frontend
+    const normalizedImageSpecs = imageSpecs.map(spec => ({
+      ...spec,
+      logo_names: (spec.logo_requested && spec.logo_names) 
+        ? expandLogoNames(spec.logo_names)
+        : spec.logo_names || []
+    }));
+
     return {
-      imageSpecs,
+      imageSpecs: normalizedImageSpecs,
       extractedImages: productImages,
       logoImages: classifiedLogos, // All classified logos for backwards compatibility
       briefText: docxText // Include brief text for AI logo analysis
@@ -1239,6 +1247,7 @@ export async function uploadPDF(req, res) {
         fileName: result.name,
         imageCount: imageSpecs.length,
         embeddedImageCount: uploadedImages.length,
+        status: 'awaiting_confirmation',
         requiresConfirmation: true,
         imageSpecs: imageSpecs,
         images: uploadedImages,
