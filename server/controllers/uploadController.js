@@ -10,6 +10,7 @@ import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
 import { generateAdaptivePrompt } from '../services/promptTemplates.js';
 import { findLogoByName, detectLogosInText, getLogoData } from '../services/partnerLogos.js';
 import { saveLogoFromBase64 } from '../services/logoStorage.js';
+import { analyzeLogoPlacement, mergeLogoPlansIntoSpecs } from '../services/logoPlacementAnalyzer.js';
 import { validateStructuredBrief, validatePDFWithImages, sanitizeInput, generateDefaultPrompt } from '../utils/briefValidation.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
@@ -155,51 +156,80 @@ async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-le
 }
 
 // Helper function to overlay multiple logos on an image
-async function overlayMultipleLogos(imageBuffer, logoBase64Array) {
+// Supports AI-provided placement via logo_plan parameter
+async function overlayMultipleLogos(imageBuffer, logoBase64Array, logoPlan = null) {
   try {
     if (!logoBase64Array || logoBase64Array.length === 0) {
       return imageBuffer;
     }
 
     console.log(`[Logo Overlay] Applying ${logoBase64Array.length} logo(s) to image`);
+    if (logoPlan && logoPlan.analyzedByAI) {
+      console.log(`[Logo Overlay] Using AI-analyzed placement with ${logoPlan.logos?.length || 0} configured logos`);
+    }
 
     // Get image metadata
     const imageMetadata = await sharp(imageBuffer).metadata();
     const { width, height } = imageMetadata;
     const margin = Math.floor(width * 0.03); // 3% margin
 
-    // Define positions for multiple logos
-    const positions = [
-      'bottom-left',   // First logo
-      'bottom-right',  // Second logo
-      'top-left',      // Third logo
-      'top-right'      // Fourth logo
-    ];
+    // Extended positions for more than 4 logos - cycles through corners with offsets
+    const getPositionForIndex = (index) => {
+      const basePositions = ['bottom-left', 'bottom-right', 'top-left', 'top-right'];
+      return basePositions[index % basePositions.length];
+    };
 
-    // Prepare all logos for composite
+    // Prepare all logos for composite (no arbitrary limit)
     const compositeInputs = [];
+    const maxLogos = Math.min(logoBase64Array.length, 8); // Reasonable max for image clarity
 
-    for (let i = 0; i < logoBase64Array.length && i < positions.length; i++) {
+    for (let i = 0; i < maxLogos; i++) {
       const logoData = logoBase64Array[i];
-      const position = positions[i];
+      
+      // Get AI-provided placement if available, otherwise use dynamic positioning
+      let position = getPositionForIndex(i);
+      let sizePercent = null; // null means use adaptive sizing
+      
+      if (logoPlan && logoPlan.logos && logoPlan.logos.length > 0) {
+        // Try to match this logo to an AI-analyzed logo by name
+        const aiLogo = logoPlan.logos.find(l => 
+          l.displayName?.toLowerCase() === logoData.name?.toLowerCase() ||
+          l.canonicalKey === logoData.canonicalKey
+        );
+        
+        if (aiLogo) {
+          position = aiLogo.position || position;
+          sizePercent = aiLogo.sizePercent || null;
+          console.log(`  [AI] Found placement for "${logoData.name}": ${position}, ${sizePercent || 'adaptive'}%`);
+        }
+      }
 
       try {
         // Extract base64 data from data URL
         const base64Data = logoData.base64.replace(/^data:image\/\w+;base64,/, '');
         const logoBuffer = Buffer.from(base64Data, 'base64');
 
-        // Get original logo dimensions for adaptive sizing
+        // Get original logo dimensions for sizing
         const originalLogoMeta = await sharp(logoBuffer).metadata();
         
-        // Calculate adaptive max width based on logo aspect ratio
-        const maxLogoWidth = calculateAdaptiveLogoSize(width, originalLogoMeta.width, originalLogoMeta.height);
+        // Calculate max width - use AI-provided size or adaptive sizing
+        let maxLogoWidth;
+        if (sizePercent) {
+          // AI-provided size as percentage of image width
+          maxLogoWidth = Math.floor(width * (sizePercent / 100));
+          console.log(`  [AI] Using AI-specified size: ${sizePercent}% = ${maxLogoWidth}px`);
+        } else {
+          // Fall back to adaptive sizing based on logo aspect ratio
+          maxLogoWidth = calculateAdaptiveLogoSize(width, originalLogoMeta.width, originalLogoMeta.height);
+        }
+        
         const resizedLogo = await sharp(logoBuffer)
           .resize(maxLogoWidth, null, { fit: 'inside', withoutEnlargement: true })
           .toBuffer();
 
         const logoMetadata = await sharp(resizedLogo).metadata();
 
-        // Calculate position
+        // Calculate position coordinates
         let left, top;
 
         switch (position) {
@@ -876,7 +906,8 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
     return {
       imageSpecs,
       extractedImages: productImages,
-      logoImages: classifiedLogos // All classified logos for backwards compatibility
+      logoImages: classifiedLogos, // All classified logos for backwards compatibility
+      briefText: docxText // Include brief text for AI logo analysis
     };
 
   } catch (error) {
@@ -1109,6 +1140,32 @@ export async function uploadPDF(req, res) {
       const docxResult = await extractPromptFromDOCX(req.file.buffer, req.brand);
       imageSpecs = docxResult.imageSpecs;
       extractedImages = docxResult.extractedImages;
+      
+      // AI-POWERED LOGO ANALYSIS: Analyze brief text to determine accurate logo placement
+      // Only run if we have valid brief text and image specs
+      const briefText = docxResult.briefText || '';
+      if (briefText.length > 50 && imageSpecs && imageSpecs.length > 0) {
+        console.log('[Upload Brief] Starting AI logo placement analysis...');
+        try {
+          const logoPlans = await analyzeLogoPlacement(
+            briefText, 
+            imageSpecs, 
+            { openaiApiKey: req.brand.openaiApiKey || process.env.OPENAI_API_KEY }
+          );
+          
+          // Merge AI logo analysis into image specs only if we got valid plans
+          if (logoPlans && Array.isArray(logoPlans) && logoPlans.length > 0) {
+            imageSpecs = mergeLogoPlansIntoSpecs(imageSpecs, logoPlans);
+            console.log('[Upload Brief] Logo placement analysis complete');
+          } else {
+            console.log('[Upload Brief] No logo plans returned, using original extraction');
+          }
+        } catch (logoErr) {
+          console.warn('[Upload Brief] Logo analysis failed, using original extraction:', logoErr.message);
+        }
+      } else {
+        console.log('[Upload Brief] Skipping logo analysis - insufficient brief text or no specs');
+      }
     }
 
     console.log('[Upload Brief] Extracted', imageSpecs.length, 'image specifications');
@@ -1675,7 +1732,8 @@ async function processImagesWithGemini(jobId) {
       if (spec && spec.logo_requested === true && spec.logoBase64Array && spec.logoBase64Array.length > 0) {
         const logoNames = spec.logoBase64Array.map(l => l.name).join(', ');
         console.log(`[Logo] Applying ${spec.logoBase64Array.length} logo(s) to image ${i + 1}: ${logoNames}`);
-        imageBuffer = await overlayMultipleLogos(imageBuffer, spec.logoBase64Array);
+        // Pass AI-analyzed logo_plan if available for intelligent positioning
+        imageBuffer = await overlayMultipleLogos(imageBuffer, spec.logoBase64Array, spec.logo_plan || null);
       }
 
       const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
