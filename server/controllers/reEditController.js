@@ -4,8 +4,74 @@ import { uploadFileToDrive, makeFilePublic, getPublicImageUrl, downloadFileFromD
 import { getBrandApiKeys } from '../utils/brandLoader.js';
 import { getCompleteOverlayGuidelines } from '../services/sairaReference.js';
 import { calculateDefaultParameters } from '../services/imageParameters.js';
+import { findLogoByName } from '../services/partnerLogos.js';
 import fetch from 'node-fetch';
 import sharp from 'sharp';
+
+/**
+ * Overlay a logo on an image buffer
+ * @param {Buffer} imageBuffer - The base image
+ * @param {string} logoBase64 - Base64-encoded logo data
+ * @param {string} position - Position for logo placement
+ * @returns {Promise<Buffer>} - Image with logo overlay
+ */
+async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-left') {
+  try {
+    const base64Data = logoBase64.replace(/^data:image\/\w+;base64,/, '');
+    const logoBuffer = Buffer.from(base64Data, 'base64');
+    
+    const imageMetadata = await sharp(imageBuffer).metadata();
+    const logoMetadata = await sharp(logoBuffer).metadata();
+    
+    const maxLogoWidth = Math.round(imageMetadata.width * 0.15);
+    const scale = maxLogoWidth / logoMetadata.width;
+    const newLogoWidth = Math.round(logoMetadata.width * scale);
+    const newLogoHeight = Math.round(logoMetadata.height * scale);
+    
+    const resizedLogo = await sharp(logoBuffer)
+      .resize(newLogoWidth, newLogoHeight)
+      .toBuffer();
+    
+    const margin = Math.round(imageMetadata.width * 0.03);
+    let left, top;
+    
+    switch (position) {
+      case 'bottom-left':
+        left = margin;
+        top = imageMetadata.height - newLogoHeight - margin;
+        break;
+      case 'bottom-right':
+        left = imageMetadata.width - newLogoWidth - margin;
+        top = imageMetadata.height - newLogoHeight - margin;
+        break;
+      case 'top-left':
+        left = margin;
+        top = margin;
+        break;
+      case 'top-right':
+        left = imageMetadata.width - newLogoWidth - margin;
+        top = margin;
+        break;
+      default:
+        left = margin;
+        top = imageMetadata.height - newLogoHeight - margin;
+    }
+    
+    const result = await sharp(imageBuffer)
+      .composite([{
+        input: resizedLogo,
+        left: Math.max(0, left),
+        top: Math.max(0, top)
+      }])
+      .toBuffer();
+    
+    console.log(`[Logo Overlay] Successfully overlaid logo at ${position} (${newLogoWidth}x${newLogoHeight})`);
+    return result;
+  } catch (error) {
+    console.error('[Logo Overlay] Error overlaying logo:', error.message);
+    return imageBuffer;
+  }
+}
 
 export async function reEditImages(req, res) {
   try {
@@ -140,11 +206,39 @@ export async function reEditImages(req, res) {
         const reEditedImageUrl = result.data.outputs[0];
         
         const imageResponse = await fetch(reEditedImageUrl);
-        const imageBuffer = await imageResponse.arrayBuffer();
-        console.log(`[Re-edit] Downloaded edited image: ${Math.round(imageBuffer.byteLength / 1024)} KB`);
+        let finalImageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+        console.log(`[Re-edit] Downloaded edited image: ${Math.round(finalImageBuffer.length / 1024)} KB`);
+        
+        // Re-apply logo overlay if the original image had one
+        // This ensures logos are preserved correctly after re-editing
+        let logoApplied = false;
+        if (image.logoRequested && image.logoBase64) {
+          console.log(`[Re-edit] Re-applying ${image.logoName || 'brand'} logo to image`);
+          try {
+            finalImageBuffer = await overlayLogoOnImage(finalImageBuffer, image.logoBase64, 'bottom-left');
+            logoApplied = true;
+          } catch (logoError) {
+            console.error(`[Re-edit] Failed to re-apply logo:`, logoError.message);
+          }
+        } else if (image.logoRequested && image.logoName && !image.logoBase64) {
+          // Try to find logo from registry if not stored
+          console.log(`[Re-edit] Looking up logo "${image.logoName}" from registry...`);
+          const matchedLogo = findLogoByName(image.logoName);
+          if (matchedLogo && matchedLogo.driveId) {
+            try {
+              const logoBuffer = await downloadFileFromDrive(matchedLogo.driveId);
+              const logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+              finalImageBuffer = await overlayLogoOnImage(finalImageBuffer, logoBase64, 'bottom-left');
+              logoApplied = true;
+              console.log(`[Re-edit] Successfully applied logo from registry`);
+            } catch (logoFetchError) {
+              console.error(`[Re-edit] Failed to fetch logo from registry:`, logoFetchError.message);
+            }
+          }
+        }
         
         const timestamp = Date.now();
-        const reEditedFileName = `${image.name.replace('_edited.jpg', '')}_reedited_${timestamp}.jpg`;
+        const reEditedFileName = `${image.name.replace('_edited.jpg', '').replace(/_reedited_\d+/, '')}_reedited_${timestamp}.jpg`;
         
         // Create clean display name from original name
         const baseDisplayName = (image.originalName || image.name)
@@ -155,7 +249,7 @@ export async function reEditImages(req, res) {
         
         console.log(`[Re-edit] Uploading to Drive as: ${reEditedFileName}`);
         const uploadedFile = await uploadFileToDrive(
-          Buffer.from(imageBuffer),
+          finalImageBuffer,
           reEditedFileName,
           'image/jpeg',
           brandConfig.editedResultsFolderId
@@ -168,7 +262,7 @@ export async function reEditImages(req, res) {
         let imageWidth = 1920;
         let imageHeight = 1080;
         try {
-          const metadata = await sharp(Buffer.from(imageBuffer)).metadata();
+          const metadata = await sharp(finalImageBuffer).metadata();
           imageWidth = metadata.width || 1920;
           imageHeight = metadata.height || 1080;
           console.log(`[Re-edit] Image dimensions: ${imageWidth}x${imageHeight}`);
@@ -194,7 +288,11 @@ export async function reEditImages(req, res) {
           subtitle: image.subtitle || null,
           promptUsed: newPrompt,
           parameters: newParams,
-          version: newParams.version
+          version: newParams.version,
+          logoApplied: logoApplied,
+          logoRequested: image.logoRequested || false,
+          logoName: image.logoName || null,
+          logoBase64: image.logoBase64 || null
         });
       } else {
         console.error(`[Re-edit] No images returned from Gemini API`);

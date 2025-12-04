@@ -238,7 +238,14 @@ CRITICAL RULES:
 - DO NOT include specific text content (like "EXPERIENCE THE FUTURE")
 - Text content comes from the brief - keep as {title}, {subtitle} placeholders
 - Focus on technical guidelines: gradient positioning, shadow effects, font sizing
-- Allow adaptive font sizes: "48-60px for title, adjust based on aspect ratio"
+- Use fixed font sizes for consistency:
+  - Title: 52px (Montserrat Extra Bold, uppercase)
+  - Subtitle: 18px (Montserrat Regular)
+  - Scale formula: IF image_width > 2000px THEN multiply by 1.15
+  - Shadow: 0px 1.5px 3px rgba(0,0,0,0.25)
+  - Gradient: top 22%, rgba(20,20,20,0.35) to transparent
+  - Position: 32px from top, 40px from left
+- CRITICAL: Never use ranges. Use exact values or clear conditional formulas.
 - Learn from successful examples to avoid repeating mistakes
 
 OUTPUT FORMAT:

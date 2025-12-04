@@ -4,6 +4,9 @@
 A professional, multi-tenant SaaS platform for AI-powered marketing image editing. This platform allows users to upload marketing briefs (PDF, DOCX, or text prompt) and product images for instant AI-powered editing. Key capabilities include brand-specific theming, interactive before/after image comparisons, an AI chat assistant for selective re-editing, and the ability to download layered PSD files with editable text. The system enhances efficiency and reduces the time required for marketing image production, with a vision to become the leading AI-powered image editing solution for marketing teams globally.
 
 ## Recent Changes
+- **December 2025**: Fixed re-edit workflow to preserve and re-apply logos after AI processing - logos now stored with each edited image and re-overlaid after re-edits
+- **December 2025**: Added FORBIDDEN TERMS protection to prevent technical parameters (px, opacity, font names) from appearing as text in generated images
+- **December 2025**: Enhanced prompt separation in `sairaReference.js` - styling instructions now clearly marked as non-renderable with explicit blocklists
 - **December 2025**: Implemented intelligent partner logo matching system (`server/services/partnerLogos.js`) - matches logo names from briefs to predefined registry instead of sequential assignment
 - **December 2025**: Enhanced DOCX extraction with improved table parsing - better extraction of logo requirements from table-structured briefs
 - **December 2025**: Added admin endpoints for partner logo management (`/api/admin/partner-logos/*`) - upload, configure, and search logos

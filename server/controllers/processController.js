@@ -12,7 +12,7 @@ export async function processImages(req, res) {
   try {
     const { jobId } = req.body;
 
-    const job = getJob(jobId);
+    const job = await getJob(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -46,13 +46,13 @@ export async function processImages(req, res) {
 
     const DEFAULT_EDITED_IMAGES_FOLDER = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
     const targetFolderId = job.driveDestinationFolderId || DEFAULT_EDITED_IMAGES_FOLDER;
-    
+
     if (job.driveDestinationFolderId) {
-      console.log(`[Process] Using custom drive destination: ${targetFolderId}`);
+      logger.info(`[Process] Using custom drive destination: ${targetFolderId}`);
     }
-    
+
     if (job.marketplacePreset) {
-      console.log(`[Process] Marketplace preset applied: ${job.marketplacePreset.id}`);
+      logger.info(`[Process] Marketplace preset applied: ${job.marketplacePreset.id}`);
     }
 
     const editedImages = [];
@@ -105,15 +105,15 @@ export async function processImages(req, res) {
           job.briefText || ''
         ).then(qualityData => {
           if (qualityData) {
-            console.log(`[Active Learning] Image ${i + 1} quality score: ${qualityData.score}/10`);
+            logger.info(`[Active Learning] Image ${i + 1} quality score: ${qualityData.score}/10`);
             if (qualityData.issues.length > 0) {
-              console.log('[Active Learning] Issues found:', qualityData.issues);
+              logger.info('[Active Learning] Issues found:', { issues: qualityData.issues });
             }
             // Here you can store qualityData in jobStore or a dedicated feedback store
             // For now, just logging
           }
         }).catch(err => {
-          console.error('[Active Learning] Quality analysis error (non-blocking):', err);
+          logger.error('[Active Learning] Quality analysis error (non-blocking):', err);
         });
 
         // Get title/subtitle from imageSpecs if available (for PSD text layers)
@@ -189,19 +189,19 @@ export async function processImages(req, res) {
     const processingTimeMs = endTime - startTime;
     const processingTimeSeconds = Math.round(processingTimeMs / 1000);
     const processingTimeMinutes = (processingTimeSeconds / 60).toFixed(1);
-    
+
     // Estimate manual time saved (5 minutes per image for manual editing)
     const MANUAL_TIME_PER_IMAGE_MINUTES = 5;
     const estimatedManualTimeMinutes = editedImages.length * MANUAL_TIME_PER_IMAGE_MINUTES;
     const timeSavedMinutes = Math.max(0, estimatedManualTimeMinutes - parseFloat(processingTimeMinutes));
-    const timeSavedPercent = estimatedManualTimeMinutes > 0 
+    const timeSavedPercent = estimatedManualTimeMinutes > 0
       ? Math.round((timeSavedMinutes / estimatedManualTimeMinutes) * 100)
       : 0;
-    
-    console.log(`[Time Tracking] Job ${jobId} completed in ${processingTimeMinutes} minutes`);
-    console.log(`[Time Tracking] Estimated manual time: ${estimatedManualTimeMinutes} minutes`);
-    console.log(`[Time Tracking] Time saved: ${timeSavedMinutes.toFixed(1)} minutes (${timeSavedPercent}%)`);
-    
+
+    logger.info(`[Time Tracking] Job ${jobId} completed in ${processingTimeMinutes} minutes`);
+    logger.info(`[Time Tracking] Estimated manual time: ${estimatedManualTimeMinutes} minutes`);
+    logger.info(`[Time Tracking] Time saved: ${timeSavedMinutes.toFixed(1)} minutes (${timeSavedPercent}%)`);
+
     await updateJob(jobId, {
       status: 'completed',
       editedImages,
@@ -221,7 +221,7 @@ export async function processImages(req, res) {
       estimatedManualTimeMinutes,
       timeSavedMinutes: parseFloat(timeSavedMinutes.toFixed(1))
     }).catch(err => {
-      console.error('[History Archive] Non-blocking archive error:', err.message);
+      logger.error('[History Archive] Non-blocking archive error:', err);
     });
 
     res.json({
@@ -232,7 +232,7 @@ export async function processImages(req, res) {
     });
 
   } catch (error) {
-    console.error('Process images error:', error);
+    logger.error('Process images error:', error);
 
     const { jobId } = req.body;
     if (jobId) {

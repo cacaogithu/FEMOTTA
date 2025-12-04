@@ -60,32 +60,33 @@ export const SAIRA_REFERENCE = {
 /**
  * Generate a strongly-typed prompt snippet for Saira typography
  * This should be injected into the AI prompt to ensure font consistency
+ * 
+ * CRITICAL: This text contains STYLING INSTRUCTIONS ONLY - none of these words
+ * should appear in the final image. The AI must understand these are directions,
+ * not content to render.
  */
 export function getSairaPromptSnippet() {
   return `
-TYPOGRAPHY REQUIREMENTS (CRITICAL - MUST FOLLOW EXACTLY):
+=== STYLING INSTRUCTIONS (DO NOT RENDER ANY OF THIS TEXT) ===
 
-Use ONLY the Saira font family for ALL text:
+The following are INSTRUCTIONS for HOW to style text, NOT text to display:
 
-TITLE TEXT:
-- Font: Saira Bold (geometric sans-serif with sharp angular terminals)
-- Style: UPPERCASE, white, clean geometric letterforms
-- Examples of correct style: "MILLENNIUM", "CORSAIR ONE", "POWER SUPPLY"
-- Position: Top-left with subtle drop shadow for readability
+FONT STYLE GUIDANCE:
+- Use a bold geometric sans-serif font for titles
+- Use a regular weight geometric sans-serif font for subtitles
+- Title should be UPPERCASE, white color
+- Subtitle should be sentence case, white or light gray
+- Both should have subtle drop shadow for readability
 
-SUBTITLE TEXT:
-- Font: Saira Regular (same geometric family, lighter weight)
-- Style: Sentence case, white or light gray, smaller than title
-- Examples of correct style: "Premium Gaming Peripherals", "Next-Generation Performance"
-- Position: Below title with matching subtle shadow
+FORBIDDEN WORDS IN OUTPUT IMAGE:
+Never write these words in the image: "Saira", "Bold", "Regular", "px", "percent", 
+"opacity", "gradient", "font", "geometric", "sans-serif", "UPPERCASE", "sentence case",
+"drop shadow", any numbers followed by "px" or "%"
 
-DO NOT USE any other font. The Saira font has distinctive characteristics:
-- Sharp, angular letter terminals
-- Consistent stroke widths throughout
-- Modern, technical aesthetic
-- Clean geometric forms
+These are styling instructions, NOT content. Only render the actual title and subtitle 
+text that the user provides.
 
-The typography should look like professional gaming/tech marketing materials.
+=== END OF STYLING INSTRUCTIONS ===
 `;
 }
 

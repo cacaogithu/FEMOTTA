@@ -262,6 +262,13 @@ CRITICAL PRESERVATION RULES:
 - Do NOT regenerate, redraw, or modify any part of the original image
 - Do NOT add white backgrounds or borders
 
+FORBIDDEN TERMS (NEVER render these words in the image):
+- Technical terms: "px", "percent", "%", "opacity", "gradient", "Saira", "Bold", "Regular"
+- Font terminology: "font", "geometric", "sans-serif", "shadow", "blur"
+- Any numbers followed by units (e.g., "52px", "35%", "1.5px")
+- Parameter descriptions or specification terms
+Only render the exact TITLE and SUBTITLE text provided above - nothing else.
+
 Output the edited image with text overlay applied using these exact specifications.`;
 }
 

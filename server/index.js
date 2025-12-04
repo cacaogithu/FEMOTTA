@@ -89,6 +89,7 @@ app.use('/api/subaccounts', subaccountsRoutes);
 
 // ML Analysis routes
 app.use('/api/ml', mlRoutes);
+app.use('/api/ml-stats', mlStatsRoutes);
 
 // Gemini Batch API routes
 app.use('/api/batch', batchRoutes);
@@ -98,9 +99,9 @@ app.use('/api/results', resultsRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/re-edit', reEditRoutes);
-app.use('/api/batch', batchRoutes);
 app.use('/api/feedback', feedbackRoutes);
-app.use('/api/ml', mlStatsRoutes);
+app.use('/api/psd', psdRoutes);
+app.use('/api/history', historyRoutes);
 app.use('/api/psd', psdRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/canvas-test', canvasTestRoutes);
