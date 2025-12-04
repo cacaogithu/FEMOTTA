@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
+import { ToastContainer, useToast } from './Toast';
 import './PDFWithImagesPanel.css';
 
-function PDFWithImagesPanel({ onSubmit, uploading }) {
+function PDFWithImagesPanel({ onSubmit, uploading, onBack }) {
   const [pdfFile, setPdfFile] = useState(null);
   const [images, setImages] = useState([]);
-  const [error, setError] = useState('');
+  const { toasts, removeToast, showError, showWarning } = useToast();
   
   const pdfInputRef = useRef(null);
   const imagesInputRef = useRef(null);
@@ -24,17 +25,16 @@ function PDFWithImagesPanel({ onSubmit, uploading }) {
     if (!file) return;
 
     if (file.type !== 'application/pdf') {
-      setError('Please upload a PDF file only');
+      showError('Please upload a PDF file only');
       return;
     }
 
     if (file.size > 50 * 1024 * 1024) {
-      setError('PDF must be less than 50MB');
+      showError('PDF must be less than 50MB');
       return;
     }
 
     setPdfFile(file);
-    setError('');
   };
 
   const handleImagesDrop = (e) => {
@@ -54,15 +54,15 @@ function PDFWithImagesPanel({ onSubmit, uploading }) {
     
     for (const file of files) {
       if (!validTypes.includes(file.type)) {
-        setError(`${file.name} is not a valid image format (JPG/PNG only)`);
+        showError(`${file.name} is not a valid image format (JPG/PNG only)`);
         continue;
       }
       if (file.size > 20 * 1024 * 1024) {
-        setError(`${file.name} is larger than 20MB`);
+        showError(`${file.name} is larger than 20MB`);
         continue;
       }
       if (images.length + validFiles.length >= 20) {
-        setError('Maximum 20 images allowed');
+        showWarning('Maximum 20 images allowed');
         break;
       }
       validFiles.push(file);
@@ -70,7 +70,6 @@ function PDFWithImagesPanel({ onSubmit, uploading }) {
 
     if (validFiles.length > 0) {
       setImages([...images, ...validFiles]);
-      setError('');
     }
   };
 
@@ -87,11 +86,11 @@ function PDFWithImagesPanel({ onSubmit, uploading }) {
 
   const handleSubmit = () => {
     if (!pdfFile) {
-      setError('Please upload a PDF brief');
+      showError('Please upload a PDF brief');
       return;
     }
     if (images.length === 0) {
-      setError('Please upload at least one image');
+      showError('Please upload at least one image');
       return;
     }
     
@@ -102,6 +101,12 @@ function PDFWithImagesPanel({ onSubmit, uploading }) {
 
   return (
     <div className="pdf-images-panel">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      {onBack && (
+        <button className="back-button" onClick={onBack}>
+          ← Change Method
+        </button>
+      )}
       <div className="panel-header">
         <h2>PDF Brief + Separate Images</h2>
         <p>Upload your PDF brief and high-resolution images separately</p>
@@ -214,8 +219,6 @@ function PDFWithImagesPanel({ onSubmit, uploading }) {
           For best results, upload images in the same order as they appear in your brief.
         </p>
       </div>
-
-      {error && <div className="error-message">{error}</div>}
 
       <div className="submit-section">
         <button

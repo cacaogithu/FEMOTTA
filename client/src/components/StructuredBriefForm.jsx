@@ -1,14 +1,16 @@
 import { useState, useRef } from 'react';
+import { ToastContainer, useToast } from './Toast';
 import './StructuredBriefForm.css';
 
 /**
  * Structured form for manual brief entry with validation
  * Allows users to upload images and enter specifications for each
  */
-function StructuredBriefForm({ onSubmit, uploading }) {
+function StructuredBriefForm({ onSubmit, uploading, onBack }) {
     const [projectName, setProjectName] = useState('');
     const [imageSpecs, setImageSpecs] = useState([createEmptySpec()]);
     const [validationErrors, setValidationErrors] = useState({});
+    const { toasts, removeToast, showWarning, showError, showInfo } = useToast();
 
     const fileInputRefs = useRef([]);
 
@@ -28,7 +30,7 @@ function StructuredBriefForm({ onSubmit, uploading }) {
 
     const addImageSpec = () => {
         if (imageSpecs.length >= 20) {
-            alert('Maximum 20 images per submission');
+            showWarning('Maximum 20 images per submission');
             return;
         }
         setImageSpecs([...imageSpecs, createEmptySpec()]);
@@ -37,7 +39,7 @@ function StructuredBriefForm({ onSubmit, uploading }) {
 
     const removeImageSpec = (index) => {
         if (imageSpecs.length === 1) {
-            alert('At least one image is required');
+            showWarning('At least one image is required');
             return;
         }
 
@@ -70,13 +72,13 @@ function StructuredBriefForm({ onSubmit, uploading }) {
         // Validate file
         const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
         if (!validTypes.includes(file.type)) {
-            alert('Only JPG and PNG images are allowed');
+            showError('Only JPG and PNG images are allowed');
             return;
         }
 
         const maxSize = 20 * 1024 * 1024; // 20MB
         if (file.size > maxSize) {
-            alert(`File "${file.name}" exceeds 20MB limit`);
+            showError(`File "${file.name}" exceeds 20MB limit`);
             return;
         }
 
@@ -114,28 +116,30 @@ function StructuredBriefForm({ onSubmit, uploading }) {
     const applyTitleToAll = () => {
         const firstTitle = imageSpecs[0].title;
         if (!firstTitle) {
-            alert('Please enter a title in the first image spec');
+            showInfo('Please enter a title in the first image spec');
             return;
         }
 
         const newSpecs = imageSpecs.map(spec => ({ ...spec, title: firstTitle }));
         setImageSpecs(newSpecs);
+        showInfo(`Applied title to all ${imageSpecs.length} images`);
     };
 
     const applySubtitleToAll = () => {
         const firstSubtitle = imageSpecs[0].subtitle;
         if (!firstSubtitle) {
-            alert('Please enter a subtitle in the first image spec');
+            showInfo('Please enter a subtitle in the first image spec');
             return;
         }
 
         const newSpecs = imageSpecs.map(spec => ({ ...spec, subtitle: firstSubtitle }));
         setImageSpecs(newSpecs);
+        showInfo(`Applied subtitle to all ${imageSpecs.length} images`);
     };
 
     const duplicateSpec = (index) => {
         if (imageSpecs.length >= 20) {
-            alert('Maximum 20 images per submission');
+            showWarning('Maximum 20 images per submission');
             return;
         }
 
@@ -194,7 +198,7 @@ function StructuredBriefForm({ onSubmit, uploading }) {
 
     const handleSubmit = () => {
         if (!validateForm()) {
-            alert('Please fix validation errors before submitting');
+            showError('Please fix validation errors before submitting');
             return;
         }
 
@@ -236,6 +240,12 @@ function StructuredBriefForm({ onSubmit, uploading }) {
 
     return (
         <div className="structured-brief-form">
+            <ToastContainer toasts={toasts} removeToast={removeToast} />
+            {onBack && (
+                <button className="back-button" onClick={onBack}>
+                    ← Change Method
+                </button>
+            )}
             <div className="form-header">
                 <h2>Structured Brief Form</h2>
                 <p>Fill out specifications for each image with real-time validation</p>

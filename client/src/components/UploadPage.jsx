@@ -304,28 +304,15 @@ function UploadPage({ onComplete }) {
           />
         ) : (
           <>
-            {/* Back button to change method */}
-            <div style={{ marginBottom: '24px' }}>
-              <button
-                className="button button-secondary"
-                onClick={() => {
-                  setSubmissionMethod(null);
-                  setPdfFile(null);
-                  setImages([]);
-                  setTextPrompt('');
-                  setError('');
-                }}
-                disabled={uploading}
-              >
-                ← Change Submission Method
-              </button>
-            </div>
-
             {/* Render selected method's interface */}
             {submissionMethod === 'form' && (
               <StructuredBriefForm
                 onSubmit={handleStructuredFormSubmit}
                 uploading={uploading}
+                onBack={() => {
+                  setSubmissionMethod(null);
+                  setError('');
+                }}
               />
             )}
 
@@ -333,11 +320,42 @@ function UploadPage({ onComplete }) {
               <PDFWithImagesPanel
                 onSubmit={handlePDFWithImagesSubmit}
                 uploading={uploading}
+                onBack={() => {
+                  setSubmissionMethod(null);
+                  setError('');
+                }}
               />
             )}
 
             {submissionMethod === 'document' && (
               <>
+                <button
+                  className="back-button"
+                  onClick={() => {
+                    setSubmissionMethod(null);
+                    setPdfFile(null);
+                    setImages([]);
+                    setTextPrompt('');
+                    setError('');
+                  }}
+                  disabled={uploading}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 20px',
+                    background: 'transparent',
+                    border: '2px solid #3A3A3A',
+                    color: '#B0B0B0',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    marginBottom: '24px'
+                  }}
+                >
+                  ← Change Method
+                </button>
                 <div className="brief-type-toggle">
                   <button
                     className={`toggle-btn ${briefType === 'pdf' ? 'active' : ''}`}
