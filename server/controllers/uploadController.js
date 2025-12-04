@@ -2302,7 +2302,7 @@ export async function confirmLogos(req, res) {
     console.log('[Confirm Logos] Processing confirmation for job:', jobId);
     console.log('[Confirm Logos] Confirmed specs count:', confirmedSpecs.length);
 
-    // Map logo IDs to proper logo names for the system
+    // Bidirectional logo mapping - accepts both IDs and display names
     const logoIdToName = {
       'intel-core': 'Intel Core',
       'intel-core-ultra': 'Intel Core Ultra',
@@ -2313,6 +2313,24 @@ export async function confirmLogos(req, res) {
       'icue-link': 'iCUE Link',
       'corsair': 'Corsair',
       'origin-pc': 'Origin PC'
+    };
+    
+    // Reverse mapping: display name -> ID (for validation)
+    const logoNameToId = Object.fromEntries(
+      Object.entries(logoIdToName).map(([id, name]) => [name, id])
+    );
+    
+    // Set of all valid names (both IDs and display names)
+    const validLogoValues = new Set([
+      ...Object.keys(logoIdToName),
+      ...Object.values(logoIdToName)
+    ]);
+    
+    // Normalize any logo input to canonical display name
+    const normalizeToDisplayName = (logo) => {
+      if (logoIdToName[logo]) return logoIdToName[logo]; // ID -> name
+      if (logoNameToId[logo]) return logo; // Already a display name
+      return null; // Unknown
     };
 
     // Build a map of confirmed specs by imageIndex for efficient lookup
@@ -2335,15 +2353,15 @@ export async function confirmLogos(req, res) {
       
       const selectedLogos = confirmedSpec.selectedLogos || [];
       
-      // Validate that all selected logos are known IDs
-      const validLogos = selectedLogos.filter(logoId => logoIdToName[logoId]);
-      if (validLogos.length !== selectedLogos.length) {
-        const unknownLogos = selectedLogos.filter(logoId => !logoIdToName[logoId]);
-        console.warn(`[Confirm Logos] Image ${idx + 1}: Unknown logo IDs ignored: ${unknownLogos.join(', ')}`);
-      }
+      // Normalize all inputs to canonical display names (handles both IDs and display names)
+      const logoNames = selectedLogos
+        .map(logo => normalizeToDisplayName(logo))
+        .filter(Boolean);
       
-      // Map valid IDs to canonical display names
-      const logoNames = validLogos.map(logoId => logoIdToName[logoId]);
+      if (logoNames.length !== selectedLogos.length) {
+        const unknownLogos = selectedLogos.filter(logo => !normalizeToDisplayName(logo));
+        console.warn(`[Confirm Logos] Image ${idx + 1}: Unknown logos ignored: ${unknownLogos.join(', ')}`);
+      }
       
       console.log(`[Confirm Logos] Image ${idx + 1} "${originalSpec.title}": ${logoNames.length} logos - ${logoNames.join(', ') || 'None'}`);
       

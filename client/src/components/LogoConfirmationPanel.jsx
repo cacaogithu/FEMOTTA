@@ -14,6 +14,19 @@ const AVAILABLE_LOGOS = [
   { id: 'origin-pc', name: 'Origin PC', path: '/api/logo-preview/origin-pc' }
 ];
 
+// ID to display name mapping - backend expects display names for logo resolution
+const ID_TO_NAME = {
+  'intel-core': 'Intel Core',
+  'intel-core-ultra': 'Intel Core Ultra',
+  'amd-ryzen': 'AMD Ryzen',
+  'nvidia': 'NVIDIA',
+  'nvidia-50-series': 'NVIDIA 50 Series',
+  'hydro-x': 'Hydro X',
+  'icue-link': 'iCUE Link',
+  'corsair': 'Corsair',
+  'origin-pc': 'Origin PC'
+};
+
 function LogoConfirmationPanel({ jobId, imageSpecs, images, onConfirm, onCancel }) {
   const [confirmedSpecs, setConfirmedSpecs] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -96,22 +109,28 @@ function LogoConfirmationPanel({ jobId, imageSpecs, images, onConfirm, onCancel 
     setError('');
 
     try {
+      // Convert IDs back to display names for backend (findLogoByName expects display names)
+      const payloadSpecs = confirmedSpecs.map(spec => ({
+        imageIndex: spec.imageIndex,
+        selectedLogos: (spec.selectedLogos || []).map(logoId => {
+          // Convert ID to display name, fallback to original if not found
+          return ID_TO_NAME[logoId] || logoId;
+        })
+      }));
+      
       console.log('[LogoConfirmation] Sending confirmation payload:', {
         jobId,
-        specCount: confirmedSpecs.length,
-        specs: confirmedSpecs.map(s => ({ index: s.imageIndex, logos: s.selectedLogos }))
+        specCount: payloadSpecs.length,
+        specs: payloadSpecs.map(s => ({ index: s.imageIndex, logos: s.selectedLogos }))
       });
       
-      // Only send logo selections, not full specs (server preserves its own fields)
+      // Send logo selections with display names for backend resolution
       const response = await authenticatedFetch('/api/upload/confirm-logos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobId,
-          confirmedSpecs: confirmedSpecs.map(spec => ({
-            imageIndex: spec.imageIndex,
-            selectedLogos: spec.selectedLogos
-          }))
+          confirmedSpecs: payloadSpecs
         })
       });
 
