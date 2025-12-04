@@ -13,12 +13,15 @@ import { saveLogoFromBase64 } from '../services/logoStorage.js';
 import { analyzeLogoPlacement, mergeLogoPlansIntoSpecs } from '../services/logoPlacementAnalyzer.js';
 import { analyzeImagesWithVision, mergeVisionPlansIntoSpecs } from '../services/visionLogoAnalyzer.js';
 import { validateStructuredBrief, validatePDFWithImages, sanitizeInput, generateDefaultPrompt } from '../utils/briefValidation.js';
+import { placeLogosWithAI } from '../services/aiLogoPlacement.js';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 import OpenAI from 'openai';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
 import sharp from 'sharp';
+
+const USE_AI_LOGO_PLACEMENT = process.env.USE_AI_LOGO_PLACEMENT !== 'false';
 
 /**
  * Expands multi-logo strings into individual logo names
@@ -1709,8 +1712,34 @@ async function processImagesWithGemini(jobId) {
       if (spec && spec.logo_requested === true && spec.logoBase64Array && spec.logoBase64Array.length > 0) {
         const logoNames = spec.logoBase64Array.map(l => l.name).join(', ');
         console.log(`[Logo] Applying ${spec.logoBase64Array.length} logo(s) to image ${i + 1}: ${logoNames}`);
-        // Pass AI-analyzed logo_plan if available for intelligent positioning
-        imageBuffer = await overlayMultipleLogos(imageBuffer, spec.logoBase64Array, spec.logo_plan || null);
+        
+        // Use AI-driven logo placement (multi-image input) or fall back to Sharp overlay
+        if (USE_AI_LOGO_PLACEMENT) {
+          console.log(`[Logo] Using AI-driven placement for intelligent logo positioning`);
+          try {
+            const imageDataUrl = editedImageUrl.startsWith('data:') 
+              ? editedImageUrl 
+              : `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+            
+            const aiResult = await placeLogosWithAI(imageDataUrl, spec.logoBase64Array, {
+              imageIndex: i,
+              position: spec.logo_plan?.position || 'bottom-left'
+            });
+            
+            // Convert AI result back to buffer
+            const aiMatches = aiResult.match(/^data:[^;]+;base64,(.+)$/);
+            if (aiMatches && aiMatches[1]) {
+              imageBuffer = Buffer.from(aiMatches[1], 'base64');
+              console.log(`[Logo] AI placement successful, output: ${Math.round(imageBuffer.length / 1024)}KB`);
+            }
+          } catch (aiError) {
+            console.warn(`[Logo] AI placement failed, falling back to Sharp overlay: ${aiError.message}`);
+            imageBuffer = await overlayMultipleLogos(imageBuffer, spec.logoBase64Array, spec.logo_plan || null);
+          }
+        } else {
+          // Use traditional Sharp overlay
+          imageBuffer = await overlayMultipleLogos(imageBuffer, spec.logoBase64Array, spec.logo_plan || null);
+        }
       }
 
       const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
