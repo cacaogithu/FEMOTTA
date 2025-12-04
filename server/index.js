@@ -24,6 +24,11 @@ import { storage } from './storage.js';
 
 dotenv.config();
 
+// Run database migration on startup
+runStartupMigration().catch(err => {
+  console.error('[Startup] Migration error:', err);
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

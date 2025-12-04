@@ -350,9 +350,9 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
     const result = await mammoth.convertToHtml({
       buffer: docxBuffer
     }, {
-      convertImage: mammoth.images.imgElement(function(image) {
+      convertImage: mammoth.images.imgElement(function (image) {
         // image.read() returns a Promise that resolves to the image buffer
-        return image.read("base64").then(function(imageBuffer) {
+        return image.read("base64").then(function (imageBuffer) {
           // Convert base64 string to Buffer
           const buffer = Buffer.from(imageBuffer, 'base64');
 
