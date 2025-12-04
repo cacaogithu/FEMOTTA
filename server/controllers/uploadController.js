@@ -568,67 +568,45 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
 
     console.log('[DOCX Extraction] ✓ All specs validated successfully');
 
-    // Separate product images from logo images based on INTERSPERSED pattern
-    // Pattern: [Product1, Product2, Logo2, Product3, Logo3, Logo3b, Product4...]
-    // Each product image is followed by its logo(s) if logo_requested=true
-    console.log('[DOCX Extraction] Pairing product images with their adjacent logos...');
-
+    // SIZE-BASED SEPARATION: Product images are LARGE (>50KB), logos are SMALL (<50KB)
+    // This is more reliable than assuming document order
+    const SIZE_THRESHOLD = 50 * 1024; // 50KB threshold
+    
+    console.log('[DOCX Extraction] Separating images by SIZE (threshold: 50KB)...');
+    
     const productImages = [];
-    const embeddedLogosForSpecs = []; // Logos extracted from document, paired by spec index
-    let imageIndex = 0;
-
-    for (let specIndex = 0; specIndex < imageSpecs.length; specIndex++) {
-      const spec = imageSpecs[specIndex];
-
-      // First image for this spec is the product image
-      if (imageIndex >= extractedImages.length) {
-        const errorMsg = `Missing product image for spec #${specIndex + 1} "${spec.title}". Expected image at position ${imageIndex} but only have ${extractedImages.length} images.`;
-        console.error(`[DOCX Extraction] ❌ ${errorMsg}`);
-        throw new Error(errorMsg);
+    const logoImages = [];
+    
+    extractedImages.forEach((img, idx) => {
+      const sizeKB = Math.round(img.size / 1024);
+      if (img.size >= SIZE_THRESHOLD) {
+        productImages.push({ ...img, originalIndex: idx });
+        console.log(`  Image ${idx + 1}: ${sizeKB}KB → PRODUCT IMAGE`);
+      } else {
+        logoImages.push({ ...img, originalIndex: idx });
+        console.log(`  Image ${idx + 1}: ${sizeKB}KB → LOGO (small file)`);
       }
-
-      const productImage = extractedImages[imageIndex];
-      productImages.push(productImage);
-      console.log(`  Spec #${specIndex + 1} "${spec.title}": Product image at position ${imageIndex}`);
-      imageIndex++;
-
-      // If this spec requests logos, the NEXT image(s) are the logos for this product
-      const logosForThisSpec = [];
-      if (spec.logo_requested === true && spec.logo_names && spec.logo_names.length > 0) {
-        const logoCount = spec.logo_names.length;
-        console.log(`    → Expects ${logoCount} logo(s):`, spec.logo_names);
-
-        for (let logoIdx = 0; logoIdx < logoCount; logoIdx++) {
-          if (imageIndex >= extractedImages.length) {
-            console.warn(`    ⚠ Missing embedded logo ${logoIdx + 1}/${logoCount} for "${spec.title}" at position ${imageIndex}`);
-            break;
-          }
-
-          const logoImage = extractedImages[imageIndex];
-          const base64Data = logoImage.buffer.toString('base64');
-          logosForThisSpec.push({
-            buffer: logoImage.buffer,
-            contentType: logoImage.contentType,
-            base64: `data:${logoImage.contentType};base64,${base64Data}`,
-            size: logoImage.size,
-            index: imageIndex,
-            associatedLogoName: spec.logo_names[logoIdx] || null
-          });
-          console.log(`    → Found embedded logo at position ${imageIndex} (for "${spec.logo_names[logoIdx]}")`);
-          imageIndex++;
-        }
-      }
-
-      embeddedLogosForSpecs.push(logosForThisSpec);
+    });
+    
+    console.log(`[DOCX Extraction] Separated: ${productImages.length} product images, ${logoImages.length} logos`);
+    
+    // Validate we have enough product images for specs
+    if (productImages.length < imageSpecs.length) {
+      console.warn(`[DOCX Extraction] ⚠ Only ${productImages.length} product images for ${imageSpecs.length} specs`);
     }
-
-    // Log summary
-    console.log(`[DOCX Extraction] ✓ Paired ${productImages.length} product images with their logos`);
-    console.log(`[DOCX Extraction] ✓ Used ${imageIndex}/${extractedImages.length} total images`);
-
-    if (imageIndex < extractedImages.length) {
-      console.warn(`[DOCX Extraction] ⚠ ${extractedImages.length - imageIndex} unused images at end of document (positions ${imageIndex}-${extractedImages.length - 1})`);
-    }
+    
+    // Create empty logos array for each spec (will be populated by intelligent matching later)
+    const embeddedLogosForSpecs = imageSpecs.map(() => []);
+    
+    // Convert logoImages to the format expected by intelligent matching
+    logoImages.forEach((logo, idx) => {
+      const base64Data = logo.buffer.toString('base64');
+      logo.base64 = `data:${logo.contentType};base64,${base64Data}`;
+    });
+    
+    console.log(`[DOCX Extraction] ✓ Product/logo separation complete`);
+    console.log(`[DOCX Extraction] Product images will be matched to specs by order (1:1)`);
+    console.log(`[DOCX Extraction] Logos will be matched using intelligent name matching`)
 
     // INTELLIGENT LOGO MATCHING - Support multiple logos per spec
     console.log('[DOCX Extraction] Starting intelligent logo matching (supports multiple logos per image)...');
