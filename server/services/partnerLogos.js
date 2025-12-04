@@ -59,6 +59,13 @@ const PARTNER_LOGOS = {
     localPath: 'assets/logos/icue-link.png',
     variants: {}
   },
+  'hydro x & icue link': {
+    name: 'Hydro X & iCUE Link',
+    keywords: ['hydro x & icue', 'hydro x & icue link', 'hydro-x & icue-link', 'hydro x icue', 'hydro x and icue'],
+    driveId: null,
+    localPath: 'assets/logos/hydro-x-icue-link.png',
+    variants: {}
+  },
   'corsair': {
     name: 'Corsair',
     keywords: ['corsair', 'corsair gaming'],
