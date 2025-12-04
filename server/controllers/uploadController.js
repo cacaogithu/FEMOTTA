@@ -1027,7 +1027,7 @@ export async function uploadPDF(req, res) {
       console.warn('[Upload Brief] Could not parse preset/folder settings:', parseErr.message);
     }
 
-    createJob({
+    await createJob({
       id: jobId,
       brandId: req.brand.id,
       brandSlug: req.brand.slug,
@@ -1043,7 +1043,7 @@ export async function uploadPDF(req, res) {
       driveDestinationFolderId: driveDestinationFolderId
     });
 
-    console.log('[Upload Brief] Job created:', jobId);
+    console.log('[Upload Brief] Job created and persisted:', jobId);
 
     // If we have images from DOCX, start processing immediately
     if (uploadedImages.length > 0) {
@@ -1650,7 +1650,7 @@ export async function uploadTextPrompt(req, res) {
     }
 
     const startTime = new Date();
-    createJob({
+    await createJob({
       id: jobId,
       brandId: req.brand.id,
       brandSlug: req.brand.slug,
