@@ -1,5 +1,16 @@
-import { pgTable, text, serial, timestamp, integer, boolean, jsonb } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { pgTable, text, serial, timestamp, integer, boolean, jsonb, varchar, index } from 'drizzle-orm/pg-core';
+import { relations, sql } from 'drizzle-orm';
+
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
 
 // Subaccounts (formerly brands) - CRM-style multi-tenant accounts
 export const brands = pgTable('brands', {
@@ -30,6 +41,9 @@ export const brands = pgTable('brands', {
 
   // API keys (encrypted in production)
   wavespeedApiKey: text('wavespeed_api_key'),
+  geminiApiKey: text('gemini_api_key'),
+  preferredImageApi: text('preferred_image_api').default('wavespeed'), // 'wavespeed' | 'gemini'
+  geminiImageModel: text('gemini_image_model').default('gemini-3-pro-image-preview'),
   openaiApiKey: text('openai_api_key'),
 
   // Brand-specific authentication (separate from admin)
@@ -54,14 +68,19 @@ export const brands = pgTable('brands', {
 // Users table - people who access the system
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  username: text('username').notNull().unique(),
+  replitId: varchar('replit_id').unique(),
+  email: text('email').unique(),
+  username: text('username').unique(),
   passwordHash: text('password_hash'),
-  role: text('role').notNull().default('user'), // 'admin', 'brand_admin', 'user'
+  firstName: varchar('first_name'),
+  lastName: varchar('last_name'),
+  profileImageUrl: varchar('profile_image_url'),
+  role: text('role').notNull().default('user'),
   brandId: integer('brand_id').references(() => brands.id),
 
   active: boolean('active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
   lastLoginAt: timestamp('last_login_at')
 });
 
@@ -78,11 +97,6 @@ export const jobs = pgTable('jobs', {
   briefFileId: text('brief_file_id'),
   promptText: text('prompt_text'), // Current editing prompt
   processingStep: text('processing_step'), // Current step description
-
-  // Brief submission tracking
-  briefType: text('brief_type'), // 'pdf', 'docx', 'structured_form', 'pdf_with_images', 'text_prompt'
-  projectName: text('project_name'), // User-provided project name
-  submissionMetadata: jsonb('submission_metadata'), // Additional metadata about submission
 
   // Processing metadata
   imageSpecs: jsonb('image_specs'),
@@ -242,6 +256,8 @@ export const subaccountUsageDaily = pgTable('subaccount_usage_daily', {
 
   // API usage
   wavespeedApiCalls: integer('wavespeed_api_calls').default(0),
+  geminiApiCalls: integer('gemini_api_calls').default(0),
+  geminiImageGenerations: integer('gemini_image_generations').default(0),
   openaiApiCalls: integer('openai_api_calls').default(0),
 
   // Cost tracking (in cents)

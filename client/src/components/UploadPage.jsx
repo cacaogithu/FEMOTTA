@@ -1,8 +1,26 @@
 import { useState, useRef } from 'react';
 import { authenticatedFetch, postFormData, postJSON } from '../utils/api';
-import BriefMethodSelector from './BriefMethodSelector';
-import StructuredBriefForm from './StructuredBriefForm';
+import marketplacePresets, { getPresetById, getPresetList } from '../config/marketplacePresets';
 import './UploadPage.css';
+
+const validateDriveFolderUrl = (url) => {
+  if (!url || url.trim() === '') return { valid: true, folderId: null };
+  
+  const patterns = [
+    /^https?:\/\/drive\.google\.com\/drive\/folders\/([a-zA-Z0-9_-]+)/,
+    /^https?:\/\/drive\.google\.com\/drive\/u\/\d+\/folders\/([a-zA-Z0-9_-]+)/,
+    /^([a-zA-Z0-9_-]{25,}$)/
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.trim().match(pattern);
+    if (match) {
+      return { valid: true, folderId: match[1] };
+    }
+  }
+  
+  return { valid: false, folderId: null };
+};
 
 function UploadPage({ onComplete }) {
   // Method selection: null = not selected, 'document', 'pdf-images', 'form'
@@ -15,7 +33,11 @@ function UploadPage({ onComplete }) {
   const [images, setImages] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-
+  
+  const [selectedPreset, setSelectedPreset] = useState('default');
+  const [driveDestinationUrl, setDriveDestinationUrl] = useState('');
+  const [driveUrlError, setDriveUrlError] = useState('');
+  
   const pdfInputRef = useRef(null);
   const imagesInputRef = useRef(null);
 
@@ -85,58 +107,56 @@ function UploadPage({ onComplete }) {
     setImages(images.filter((_, i) => i !== index));
   };
 
-  const handleStructuredFormSubmit = async (formData) => {
-    setUploading(true);
-    setError('');
-
-    try {
-      // Create FormData for multipart upload
-      const multipartData = new FormData();
-      multipartData.append('projectName', formData.projectName);
-      multipartData.append('imageSpecs', JSON.stringify(formData.imageSpecs));
-
-      // Append images
-      formData.images.forEach(image => {
-        multipartData.append('images', image);
-      });
-
-      // Submit to API
-      const response = await postFormData('/api/upload/structured-brief', multipartData);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details?.join(', ') || errorData.error || 'Submission failed');
+  const handleDriveUrlChange = (e) => {
+    const url = e.target.value;
+    setDriveDestinationUrl(url);
+    
+    if (url.trim()) {
+      const validation = validateDriveFolderUrl(url);
+      if (!validation.valid) {
+        setDriveUrlError('Invalid Google Drive folder URL. Use format: https://drive.google.com/drive/folders/...');
+      } else {
+        setDriveUrlError('');
       }
-
-      const data = await response.json();
-      onComplete(data.jobId);
-
-    } catch (err) {
-      console.error('Structured form submission error:', err);
-      setError(err.message || 'Submission failed. Please try again.');
-      setUploading(false);
+    } else {
+      setDriveUrlError('');
     }
   };
 
   const handleSubmit = async () => {
-    // For DOCX, images are optional (will use embedded images)
     const isDOCX = pdfFile && pdfFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
     if (!isDOCX && images.length === 0) return;
     if (briefType === 'pdf' && !pdfFile) return;
     if (briefType === 'text' && !textPrompt.trim()) return;
-
+    
+    if (driveDestinationUrl.trim()) {
+      const validation = validateDriveFolderUrl(driveDestinationUrl);
+      if (!validation.valid) {
+        setError('Please enter a valid Google Drive folder URL');
+        return;
+      }
+    }
+    
     setUploading(true);
     setError('');
 
     try {
       let jobId;
       let pdfData, textData;
-
+      
+      const preset = getPresetById(selectedPreset);
+      const driveValidation = validateDriveFolderUrl(driveDestinationUrl);
+      const customFolderId = driveValidation.folderId;
+      
       if (briefType === 'pdf') {
         const pdfFormData = new FormData();
         pdfFormData.append('pdf', pdfFile);
-
+        pdfFormData.append('marketplacePreset', JSON.stringify(preset));
+        if (customFolderId) {
+          pdfFormData.append('driveDestinationFolderId', customFolderId);
+        }
+        
         const pdfResponse = await postFormData('/api/upload/pdf', pdfFormData);
 
         if (!pdfResponse.ok) {
@@ -147,8 +167,12 @@ function UploadPage({ onComplete }) {
         pdfData = await pdfResponse.json();
         jobId = pdfData.jobId;
       } else {
-        const textResponse = await postJSON('/api/upload/text-prompt', { prompt: textPrompt });
-
+        const textResponse = await postJSON('/api/upload/text-prompt', { 
+          prompt: textPrompt,
+          marketplacePreset: preset,
+          driveDestinationFolderId: customFolderId
+        });
+        
         if (!textResponse.ok) {
           const errorData = await textResponse.json();
           throw new Error(errorData.error || errorData.details || 'Prompt upload failed');
@@ -158,11 +182,9 @@ function UploadPage({ onComplete }) {
         jobId = textData.jobId;
       }
 
-      // Check if this was a DOCX with embedded images
       const responseData = briefType === 'pdf' ? pdfData : textData;
       const hasEmbeddedImages = responseData?.embeddedImageCount > 0;
-
-      // Only upload separate images if we have them and didn't get embedded ones
+      
       if (images.length > 0 && !hasEmbeddedImages) {
         const imagesFormData = new FormData();
         images.forEach(image => {
@@ -375,40 +397,82 @@ function UploadPage({ onComplete }) {
                       )}
                     </div>
                   </div>
-                </div>
+                </>
+              ) : (
+                <>
+                  <h3>Upload Product Images</h3>
+                  <p>Drag & drop or click to browse</p>
+                  <span className="hint">JPG, PNG - Max 20MB each</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
 
-                {error && <div className="error-message">{error}</div>}
+        <div className="settings-panel">
+          <h3 className="settings-title">Output Settings</h3>
+          
+          <div className="settings-row">
+            <div className="setting-field">
+              <label htmlFor="marketplace-preset">Marketplace Preset</label>
+              <select
+                id="marketplace-preset"
+                className="preset-select"
+                value={selectedPreset}
+                onChange={(e) => setSelectedPreset(e.target.value)}
+              >
+                {getPresetList().map(preset => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.name}
+                  </option>
+                ))}
+              </select>
+              {selectedPreset !== 'default' && (
+                <span className="preset-info">
+                  {getPresetById(selectedPreset).description}
+                </span>
+              )}
+            </div>
+            
+            <div className="setting-field">
+              <label htmlFor="drive-destination">
+                Drive Destination Folder
+                <span className="optional-badge">Optional</span>
+              </label>
+              <input
+                id="drive-destination"
+                type="text"
+                className={`drive-url-input ${driveUrlError ? 'error' : ''}`}
+                placeholder="https://drive.google.com/drive/folders/..."
+                value={driveDestinationUrl}
+                onChange={handleDriveUrlChange}
+              />
+              {driveUrlError && (
+                <span className="field-error">{driveUrlError}</span>
+              )}
+              <span className="field-hint">
+                Leave empty to use default folder. Paste a Google Drive folder URL to save outputs there.
+              </span>
+            </div>
+          </div>
+        </div>
 
-                <button
-                  className="button button-primary submit-button"
-                  onClick={handleSubmit}
-                  disabled={!canSubmit}
-                >
-                  {uploading ? (
-                    <>
-                      <span className="spinner"></span>
-                      Uploading...
-                    </>
-                  ) : (
-                    'Start AI Editing'
-                  )}
-                </button>
-              </>
-            )}
+        {error && <div className="error-message">{error}</div>}
 
-            {submissionMethod === 'pdf-images' && (
-              <div className="coming-soon">
-                <h2>PDF + Images</h2>
-                <p>This method is coming soon! For now, please use the Structured Form or Document Brief method.</p>
-                <p className="hint">The PDF + Images method will allow you to upload a PDF brief with separate high-resolution images.</p>
-              </div>
-            )}
-
-            {error && submissionMethod !== 'document' && (
-              <div className="error-message">{error}</div>
-            )}
-          </>
-        )}
+        <button 
+          className="button button-primary submit-button"
+          onClick={handleSubmit}
+          disabled={!canSubmit || !!driveUrlError}
+        >
+          {uploading ? (
+            <>
+              <span className="spinner"></span>
+              Uploading...
+            </>
+          ) : (
+            'Start AI Editing'
+          )}
+        </button>
       </div>
     </div>
   );

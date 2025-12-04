@@ -6,9 +6,14 @@ const CORSAIR_FOLDER_ID = '17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB';
 
 export async function pollResults(req, res) {
   try {
+    // Disable caching to ensure real-time updates (especially for re-edits)
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     const { jobId } = req.params;
     
-    const job = getJob(jobId);
+    const job = await getJob(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -36,7 +41,9 @@ export async function pollResults(req, res) {
       return res.json({ 
         status: 'completed',
         jobId: jobId,
-        images: job.editedImages,
+        results: {
+          images: job.editedImages
+        },
         workflowSteps: job.workflowSteps || []
       });
     }
@@ -59,7 +66,7 @@ export async function downloadAll(req, res) {
   try {
     const { jobId } = req.params;
     
-    const job = getJob(jobId);
+    const job = await getJob(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }

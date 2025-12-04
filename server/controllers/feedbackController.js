@@ -9,7 +9,7 @@ export async function submitFeedback(req, res) {
       return res.status(400).json({ error: 'Job ID and rating are required' });
     }
 
-    const job = getJob(jobId);
+    const job = await getJob(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }

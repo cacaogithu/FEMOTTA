@@ -3,23 +3,28 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import UploadPage from './components/UploadPage';
 import ProcessingPage from './components/ProcessingPage';
 import ResultsPage from './components/ResultsPage';
+import HistoryPanel from './components/HistoryPanel';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import BrandForm from './pages/admin/BrandForm';
 import SubaccountDetail from './pages/admin/SubaccountDetail';
 import BrandLogin from './pages/BrandLogin';
+import UserLogin from './pages/UserLogin';
+import UserRegister from './pages/UserRegister';
 import ProtectedRoute from './components/ProtectedRoute';
+import UserProtectedRoute from './components/UserProtectedRoute';
+import LogoutButton from './components/LogoutButton';
 import { brandService } from './services/brandService';
 import './App.css';
 
 function MainApp() {
   const [page, setPage] = useState('upload');
+  const [activeTab, setActiveTab] = useState('editor');
   const [jobId, setJobId] = useState(null);
   const [results, setResults] = useState(null);
   const [brandLoaded, setBrandLoaded] = useState(false);
 
   useEffect(() => {
-    // Load brand configuration on app initialization
     async function initializeBrand() {
       const brand = await brandService.loadBrandConfig();
       brandService.applyBrandTheming(brand);
@@ -44,6 +49,13 @@ function MainApp() {
     setResults(null);
   };
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'editor') {
+      handleReset();
+    }
+  };
+
   if (!brandLoaded) {
     return (
       <div className="app loading-brand">
@@ -54,14 +66,39 @@ function MainApp() {
 
   return (
     <div className="app">
-      {page === 'upload' && (
-        <UploadPage onComplete={handleUploadComplete} />
+      <LogoutButton />
+      
+      <nav className="main-nav">
+        <button 
+          className={`nav-tab ${activeTab === 'editor' ? 'active' : ''}`}
+          onClick={() => handleTabChange('editor')}
+        >
+          Editor
+        </button>
+        <button 
+          className={`nav-tab ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => handleTabChange('history')}
+        >
+          History
+        </button>
+      </nav>
+
+      {activeTab === 'editor' && (
+        <>
+          {page === 'upload' && (
+            <UploadPage onComplete={handleUploadComplete} />
+          )}
+          {page === 'processing' && (
+            <ProcessingPage jobId={jobId} onComplete={handleProcessingComplete} />
+          )}
+          {page === 'results' && (
+            <ResultsPage results={results} onReset={handleReset} jobId={jobId} />
+          )}
+        </>
       )}
-      {page === 'processing' && (
-        <ProcessingPage jobId={jobId} onComplete={handleProcessingComplete} />
-      )}
-      {page === 'results' && (
-        <ResultsPage results={results} onReset={handleReset} jobId={jobId} />
+
+      {activeTab === 'history' && (
+        <HistoryPanel />
       )}
     </div>
   );
@@ -70,8 +107,27 @@ function MainApp() {
 function App() {
   return (
     <Routes>
-      {/* Main application routes */}
-      <Route path="/" element={<MainApp />} />
+      {/* Public routes */}
+      <Route path="/login" element={<UserLogin />} />
+      <Route path="/register" element={<UserRegister />} />
+      
+      {/* Main application routes - Protected */}
+      <Route 
+        path="/" 
+        element={
+          <UserProtectedRoute>
+            <MainApp />
+          </UserProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/editor" 
+        element={
+          <UserProtectedRoute>
+            <MainApp />
+          </UserProtectedRoute>
+        } 
+      />
       
       {/* Brand-specific login routes */}
       <Route path="/:brandSlug/login" element={<BrandLogin />} />
@@ -111,8 +167,8 @@ function App() {
         }
       />
       
-      {/* Catch all - redirect to home */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Catch all - redirect to login */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

@@ -1,0 +1,275 @@
+{
+  "jobId": "job_1764821010882",
+  "brandId": 1,
+  "archivedAt": "2025-12-04T04:05:22.583Z",
+  "briefText": null,
+  "promptText": null,
+  "inputImages": [
+    {
+      "name": "docx_image_1.jpeg",
+      "driveId": "1mmedsOCTHeSySWe9wbRxaDaQlsvphxSp",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1mmedsOCTHeSySWe9wbRxaDaQlsvphxSp"
+    },
+    {
+      "name": "docx_image_2.jpeg",
+      "driveId": "14VKeWA45lzaG5h6riF-E4HI1K2IxolqK",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=14VKeWA45lzaG5h6riF-E4HI1K2IxolqK"
+    },
+    {
+      "name": "docx_image_3.jpeg",
+      "driveId": "1R3s26cDeYOtw_N9vb465NXdw3GgrLKGY",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1R3s26cDeYOtw_N9vb465NXdw3GgrLKGY"
+    },
+    {
+      "name": "docx_image_4.jpeg",
+      "driveId": "1EIIl4BIQ-yX3yL3LBskLUJ_IJCNIWYon",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1EIIl4BIQ-yX3yL3LBskLUJ_IJCNIWYon"
+    },
+    {
+      "name": "docx_image_5.jpeg",
+      "driveId": "1KM-TXGukSncAqi1zVjCgjWvlqU5jCfcJ",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1KM-TXGukSncAqi1zVjCgjWvlqU5jCfcJ"
+    },
+    {
+      "name": "docx_image_6.jpeg",
+      "driveId": "1PU79qgVhnBnTz9ySZcDYaK3rAKNGtEb7",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1PU79qgVhnBnTz9ySZcDYaK3rAKNGtEb7"
+    },
+    {
+      "name": "docx_image_7.jpeg",
+      "driveId": "1T-ZUfkSX8D7s2HXzFxzmOmtRyXTL-iJs",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1T-ZUfkSX8D7s2HXzFxzmOmtRyXTL-iJs"
+    },
+    {
+      "name": "docx_image_8.jpeg",
+      "driveId": "1MP0uMfMP_HKr4RKKJoIwfPYltEphlC_N",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1MP0uMfMP_HKr4RKKJoIwfPYltEphlC_N"
+    },
+    {
+      "name": "docx_image_9.jpeg",
+      "driveId": "1zqntRhXuzulE6QBDnmcly9bfISXDBRNQ",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1zqntRhXuzulE6QBDnmcly9bfISXDBRNQ"
+    }
+  ],
+  "editedImages": [
+    {
+      "name": "docx_image_1_edited.jpg",
+      "driveId": "1sEFFqqNNUvo_vLRjhOz6fW0VMxUKOOz-",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1sEFFqqNNUvo_vLRjhOz6fW0VMxUKOOz-",
+      "title": "ARACHNID",
+      "subtitle": "We didn’t just think “outside the box”; we got rid of the “box” altogether."
+    },
+    {
+      "name": "docx_image_2_edited.jpg",
+      "driveId": "1Nfmlem55vUUbOt3ogQfTQaepfvxa7gWp",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1Nfmlem55vUUbOt3ogQfTQaepfvxa7gWp",
+      "title": "DUAL LIQUID COOLING",
+      "subtitle": "High-performance pumps for both CPU and GPU keep temperatures in check, extending the longevity of your components."
+    },
+    {
+      "name": "docx_image_3_edited.jpg",
+      "driveId": "1hRbTLMRo8mtBMcbkFIBAuvIuF-ARqIkM",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1hRbTLMRo8mtBMcbkFIBAuvIuF-ARqIkM",
+      "title": "CASE SPECIFICATIONS",
+      "subtitle": "Length 21.50 in\nWidth 16 in\nHeight 27 in\nWeight (empty chassis)\n27.2 lbs"
+    },
+    {
+      "name": "docx_image_4_edited.jpg",
+      "driveId": "1KdZ0kFcjqghac_Akp0VeEd_B4ugNMqao",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1KdZ0kFcjqghac_Akp0VeEd_B4ugNMqao",
+      "title": "THE FRONT I/O PANEL",
+      "subtitle": "It’s designed for convenient access to essential connectivity and control features."
+    },
+    {
+      "name": "docx_image_5_edited.jpg",
+      "driveId": "1KC__hrIbc4WWS--sp6UBVdUb3HvkRorI",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1KC__hrIbc4WWS--sp6UBVdUb3HvkRorI",
+      "title": "INTEL CORE",
+      "subtitle": "Intel® Core™"
+    },
+    {
+      "name": "docx_image_6_edited.jpg",
+      "driveId": "1wZfW8E4EmEPWfJjdVzXbBMdqVDQmLLL2",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1wZfW8E4EmEPWfJjdVzXbBMdqVDQmLLL2",
+      "title": "INTEL CORE ULTRA",
+      "subtitle": "Intel® Core™ Ultra"
+    },
+    {
+      "name": "docx_image_7_edited.jpg",
+      "driveId": "1CMcmAMug5DZQR3mg23Vxv4EpZISF9KEj",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1CMcmAMug5DZQR3mg23Vxv4EpZISF9KEj",
+      "title": "AMD",
+      "subtitle": "AMD Ryzen 9000-series"
+    },
+    {
+      "name": "docx_image_8_edited.jpg",
+      "driveId": "1_pB365Quu4TL6V-sxMjoMRw6SRnEihF1",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1_pB365Quu4TL6V-sxMjoMRw6SRnEihF1",
+      "title": "LIQUID-COOLED NVIDIA 5090 GPU",
+      "subtitle": null
+    },
+    {
+      "name": "docx_image_9_edited.jpg",
+      "driveId": "1Eos1bpuFW9NMY1uTD9irU2G7suHUiiLu",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1Eos1bpuFW9NMY1uTD9irU2G7suHUiiLu",
+      "title": "ARACHNID",
+      "subtitle": "We didn’t just think “outside the box”; we got rid of the “box” altogether."
+    }
+  ],
+  "imageSpecs": [
+    {
+      "asset": "Arachnid Enviromental Studio-3.jpg",
+      "title": "ARACHNID",
+      "variant": null,
+      "subtitle": "We didn’t just think “outside the box”; we got rid of the “box” altogether.",
+      "ai_prompt": "CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.\n\nAdd a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.\n\nOverlay the title 'ARACHNID' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:\n- UPPERCASE white letters\n- Positioned near the top left corner\n- Bold weight\n- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters\n\nBelow the title, add the subtitle 'We didn’t just think “outside the box”; we got rid of the “box” altogether.' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:\n- Smaller than the title\n- White text with subtle drop shadow for readability\n- Same geometric Saira font family as title\n\nABSOLUTE REQUIREMENTS:\n1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements\n2. ONLY add: subtle top gradient + title text + subtitle text\n3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)\n4. All text must be white with subtle shadow\n5. Professional marketing aesthetic - minimal and clean",
+      "logo_names": [],
+      "image_number": 1,
+      "logo_requested": false,
+      "logoBase64Array": [],
+      "matchedPartnerLogos": []
+    },
+    {
+      "asset": "images - BCAM6277.jpg",
+      "title": "DUAL LIQUID COOLING",
+      "variant": null,
+      "subtitle": "High-performance pumps for both CPU and GPU keep temperatures in check, extending the longevity of your components.",
+      "ai_prompt": "CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.\n\nAdd a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.\n\nOverlay the title 'DUAL LIQUID COOLING' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:\n- UPPERCASE white letters\n- Positioned near the top left corner\n- Bold weight\n- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters\n\nBelow the title, add the subtitle 'High-performance pumps for both CPU and GPU keep temperatures in check, extending the longevity of your components.' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:\n- Smaller than the title\n- White text with subtle drop shadow for readability\n- Same geometric Saira font family as title\n\nABSOLUTE REQUIREMENTS:\n1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements\n2. ONLY add: subtle top gradient + title text + subtitle text\n3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)\n4. All text must be white with subtle shadow\n5. Professional marketing aesthetic - minimal and clean",
+      "logo_names": [
+        "Hydro X & iCUE Link"
+      ],
+      "image_number": 2,
+      "logo_requested": true,
+      "logoBase64Array": [],
+      "matchedPartnerLogos": [
+        {
+          "key": "hydro x & icue link",
+          "name": "Hydro X & iCUE Link",
+          "driveId": null,
+          "localPath": "assets/logos/hydro-x-icue-link.png",
+          "matchScore": 100
+        }
+      ]
+    },
+    {
+      "asset": "DSC00631.jpg",
+      "title": "CASE SPECIFICATIONS",
+      "variant": null,
+      "subtitle": "Length 21.50 in\nWidth 16 in\nHeight 27 in\nWeight (empty chassis)\n27.2 lbs",
+      "ai_prompt": "CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.\n\nAdd a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.\n\nOverlay the title 'CASE SPECIFICATIONS' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:\n- UPPERCASE white letters\n- Positioned near the top left corner\n- Bold weight\n- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters\n\nBelow the title, add the subtitle 'Length 21.50 in\nWidth 16 in\nHeight 27 in\nWeight (empty chassis)\n27.2 lbs' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:\n- Smaller than the title\n- White text with subtle drop shadow for readability\n- Same geometric Saira font family as title\n\nABSOLUTE REQUIREMENTS:\n1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements\n2. ONLY add: subtle top gradient + title text + subtitle text\n3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)\n4. All text must be white with subtle shadow\n5. Professional marketing aesthetic - minimal and clean",
+      "logo_names": [],
+      "image_number": 3,
+      "logo_requested": false,
+      "logoBase64Array": [],
+      "matchedPartnerLogos": []
+    },
+    {
+      "asset": "DSC00606.jpg",
+      "title": "THE FRONT I/O PANEL",
+      "variant": null,
+      "subtitle": "It’s designed for convenient access to essential connectivity and control features.",
+      "ai_prompt": "CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.\n\nAdd a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.\n\nOverlay the title 'THE FRONT I/O PANEL' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:\n- UPPERCASE white letters\n- Positioned near the top left corner\n- Bold weight\n- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters\n\nBelow the title, add the subtitle 'It’s designed for convenient access to essential connectivity and control features.' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:\n- Smaller than the title\n- White text with subtle drop shadow for readability\n- Same geometric Saira font family as title\n\nABSOLUTE REQUIREMENTS:\n1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements\n2. ONLY add: subtle top gradient + title text + subtitle text\n3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)\n4. All text must be white with subtle shadow\n5. Professional marketing aesthetic - minimal and clean",
+      "logo_names": [],
+      "image_number": 4,
+      "logo_requested": false,
+      "logoBase64Array": [],
+      "matchedPartnerLogos": []
+    },
+    {
+      "asset": "DSC00655.jpg",
+      "title": "INTEL CORE",
+      "variant": null,
+      "subtitle": "Intel® Core™",
+      "ai_prompt": "CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.\n\nAdd a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.\n\nOverlay the title 'INTEL CORE' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:\n- UPPERCASE white letters\n- Positioned near the top left corner\n- Bold weight\n- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters\n\nBelow the title, add the subtitle 'Intel® Core™' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:\n- Smaller than the title\n- White text with subtle drop shadow for readability\n- Same geometric Saira font family as title\n\nABSOLUTE REQUIREMENTS:\n1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements\n2. ONLY add: subtle top gradient + title text + subtitle text\n3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)\n4. All text must be white with subtle shadow\n5. Professional marketing aesthetic - minimal and clean",
+      "logo_names": [
+        "Intel Core"
+      ],
+      "image_number": 5,
+      "logo_requested": true,
+      "logoBase64Array": [],
+      "matchedPartnerLogos": [
+        {
+          "key": "intel core",
+          "name": "Intel Core",
+          "driveId": null,
+          "localPath": "assets/logos/intel-core.png",
+          "matchScore": 100
+        }
+      ]
+    },
+    {
+      "asset": "DSC00655.jpg",
+      "title": "INTEL CORE ULTRA",
+      "variant": null,
+      "subtitle": "Intel® Core™ Ultra",
+      "ai_prompt": "CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.\n\nAdd a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.\n\nOverlay the title 'INTEL CORE ULTRA' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:\n- UPPERCASE white letters\n- Positioned near the top left corner\n- Bold weight\n- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters\n\nBelow the title, add the subtitle 'Intel® Core™ Ultra' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:\n- Smaller than the title\n- White text with subtle drop shadow for readability\n- Same geometric Saira font family as title\n\nABSOLUTE REQUIREMENTS:\n1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements\n2. ONLY add: subtle top gradient + title text + subtitle text\n3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)\n4. All text must be white with subtle shadow\n5. Professional marketing aesthetic - minimal and clean",
+      "logo_names": [
+        "Intel Core Ultra"
+      ],
+      "image_number": 6,
+      "logo_requested": true,
+      "logoBase64Array": [],
+      "matchedPartnerLogos": [
+        {
+          "key": "intel core ultra",
+          "name": "Intel Core Ultra",
+          "driveId": null,
+          "localPath": "assets/logos/intel-core-ultra.png",
+          "matchScore": 100
+        }
+      ]
+    },
+    {
+      "asset": "DSC00655.jpg",
+      "title": "AMD",
+      "variant": null,
+      "subtitle": "AMD Ryzen 9000-series",
+      "ai_prompt": "CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.\n\nAdd a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.\n\nOverlay the title 'AMD' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:\n- UPPERCASE white letters\n- Positioned near the top left corner\n- Bold weight\n- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters\n\nBelow the title, add the subtitle 'AMD Ryzen 9000-series' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:\n- Smaller than the title\n- White text with subtle drop shadow for readability\n- Same geometric Saira font family as title\n\nABSOLUTE REQUIREMENTS:\n1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements\n2. ONLY add: subtle top gradient + title text + subtitle text\n3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)\n4. All text must be white with subtle shadow\n5. Professional marketing aesthetic - minimal and clean",
+      "logo_names": [
+        "AMD Ryzen"
+      ],
+      "image_number": 7,
+      "logo_requested": true,
+      "logoBase64Array": [],
+      "matchedPartnerLogos": [
+        {
+          "key": "amd ryzen",
+          "name": "AMD Ryzen",
+          "driveId": null,
+          "localPath": "assets/logos/amd-ryzen.png",
+          "matchScore": 100
+        }
+      ]
+    },
+    {
+      "asset": "DSC00646.jpg",
+      "title": "LIQUID-COOLED NVIDIA 5090 GPU",
+      "variant": null,
+      "subtitle": "",
+      "ai_prompt": "CRITICAL: DO NOT modify, replace, or regenerate the original image content. The product, background, colors, lighting, and all visual elements MUST remain 100% unchanged. ONLY add text overlays on top of the existing image.\n\nAdd a very subtle dark gradient at the top edge only (approximately top 15% of image) that fades to fully transparent. This gradient should be barely visible - just enough to improve text readability.\n\nOverlay the title 'LIQUID-COOLED NVIDIA 5090 GPU' using the Saira Bold font (geometric sans-serif with sharp, modern letterforms). The title must be:\n- UPPERCASE white letters\n- Positioned near the top left corner\n- Bold weight\n- Example style: 'MILLENNIUM' or 'CORSAIR ONE' - clean geometric letters\n\nBelow the title, add the subtitle '' using Saira Regular font (same geometric sans-serif family, lighter weight). The subtitle must be:\n- Smaller than the title\n- White text with subtle drop shadow for readability\n- Same geometric Saira font family as title\n\nABSOLUTE REQUIREMENTS:\n1. The original product image MUST remain completely untouched - no modifications to colors, lighting, composition, or any visual elements\n2. ONLY add: subtle top gradient + title text + subtitle text\n3. Use ONLY Saira font family (geometric sans-serif with distinctive angular terminals)\n4. All text must be white with subtle shadow\n5. Professional marketing aesthetic - minimal and clean",
+      "logo_names": [
+        "NVIDIA 50 Series"
+      ],
+      "image_number": 8,
+      "logo_requested": true,
+      "logoBase64Array": [],
+      "matchedPartnerLogos": [
+        {
+          "key": "nvidia 50 series",
+          "name": "NVIDIA 50 Series",
+          "driveId": null,
+          "localPath": "assets/logos/nvidia-50-series.png",
+          "matchScore": 100
+        }
+      ]
+    }
+  ],
+  "timestamps": {
+    "started": "2025-12-04T04:04:30.056Z",
+    "completed": "2025-12-04T04:05:22.584Z"
+  },
+  "metrics": {
+    "processingTimeSeconds": null,
+    "estimatedManualTimeMinutes": null
+  }
+}

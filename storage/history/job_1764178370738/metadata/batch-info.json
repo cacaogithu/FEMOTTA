@@ -1,0 +1,202 @@
+{
+  "jobId": "job_1764178370738",
+  "brandId": 1,
+  "brandSlug": "corsair",
+  "archivedAt": "2025-11-26T17:35:48.402Z",
+  "inputImages": [
+    {
+      "name": "docx_image_1.jpeg",
+      "driveId": "1NtomQi_yYQCE3wfCFsQzIL3vGPV56FYM",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1NtomQi_yYQCE3wfCFsQzIL3vGPV56FYM"
+    },
+    {
+      "name": "docx_image_2.jpeg",
+      "driveId": "1ZwuHH0P4dwUxpei5GUlVVIAVCWlQZyv-",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1ZwuHH0P4dwUxpei5GUlVVIAVCWlQZyv-"
+    },
+    {
+      "name": "docx_image_3.jpeg",
+      "driveId": "1_izkXZQx9VsOnjL0PZcRgFRdoUeENo9G",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1_izkXZQx9VsOnjL0PZcRgFRdoUeENo9G"
+    },
+    {
+      "name": "docx_image_4.jpeg",
+      "driveId": "1xijhCZx7AoJmD8BElN3cS4pqhhG8GvcK",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1xijhCZx7AoJmD8BElN3cS4pqhhG8GvcK"
+    },
+    {
+      "name": "docx_image_5.jpeg",
+      "driveId": "1HNVDKu7RbGKY60MRLVWvx_nuOVit6TCE",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1HNVDKu7RbGKY60MRLVWvx_nuOVit6TCE"
+    },
+    {
+      "name": "docx_image_6.jpeg",
+      "driveId": "1anY3WLYTiCL7g4TBSF41Fq3CdkuC2_MJ",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1anY3WLYTiCL7g4TBSF41Fq3CdkuC2_MJ"
+    },
+    {
+      "name": "docx_image_7.jpeg",
+      "driveId": "1En9mVpHOQkaoJwTuYlnMdhulQdjHF2nb",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1En9mVpHOQkaoJwTuYlnMdhulQdjHF2nb"
+    },
+    {
+      "name": "docx_image_8.jpeg",
+      "driveId": "1U3IKmEt9DkQFmsi69ytYZPLwv39oxJRa",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1U3IKmEt9DkQFmsi69ytYZPLwv39oxJRa"
+    }
+  ],
+  "editedImages": [
+    {
+      "name": "docx_image_1_edited.jpg",
+      "driveId": "1wi8HL2dp6Xaz7cYg53EFfHJtp2C0iUNU",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1wi8HL2dp6Xaz7cYg53EFfHJtp2C0iUNU"
+    },
+    {
+      "name": "docx_image_2_edited.jpg",
+      "driveId": "1XGTqCFcwhClGrdUkK_gjhkrPEv_93B_A",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1XGTqCFcwhClGrdUkK_gjhkrPEv_93B_A"
+    },
+    {
+      "name": "docx_image_3_edited.jpg",
+      "driveId": "1tpKC5J9xgEec4jVBbQCKD8EJXJPy6eIu",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1tpKC5J9xgEec4jVBbQCKD8EJXJPy6eIu"
+    },
+    {
+      "name": "docx_image_4_edited.jpg",
+      "driveId": "1e365Numk5zEe53wj07enm5B_HkeAwZkY",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1e365Numk5zEe53wj07enm5B_HkeAwZkY"
+    },
+    {
+      "name": "docx_image_5_edited.jpg",
+      "driveId": "1X4NfK0nDZRKcTGtb1edgAU3eI1V-faOU",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1X4NfK0nDZRKcTGtb1edgAU3eI1V-faOU"
+    },
+    {
+      "name": "docx_image_6_edited.jpg",
+      "driveId": "1N38e9zs4dlBrH9PfMHRdD-dmaSgneQIo",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1N38e9zs4dlBrH9PfMHRdD-dmaSgneQIo"
+    },
+    {
+      "name": "docx_image_7_edited.jpg",
+      "driveId": "1qypCbJ0h3-sLWpmSjdY_o9bmYED0F_Ok",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1qypCbJ0h3-sLWpmSjdY_o9bmYED0F_Ok"
+    },
+    {
+      "name": "docx_image_8_edited.jpg",
+      "driveId": "1nrufkdJnEiP4ZAeJDu75w9Q6Am5kIWNZ",
+      "publicUrl": "https://drive.google.com/uc?export=view&id=1nrufkdJnEiP4ZAeJDu75w9Q6Am5kIWNZ"
+    }
+  ],
+  "imageSpecs": [
+    {
+      "image_number": 1,
+      "variant": null,
+      "title": "ARACHNID",
+      "subtitle": "We didn’t just think “outside the box”; we got rid of the “box” altogether.",
+      "asset": "Arachnid Enviromental Studio-3.jpg",
+      "ai_prompt": "Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: ARACHNID in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add We didn’t just think “outside the box”; we got rid of the “box” altogether. in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+    },
+    {
+      "image_number": 2,
+      "variant": null,
+      "title": "DUAL LIQUID COOLING",
+      "subtitle": "High-performance pumps for both CPU and GPU keep temperatures in check, extending the longevity of your components.",
+      "asset": "images - BCAM6277.jpg",
+      "ai_prompt": "Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: DUAL LIQUID COOLING in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add High-performance pumps for both CPU and GPU keep temperatures in check, extending the longevity of your components. in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+    },
+    {
+      "image_number": 3,
+      "variant": null,
+      "title": "CASE SPECIFICATIONS",
+      "subtitle": "(dimensions) Length 21.50 in Width 16 in Height 27 in Weight (empty chassis) 27.2 lbs",
+      "asset": "DSC00631.jpg",
+      "ai_prompt": "Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: CASE SPECIFICATIONS in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add (dimensions) Length 21.50 in Width 16 in Height 27 in Weight (empty chassis) 27.2 lbs in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+    },
+    {
+      "image_number": 4,
+      "variant": null,
+      "title": "THE FRONT I/O PANEL.",
+      "subtitle": "It’s designed for convenient access to essential connectivity and control features.",
+      "asset": "DSC00606.jpg",
+      "ai_prompt": "Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: THE FRONT I/O PANEL. in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add It’s designed for convenient access to essential connectivity and control features. in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+    },
+    {
+      "image_number": 5,
+      "variant": null,
+      "title": "INTEL CORE",
+      "subtitle": "Intel® Core™ (Logo)",
+      "asset": "DSC00655.jpg",
+      "ai_prompt": "Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: INTEL CORE in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add Intel® Core™ (Logo) in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+    },
+    {
+      "image_number": 6,
+      "variant": null,
+      "title": "INTEL CORE ULTRA",
+      "subtitle": "Intel® Core™ Ultra (Intel logo)",
+      "asset": "DSC00655.jpg",
+      "ai_prompt": "Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: INTEL CORE ULTRA in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add Intel® Core™ Ultra (Intel logo) in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+    },
+    {
+      "image_number": 7,
+      "variant": null,
+      "title": "AMD",
+      "subtitle": "AMD Ryzen 9000-series (AMD Ryzen Logo)",
+      "asset": "DSC00655.jpg",
+      "ai_prompt": "Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: AMD in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add AMD Ryzen 9000-series (AMD Ryzen Logo) in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+    },
+    {
+      "image_number": 8,
+      "variant": null,
+      "title": "LIQUID-COOLED NVIDIA 5090 GPU",
+      "subtitle": "",
+      "asset": "DSC00646.jpg",
+      "ai_prompt": "Add a VERY SUBTLE dark gradient overlay ONLY at the top 20-25% of the image, fading from semi-transparent dark gray (30-40% opacity) to fully transparent. Keep the gradient extremely light to preserve all original image details, colors, and textures - the product and background must remain clearly visible and unchanged. The gradient should only provide a subtle backdrop for text readability. Place the following text at the top portion: LIQUID-COOLED NVIDIA 5090 GPU in white Montserrat Extra Bold font (all caps, approximately 44-56px, adjust size based on image dimensions). Below the title, add  in white Montserrat Regular font (approximately 16-22px). Apply a very subtle drop shadow to text only (1-2px offset, 20-30% opacity black) for readability. CRITICAL: Preserve ALL original image details, sharpness, colors, and product features - this should look like a minimal, professional overlay, not heavy editing. Output as high-resolution image."
+    }
+  ],
+  "timestamps": {
+    "created": "2025-11-26T17:33:58.023Z",
+    "started": "2025-11-26T17:33:58.023Z",
+    "completed": "2025-11-26T17:35:48.402Z"
+  },
+  "metrics": {},
+  "marketplacePreset": {
+    "id": "default",
+    "name": "Default",
+    "description": "Standard output settings - balanced for general use",
+    "aspectRatio": null,
+    "aspectRatioOptions": [
+      "1:1",
+      "4:3",
+      "16:9"
+    ],
+    "maxWidth": 2000,
+    "maxHeight": 2000,
+    "minDimension": 800,
+    "marginRules": {
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    },
+    "productFill": "85-95%",
+    "backgroundPadding": 0,
+    "acceptedFormats": [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ],
+    "outputFormat": "jpeg",
+    "outputQuality": 90,
+    "aiMode": "balanced",
+    "promptRules": {
+      "background": "preserve original or subtle enhancement",
+      "textOverlays": true,
+      "shading": "moderate shadows allowed",
+      "lighting": "preserve original lighting",
+      "colorVibrance": 0,
+      "badges": false,
+      "lifestyleContext": false
+    }
+  },
+  "driveDestinationFolderId": "17NE_igWpmMIbyB9H7G8DZ8ZVdzNBMHoB"
+}

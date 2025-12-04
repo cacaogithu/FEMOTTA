@@ -402,6 +402,141 @@
   }
 }
 
+.settings-panel {
+  background: linear-gradient(145deg, #1F1F1F 0%, #1A1A1A 100%);
+  border: 2px solid #3A3A3A;
+  border-radius: 16px;
+  padding: 32px 40px;
+  margin-bottom: 32px;
+  animation: fadeIn 0.6s ease-out 0.5s backwards;
+}
+
+.settings-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #FFC107;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-title::before {
+  content: '';
+  width: 4px;
+  height: 24px;
+  background: linear-gradient(135deg, #FFC107 0%, #FF6F00 100%);
+  border-radius: 2px;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+@media (max-width: 900px) {
+  .settings-row {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+.setting-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setting-field label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #E0E0E0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.optional-badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: #808080;
+  background: rgba(128, 128, 128, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.preset-select,
+.drive-url-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(10, 10, 10, 0.8);
+  border: 2px solid #3A3A3A;
+  border-radius: 10px;
+  color: #FFFFFF;
+  font-size: 15px;
+  font-family: inherit;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.preset-select:hover,
+.drive-url-input:hover {
+  border-color: #5A5A5A;
+}
+
+.preset-select:focus,
+.drive-url-input:focus {
+  outline: none;
+  border-color: #FFC107;
+  box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.15);
+  background: rgba(10, 10, 10, 0.95);
+}
+
+.preset-select option {
+  background: #1A1A1A;
+  color: #FFFFFF;
+  padding: 12px;
+}
+
+.drive-url-input {
+  cursor: text;
+}
+
+.drive-url-input::placeholder {
+  color: #606060;
+}
+
+.drive-url-input.error {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.15);
+}
+
+.preset-info {
+  font-size: 12px;
+  color: #808080;
+  font-style: italic;
+  margin-top: 4px;
+}
+
+.field-error {
+  font-size: 12px;
+  color: #FF6B6B;
+  margin-top: 4px;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: #606060;
+  margin-top: 4px;
+}
+
 @media (max-width: 768px) {
   .upload-page {
     padding: 20px 16px;

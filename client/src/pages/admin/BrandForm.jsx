@@ -10,19 +10,19 @@ function BrandForm() {
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [scrapeUrl, setScrapeUrl] = useState('');
   const [scraping, setScraping] = useState(false);
   const [scrapeError, setScrapeError] = useState('');
-  
+
   const [logoFile, setLogoFile] = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoPreview, setLogoPreview] = useState('');
-  
+
   const [brandbookFile, setBrandbookFile] = useState(null);
   const [uploadingBrandbook, setUploadingBrandbook] = useState(false);
   const [brandbookAnalysis, setBrandbookAnalysis] = useState(null);
-  
+
   const [availableBrands, setAvailableBrands] = useState([]);
 
   const [formData, setFormData] = useState({
@@ -41,6 +41,9 @@ function BrandForm() {
     googleDriveProductImagesFolderId: '',
     googleDriveEditedResultsFolderId: '',
     wavespeedApiKey: '',
+    geminiApiKey: '',
+    preferredImageApi: 'wavespeed',
+    geminiImageModel: 'gemini-3-pro-image-preview',
     openaiApiKey: '',
     defaultPrompt: '',
     batchSize: 15,
@@ -76,11 +79,11 @@ function BrandForm() {
       }
       const result = await response.json();
       const data = result.brands.find(b => b.id === parseInt(id));
-      
+
       if (!data) {
         throw new Error('Brand not found');
       }
-      
+
       setFormData({
         name: data.name || '',
         slug: data.slug || '',
@@ -97,12 +100,15 @@ function BrandForm() {
         googleDriveProductImagesFolderId: data.googleDriveProductImagesFolderId || '',
         googleDriveEditedResultsFolderId: data.googleDriveEditedResultsFolderId || '',
         wavespeedApiKey: '',
+        geminiApiKey: '',
+        preferredImageApi: data.preferredImageApi || 'wavespeed',
+        geminiImageModel: data.geminiImageModel || 'gemini-3-pro-image-preview',
         openaiApiKey: '',
         defaultPrompt: data.defaultPrompt || '',
         batchSize: data.batchSize || 15,
         estimatedManualTimePerImageMinutes: data.estimatedManualTimePerImageMinutes || 5,
       });
-      
+
       if (data.logoUrl) {
         setLogoPreview(data.logoUrl);
       }
@@ -116,13 +122,13 @@ function BrandForm() {
   const handleChange = (e) => {
     const { name, value, type } = e.target;
     let finalValue = value;
-    
+
     if (type === 'number') {
       finalValue = parseInt(value) || 0;
     } else if (name === 'parentBrandId') {
       finalValue = value ? parseInt(value) : null;
     }
-    
+
     setFormData({
       ...formData,
       [name]: finalValue,
@@ -137,16 +143,16 @@ function BrandForm() {
       setScrapeError('Please enter a website URL');
       return;
     }
-    
+
     setScraping(true);
     setScrapeError('');
-    
+
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
         throw new Error('Not authenticated');
       }
-      
+
       const response = await fetch('/api/admin/scrape-website', {
         method: 'POST',
         headers: {
@@ -155,13 +161,13 @@ function BrandForm() {
         },
         body: JSON.stringify({ websiteUrl: scrapeUrl }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to scrape website');
       }
-      
+
       setFormData({
         ...formData,
         name: data.name || formData.name,
@@ -172,11 +178,11 @@ function BrandForm() {
         logoUrl: data.logoUrl || formData.logoUrl,
         websiteUrl: data.websiteUrl || scrapeUrl,
       });
-      
+
       if (data.logoUrl) {
         setLogoPreview(data.logoUrl);
       }
-      
+
       setScrapeUrl('');
     } catch (err) {
       setScrapeError(err.message);
@@ -202,19 +208,19 @@ function BrandForm() {
       setError('Please select a logo file');
       return;
     }
-    
+
     setUploadingLogo(true);
     setError('');
-    
+
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
         throw new Error('Not authenticated');
       }
-      
+
       const formDataUpload = new FormData();
       formDataUpload.append('logo', logoFile);
-      
+
       const response = await fetch('/api/admin/upload-logo', {
         method: 'POST',
         headers: {
@@ -222,18 +228,18 @@ function BrandForm() {
         },
         body: formDataUpload,
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to upload logo');
       }
-      
+
       setFormData({
         ...formData,
         logoUrl: data.publicUrl,
       });
-      
+
       setLogoFile(null);
     } catch (err) {
       setError(err.message);
@@ -258,20 +264,20 @@ function BrandForm() {
       setError('Please select a brandbook PDF file');
       return;
     }
-    
+
     setUploadingBrandbook(true);
     setError('');
     setBrandbookAnalysis(null);
-    
+
     try {
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
         throw new Error('Not authenticated');
       }
-      
+
       const formDataUpload = new FormData();
       formDataUpload.append('brandbook', brandbookFile);
-      
+
       const response = await fetch('/api/admin/upload-brandbook', {
         method: 'POST',
         headers: {
@@ -279,17 +285,17 @@ function BrandForm() {
         },
         body: formDataUpload,
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to upload brandbook');
       }
-      
+
       const updates = {
         brandbookUrl: data.publicUrl,
       };
-      
+
       if (data.analyzed && data.guidelines) {
         const g = data.guidelines;
         if (g.primaryColor) updates.primaryColor = g.primaryColor;
@@ -298,15 +304,15 @@ function BrandForm() {
         if (g.estimatedManualTimePerImageMinutes) {
           updates.estimatedManualTimePerImageMinutes = g.estimatedManualTimePerImageMinutes;
         }
-        
+
         setBrandbookAnalysis(g);
       }
-      
+
       setFormData({
         ...formData,
         ...updates,
       });
-      
+
       setBrandbookFile(null);
     } catch (err) {
       setError(err.message);
@@ -329,17 +335,18 @@ function BrandForm() {
       const url = isEditing
         ? `/api/brand/admin/${id}`
         : '/api/brand/admin/create';
-      
+
       const method = isEditing ? 'PUT' : 'POST';
 
       const payload = { ...formData };
-      
+
       if (isEditing) {
         if (!payload.wavespeedApiKey) delete payload.wavespeedApiKey;
+        if (!payload.geminiApiKey) delete payload.geminiApiKey;
         if (!payload.openaiApiKey) delete payload.openaiApiKey;
         if (!payload.authPassword) delete payload.authPassword;
       }
-      
+
       if (payload.googleDriveBriefFolderId) {
         payload.briefFolderId = payload.googleDriveBriefFolderId;
         delete payload.googleDriveBriefFolderId;
@@ -409,7 +416,7 @@ function BrandForm() {
             <div className="form-section automated-setup">
               <h2>🚀 Automated Setup</h2>
               <p className="section-help">Use these tools to automatically extract brand information and save time</p>
-              
+
               <div className="automation-card">
                 <h3>Website Scraper</h3>
                 <p className="help-text">Enter a website URL to automatically extract brand name, colors, and logo</p>
@@ -540,7 +547,7 @@ function BrandForm() {
                 placeholder="e.g., CORSAIR Gaming"
               />
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="websiteUrl">Website URL</label>
               <input
@@ -573,7 +580,7 @@ function BrandForm() {
                 ))}
               </select>
               <p className="field-help">
-                {formData.parentBrandId 
+                {formData.parentBrandId
                   ? `This will be a sub-account under ${availableBrands.find(b => b.id === formData.parentBrandId)?.displayName}`
                   : 'This is a primary brand account'}
               </p>
@@ -655,7 +662,7 @@ function BrandForm() {
               />
               <p className="field-help">Auto-populated from uploads or website scraping</p>
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="brandbookUrl">Brandbook URL</label>
               <input
@@ -730,6 +737,45 @@ function BrandForm() {
                 placeholder={isEditing ? "Enter new key to update (optional)" : "Enter Wavespeed API key"}
                 autoComplete="off"
               />
+            </div>
+            <div className="form-group">
+              <label htmlFor="geminiApiKey">Gemini API Key {!isEditing && '(Optional)'}</label>
+              <input
+                type="password"
+                id="geminiApiKey"
+                name="geminiApiKey"
+                value={formData.geminiApiKey}
+                onChange={handleChange}
+                placeholder={isEditing ? "Enter new key to update (optional)" : "Enter Gemini API key"}
+                autoComplete="off"
+              />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="preferredImageApi">Preferred Image Provider</label>
+                <select
+                  id="preferredImageApi"
+                  name="preferredImageApi"
+                  value={formData.preferredImageApi}
+                  onChange={handleChange}
+                >
+                  <option value="wavespeed">Wavespeed (Legacy)</option>
+                  <option value="gemini">Gemini Native (Recommended)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="geminiImageModel">Gemini Model</label>
+                <select
+                  id="geminiImageModel"
+                  name="geminiImageModel"
+                  value={formData.geminiImageModel}
+                  onChange={handleChange}
+                  disabled={formData.preferredImageApi !== 'gemini'}
+                >
+                  <option value="gemini-3-pro-image-preview">Gemini 3 Pro (Best Quality)</option>
+                  <option value="gemini-2.5-flash-image">Gemini 2.5 Flash (Fastest)</option>
+                </select>
+              </div>
             </div>
             <div className="form-group">
               <label htmlFor="openaiApiKey">OpenAI API Key {!isEditing && '*'}</label>
