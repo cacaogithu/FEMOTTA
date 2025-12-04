@@ -100,6 +100,70 @@ SCORING EACH CORNER (0-100):
 Return your analysis as a JSON object.`;
 
 /**
+ * Identify existing logos/brands already visible in the image
+ * @param {string} imageUrl - Public URL of the image
+ * @param {Object} openai - OpenAI client instance
+ * @returns {Promise<Array>} Array of canonical logo keys already in image
+ */
+async function identifyExistingLogos(imageUrl, openai) {
+  const prompt = `Analyze this image and identify ANY visible logos or brand elements (Intel, AMD, NVIDIA, Corsair, etc).
+
+Look for:
+- CPU/GPU brand logos (Intel, AMD, NVIDIA)
+- Corsair branding or products
+- Component brand logos
+- Text mentioning brands
+
+List ONLY the canonical brand names you see, nothing else.
+
+Examples of format:
+- "intel-core"
+- "nvidia-50-series"
+- "amd-ryzen"
+
+If you see an Intel logo, respond with: ["intel-core"] or ["intel-core-ultra"]
+If you see NVIDIA RTX 5090, respond with: ["nvidia-50-series"]
+If you see AMD, respond with: ["amd-ryzen"]
+If you see nothing relevant, respond with: []
+
+Respond ONLY with a JSON array of canonical keys.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { 
+              type: 'image_url', 
+              image_url: { 
+                url: imageUrl,
+                detail: 'low'
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 200,
+      temperature: 0.1
+    });
+
+    const responseText = response.choices[0].message.content.trim();
+    const arrayMatch = responseText.match(/\[[\s\S]*?\]/);
+    
+    if (arrayMatch) {
+      return JSON.parse(arrayMatch[0]);
+    }
+    return [];
+  } catch (error) {
+    console.warn(`[VisionLogoAnalyzer] Error identifying existing logos: ${error.message}`);
+    return [];
+  }
+}
+
+/**
  * Analyze a single image with GPT-4o Vision to determine logo placement
  * @param {string} imageUrl - Public URL of the image to analyze
  * @param {Object} spec - The image specification (title, subtitle, etc.)
@@ -108,18 +172,41 @@ Return your analysis as a JSON object.`;
  * @returns {Promise<Object>} Placement analysis for this image
  */
 async function analyzeImageWithVision(imageUrl, spec, candidateLogos, openai) {
-  const userPrompt = `Analyze this marketing product image and determine optimal logo placement.
+  // First: Identify what logos/brands are already in the image
+  console.log(`[VisionLogoAnalyzer] Checking for existing logos in image...`);
+  const existingLogos = await identifyExistingLogos(imageUrl, openai);
+  console.log(`[VisionLogoAnalyzer] Existing logos detected: ${existingLogos.length > 0 ? existingLogos.join(', ') : 'None'}`);
+  
+  // Filter out candidates that are already in the image
+  const logosToPlace = candidateLogos.filter(logo => !existingLogos.includes(logo));
+  
+  if (logosToPlace.length === 0) {
+    console.log(`[VisionLogoAnalyzer] All candidate logos already exist in image, skipping placement`);
+    return {
+      cornerScores: { 'top-left': 0, 'top-right': 0, 'bottom-left': 0, 'bottom-right': 0 },
+      bestPositions: [],
+      recommendedSize: 8,
+      imageDescription: 'Image already contains all candidate logos',
+      placementNotes: 'No new logos needed for this image',
+      existingLogos: existingLogos,
+      skipped: true
+    };
+  }
+  
+  const userPrompt = `Analyze this marketing product image and determine optimal logo placement for NEW logos (not ones already in the image).
 
 IMAGE CONTEXT:
 - Title: "${spec.title || 'N/A'}"
 - Subtitle: "${spec.subtitle || 'N/A'}"
-- Logos to place: ${candidateLogos.length > 0 ? candidateLogos.join(', ') : 'None specified - analyze for any corner suitability'}
+- Logos already in image: ${existingLogos.length > 0 ? existingLogos.join(', ') : 'None'}
+- NEW logos to place: ${logosToPlace.join(', ')}
 
 TASK:
 1. Examine the image visually
-2. Score each corner (0-100) for logo placement suitability
-3. Recommend the best corners for logos
-4. Suggest appropriate logo size (5-12% of image width)
+2. Note where existing logos are positioned (top-left, etc)
+3. Score each corner (0-100) for NEW logo placement, avoiding existing logos
+4. Recommend the best corners for the new logos
+5. Suggest appropriate logo size (5-12% of image width)
 
 Return ONLY a valid JSON object:
 {
@@ -266,11 +353,31 @@ export async function analyzeImagesWithVision(uploadedImages, imageSpecs, briefT
       openai
     );
     
+    // Skip if all logos already exist in image
+    if (visionAnalysis.skipped) {
+      console.log(`[VisionLogoAnalyzer] Skipping image ${i + 1} - all candidate logos already present`);
+      placementPlans.push({
+        imageIndex: i,
+        imageId: image.id,
+        hasLogos: false,
+        logos: [],
+        visionAnalysis: {
+          cornerScores: visionAnalysis.cornerScores,
+          description: visionAnalysis.imageDescription,
+          notes: visionAnalysis.placementNotes,
+          existingLogos: visionAnalysis.existingLogos
+        }
+      });
+      continue;
+    }
+    
     console.log(`[VisionLogoAnalyzer] Vision analysis for image ${i + 1}:`);
     console.log(`  - Best positions: ${visionAnalysis.bestPositions?.join(', ') || 'N/A'}`);
     console.log(`  - Recommended size: ${visionAnalysis.recommendedSize}%`);
     
-    const logoAssignments = candidateLogos.map((logoKey, idx) => {
+    const logosToPlace = candidateLogos.filter(logo => !visionAnalysis.existingLogos?.includes(logo));
+    
+    const logoAssignments = logosToPlace.map((logoKey, idx) => {
       const position = visionAnalysis.bestPositions?.[idx] || PLACEMENT_POSITIONS[idx % 4];
       const score = visionAnalysis.cornerScores?.[position] || 50;
       
@@ -293,7 +400,8 @@ export async function analyzeImagesWithVision(uploadedImages, imageSpecs, briefT
       visionAnalysis: {
         cornerScores: visionAnalysis.cornerScores,
         description: visionAnalysis.imageDescription,
-        notes: visionAnalysis.placementNotes
+        notes: visionAnalysis.placementNotes,
+        existingLogos: visionAnalysis.existingLogos
       }
     });
     
