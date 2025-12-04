@@ -155,8 +155,6 @@ const defaultGeminiService = new GeminiImageService();
 const defaultNanoBananaService = new NanoBananaProService();
 
 export async function analyzeImageForParameters(imageUrl, apiKey) {
-  const geminiService = new GeminiImageService(apiKey);
-
   try {
     const analysisPrompt = `Analyze this product image and determine optimal overlay parameters.
 
@@ -177,27 +175,52 @@ Consider:
 - Is the background busy or simple?
 - What gradient coverage will preserve product visibility while supporting text?`;
 
-    // Use Gemini 1.5 Flash for text analysis (more reliable for JSON output)
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(apiKey || process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash' 
-    });
+    // Use OpenAI GPT-4o for image analysis (more reliable API key)
+    const OpenAI = (await import('openai')).default;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const imagePart = await geminiService._inputToPart(imageUrl);
+    // Fetch image and convert to base64
+    let imageBase64;
+    let mimeType = 'image/jpeg';
+    
+    if (imageUrl.startsWith('data:')) {
+      const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        mimeType = matches[1];
+        imageBase64 = matches[2];
+      }
+    } else {
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+      }
+      const buffer = await response.buffer();
+      imageBase64 = buffer.toString('base64');
+      const contentType = response.headers.get('content-type');
+      if (contentType) {
+        mimeType = contentType.split(';')[0];
+      }
+    }
 
-    const result = await model.generateContent({
-      contents: [{
+    const result = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{
         role: 'user',
-        parts: [
-          { text: analysisPrompt },
-          imagePart
+        content: [
+          { type: 'text', text: analysisPrompt },
+          { 
+            type: 'image_url', 
+            image_url: { 
+              url: `data:${mimeType};base64,${imageBase64}`,
+              detail: 'low'
+            } 
+          }
         ]
-      }]
+      }],
+      max_tokens: 500
     });
 
-    const response = await result.response;
-    const text = response.text();
+    const text = result.choices[0]?.message?.content || '';
 
     // Extract JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
