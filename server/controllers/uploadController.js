@@ -1186,9 +1186,11 @@ export async function uploadPDF(req, res) {
       if (uploadedImages.length > 0 && imageSpecs.length > 0) {
         console.log('[Upload Brief] Starting vision-based logo placement analysis...');
         try {
+          const briefText = docxResult?.briefText || '';
           const visionPlans = await analyzeImagesWithVision(
             uploadedImages,
             imageSpecs,
+            briefText,
             { openaiApiKey: req.brand.openaiApiKey || process.env.OPENAI_API_KEY }
           );
           

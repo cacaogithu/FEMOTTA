@@ -184,23 +184,25 @@ Return ONLY a valid JSON object:
 }
 
 /**
- * Detect logo requirements from spec metadata (title, subtitle, notes)
+ * Detect logo requirements from spec metadata and brief text
  * @param {Object} spec - Image specification
+ * @param {string} briefText - Full brief text to search for logo mentions
  * @returns {Array} Array of canonical logo keys that should be placed
  */
-function detectLogosFromSpec(spec) {
+function detectLogosFromSpec(spec, briefText = '') {
   const detectedLogos = [];
-  const searchText = `${spec.title || ''} ${spec.subtitle || ''} ${spec.asset || ''} ${spec.notes || ''}`.toLowerCase();
+  const specText = `${spec.title || ''} ${spec.subtitle || ''} ${spec.asset || ''} ${spec.notes || ''}`;
+  const searchText = `${specText} ${briefText}`.toLowerCase();
   
   const logoPatterns = [
     { pattern: /intel\s*core\s*ultra/i, key: 'intel-core-ultra' },
     { pattern: /intel\s*core|intel.*processor/i, key: 'intel-core' },
     { pattern: /amd\s*ryzen|ryzen\s*9000|ryzen\s*9/i, key: 'amd-ryzen' },
-    { pattern: /nvidia\s*(50|5090|5080)|rtx\s*(50|5090|5080)/i, key: 'nvidia-50-series' },
+    { pattern: /nvidia\s*(50|5090|5080)|rtx\s*(50|5090|5080)|5090|5080/i, key: 'nvidia-50-series' },
     { pattern: /nvidia|geforce|rtx/i, key: 'nvidia' },
-    { pattern: /hydro\s*x.*icue|icue.*hydro\s*x/i, key: 'hydro-x-icue-link' },
-    { pattern: /hydro\s*x|hydro-x|liquid\s*cool/i, key: 'hydro-x' },
-    { pattern: /icue\s*link|icue-link/i, key: 'icue-link' },
+    { pattern: /hydro\s*x.*icue|icue.*hydro\s*x|hydro-x\s*&.*icue|hydro-x.*iCUE/i, key: 'hydro-x-icue-link' },
+    { pattern: /hydro\s*x|hydro-x|liquid\s*cool|cooling.*hydro|dual.*liquid/i, key: 'hydro-x' },
+    { pattern: /icue\s*link|icue-link|i.cue/i, key: 'icue-link' },
     { pattern: /origin\s*pc|originpc/i, key: 'origin-pc' },
     { pattern: /corsair/i, key: 'corsair' }
   ];
@@ -223,10 +225,11 @@ function detectLogosFromSpec(spec) {
  * Analyze uploaded images with vision AI to determine logo placement
  * @param {Array} uploadedImages - Array of {id, publicUrl, ...} from Drive upload
  * @param {Array} imageSpecs - Array of image specifications from DOCX extraction
+ * @param {string} briefText - The full brief text from DOCX for logo detection
  * @param {Object} options - Configuration options
  * @returns {Promise<Array>} Array of placement plans for each image
  */
-export async function analyzeImagesWithVision(uploadedImages, imageSpecs, options = {}) {
+export async function analyzeImagesWithVision(uploadedImages, imageSpecs, briefText = '', options = {}) {
   const openai = new OpenAI({
     apiKey: options.openaiApiKey || process.env.OPENAI_API_KEY
   });
@@ -242,7 +245,7 @@ export async function analyzeImagesWithVision(uploadedImages, imageSpecs, option
     
     console.log(`[VisionLogoAnalyzer] Analyzing image ${i + 1}/${uploadedImages.length}: ${spec.title || 'Untitled'}`);
     
-    const candidateLogos = detectLogosFromSpec(spec);
+    const candidateLogos = detectLogosFromSpec(spec, briefText);
     console.log(`[VisionLogoAnalyzer] Detected candidate logos for spec: ${candidateLogos.join(', ') || 'None'}`);
     
     if (candidateLogos.length === 0) {
