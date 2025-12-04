@@ -97,11 +97,176 @@ async function overlayLogoOnImage(imageBuffer, logoBase64, position = 'bottom-le
   }
 }
 
+// Helper function to overlay multiple logos on an image
+async function overlayMultipleLogos(imageBuffer, logoBase64Array) {
+  try {
+    if (!logoBase64Array || logoBase64Array.length === 0) {
+      return imageBuffer;
+    }
+
+    console.log(`[Logo Overlay] Applying ${logoBase64Array.length} logo(s) to image`);
+
+    // Get image metadata
+    const imageMetadata = await sharp(imageBuffer).metadata();
+    const { width, height } = imageMetadata;
+    const margin = Math.floor(width * 0.03); // 3% margin
+
+    // Define positions for multiple logos
+    const positions = [
+      'bottom-left',   // First logo
+      'bottom-right',  // Second logo
+      'top-left',      // Third logo
+      'top-right'      // Fourth logo
+    ];
+
+    // Prepare all logos for composite
+    const compositeInputs = [];
+
+    for (let i = 0; i < logoBase64Array.length && i < positions.length; i++) {
+      const logoData = logoBase64Array[i];
+      const position = positions[i];
+
+      try {
+        // Extract base64 data from data URL
+        const base64Data = logoData.base64.replace(/^data:image\/\w+;base64,/, '');
+        const logoBuffer = Buffer.from(base64Data, 'base64');
+
+        // Resize logo to be proportional (max 15% of image width)
+        const maxLogoWidth = Math.floor(width * 0.15);
+        const resizedLogo = await sharp(logoBuffer)
+          .resize(maxLogoWidth, null, { fit: 'inside', withoutEnlargement: true })
+          .toBuffer();
+
+        const logoMetadata = await sharp(resizedLogo).metadata();
+
+        // Calculate position
+        let left, top;
+
+        switch (position) {
+          case 'top-left':
+            left = margin;
+            top = margin;
+            break;
+          case 'top-right':
+            left = width - logoMetadata.width - margin;
+            top = margin;
+            break;
+          case 'bottom-right':
+            left = width - logoMetadata.width - margin;
+            top = height - logoMetadata.height - margin;
+            break;
+          case 'bottom-left':
+          default:
+            left = margin;
+            top = height - logoMetadata.height - margin;
+            break;
+        }
+
+        compositeInputs.push({
+          input: resizedLogo,
+          left: Math.round(left),
+          top: Math.round(top)
+        });
+
+        console.log(`  ✓ Logo ${i + 1} "${logoData.name}" positioned at ${position} (${logoMetadata.width}x${logoMetadata.height})`);
+
+      } catch (logoError) {
+        console.error(`  ✗ Failed to process logo ${i + 1} "${logoData.name}":`, logoError.message);
+      }
+    }
+
+    if (compositeInputs.length === 0) {
+      console.warn('[Logo Overlay] No logos could be processed');
+      return imageBuffer;
+    }
+
+    // Apply all logos in a single composite operation
+    const resultBuffer = await sharp(imageBuffer)
+      .composite(compositeInputs)
+      .jpeg({ quality: 95 })
+      .toBuffer();
+
+    console.log(`[Logo Overlay] Successfully applied ${compositeInputs.length} logo(s)`);
+    return resultBuffer;
+
+  } catch (error) {
+    console.error('[Logo Overlay] Failed to overlay multiple logos:', error.message);
+    // Return original image if overlay fails
+    return imageBuffer;
+  }
+}
+
 // Helper to get brand-specific OpenAI client
 function getBrandOpenAI(brand) {
   return new OpenAI({
     apiKey: brand.openaiApiKey || process.env.OPENAI_API_KEY
   });
+}
+
+// Helper function to call OpenAI with retry logic
+async function callOpenAIWithRetry(openai, params, maxRetries = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[DOCX Extraction] OpenAI call attempt ${attempt}/${maxRetries}...`);
+      return await openai.chat.completions.create(params);
+    } catch (error) {
+      lastError = error;
+      console.warn(`[DOCX Extraction] Attempt ${attempt} failed: ${error.message}`);
+
+      if (attempt < maxRetries) {
+        const backoffMs = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        console.log(`[DOCX Extraction] Retrying in ${backoffMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+      }
+    }
+  }
+
+  throw new Error(`OpenAI API failed after ${maxRetries} attempts: ${lastError.message}`);
+}
+
+// Helper function to validate image spec structure
+function validateImageSpec(spec, index) {
+  const errors = [];
+
+  if (typeof spec.image_number !== 'number') {
+    errors.push(`image_number must be a number`);
+  }
+
+  if (spec.variant !== null && typeof spec.variant !== 'string') {
+    errors.push(`variant must be string or null`);
+  }
+
+  if (typeof spec.title !== 'string') {
+    errors.push(`title must be a string`);
+  }
+
+  if (typeof spec.subtitle !== 'string') {
+    errors.push(`subtitle must be a string`);
+  }
+
+  if (typeof spec.asset !== 'string') {
+    errors.push(`asset must be a string`);
+  }
+
+  if (typeof spec.logo_requested !== 'boolean') {
+    errors.push(`logo_requested must be a boolean`);
+  }
+
+  if (!Array.isArray(spec.logo_names)) {
+    errors.push(`logo_names must be an array`);
+  }
+
+  if (typeof spec.ai_prompt !== 'string') {
+    errors.push(`ai_prompt must be a string`);
+  }
+
+  if (errors.length > 0) {
+    return `Spec #${index + 1} ("${spec.title || 'unknown'}"): ${errors.join(', ')}`;
+  }
+
+  return null;
 }
 
 async function extractPromptFromDOCX(docxBuffer, brand) {
@@ -117,7 +282,7 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
     console.log('[DOCX Extraction] Extracted text length:', docxText.length);
     console.log('[DOCX Extraction] First 500 chars:', docxText.substring(0, 500));
 
-    // Extract images from DOCX using mammoth's convertImage callback
+    // Extract ALL images from DOCX - keep them in order as they appear in the document
     const extractedImages = [];
 
     console.log('[DOCX Extraction] Converting DOCX to HTML to extract images...');
@@ -134,10 +299,12 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
 
           console.log('[DOCX Extraction] Found embedded image:', buffer.length, 'bytes, type:', image.contentType);
 
-          // Store the image for later upload to Drive
+          // Store ALL images in order (product images AND logos)
           extractedImages.push({
             buffer: buffer,
-            contentType: image.contentType
+            contentType: image.contentType,
+            size: buffer.length,
+            index: extractedImages.length // Track position in document
           });
 
           // Return the image as a data URI for the HTML output
@@ -149,7 +316,7 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
     });
 
     console.log('[DOCX Extraction] HTML conversion complete');
-    console.log('[DOCX Extraction] Found', extractedImages.length, 'embedded images');
+    console.log('[DOCX Extraction] Found', extractedImages.length, 'embedded images (product images + logos)');
 
     if (!docxText || docxText.trim().length < 10) {
       throw new Error('Could not extract text from DOCX - file may be empty or corrupted');
@@ -157,7 +324,7 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
 
     console.log('[DOCX Extraction] Sending to OpenAI to extract image specifications...');
 
-    const completion = await openai.chat.completions.create({
+    const completion = await callOpenAIWithRetry(openai, {
       model: 'gpt-4o',
       messages: [
         {
@@ -172,6 +339,7 @@ Many marketing briefs use TABLE STRUCTURES with columns like:
 - HEADLINE/TITLE (main text)
 - COPY (subtitle/description text)
 - NOTES (may contain logo requirements like "Include Intel Core logo")
+- LOGOS (may list which logos to include)
 
 When parsing tables:
 1. Each TABLE ROW typically represents ONE image specification
@@ -179,7 +347,8 @@ When parsing tables:
 3. Extract the ASSET column for the image filename
 4. Extract HEADLINE/TITLE column for the main text
 5. Extract COPY column for the subtitle text
-6. Check NOTES column for logo requirements
+6. Check NOTES and LOGOS columns for logo requirements
+7. Images are in ORDER - the first spec gets the first product image, second spec gets second product image, etc.
 
 CRITICAL INSTRUCTIONS:
 1. Extract EVERY image variant mentioned in the brief (IMAGE 1: METAL DARK, IMAGE 1: WOOD DARK, IMAGE 2: METAL DARK, etc.)
@@ -196,19 +365,26 @@ TITLE AND SUBTITLE EXTRACTION RULES:
 - DO NOT invent or modify titles - read what is actually written
 - If no subtitle exists, use empty string ""
 
-LOGO DETECTION - CRITICAL:
-Look for logo requirements in these locations:
-1. NOTES column: "Include Intel Core logo", "Add AMD Ryzen logo", "NVIDIA 50 Series logo required"
-2. COPY field: If copy text ends with "(Logo)" like "Powered by Intel Core (Logo)"
-3. Explicit mentions: "Intel Logo", "AMD Logo", "NVIDIA Logo", "Hydro X logo", "iCUE Link logo"
-4. Partner mentions in notes: "Hydro X & iCUE Link logo", "Intel Core Ultra logo"
+LOGO DETECTION - CRITICAL (MULTIPLE LOGOS SUPPORTED):
+Each image specification can have ZERO, ONE, or MULTIPLE logos. Look for logo requirements in these locations:
+1. ASSET field: Check if asset filename contains "logo" (e.g., "intel_logo.png", "amd-logo.jpg")
+2. NOTES column: "Include Intel Core logo", "Add AMD Ryzen logo", "NVIDIA 50 Series logo required"
+3. LOGOS column: May list multiple logos like "Intel Core, NVIDIA 50 Series"
+4. COPY field: If copy text ends with "(Logo)" like "Powered by Intel Core (Logo)"
+5. Explicit mentions: "Intel Logo", "AMD Logo", "NVIDIA Logo", "Hydro X logo", "iCUE Link logo"
+6. Partner mentions in notes: "Hydro X & iCUE Link logo", "Intel Core Ultra logo"
+7. Multiple logos in same spec: "Include Intel Core and NVIDIA logos"
 
-LOGO NAME EXTRACTION:
-Extract the EXACT partner logo name, including specific variants:
-- "Intel Core" vs "Intel Core Ultra" - these are DIFFERENT logos
-- "NVIDIA" vs "NVIDIA 50 Series" - these are DIFFERENT logos
-- "Hydro X" vs "Hydro X & iCUE Link" - extract as written
-- "AMD Ryzen" - for AMD processor images
+LOGO NAME EXTRACTION (SUPPORT MULTIPLE LOGOS):
+Extract ALL logo names mentioned for each image specification into an ARRAY:
+- If "Intel Core and NVIDIA 50 Series" are mentioned → ["Intel Core", "NVIDIA 50 Series"]
+- If "Hydro X & iCUE Link logo" is mentioned → ["Hydro X & iCUE Link"]
+- If no logos → []
+- Be specific about variants:
+  * "Intel Core" vs "Intel Core Ultra" - these are DIFFERENT logos
+  * "NVIDIA" vs "NVIDIA 50 Series" - these are DIFFERENT logos
+  * "Hydro X" vs "Hydro X & iCUE Link" - extract as written
+  * "AMD Ryzen" - for AMD processor images
 
 For each image specification, extract:
 - image_number: The sequential number from the brief (1, 2, 3, etc.)
@@ -216,8 +392,8 @@ For each image specification, extract:
 - title: The HEADLINE text EXACTLY as written (convert to uppercase). Do NOT append variant names unless already in the document.
 - subtitle: The COPY text EXACTLY as written (keep original case). IMPORTANT: If a logo annotation like "(Logo)" appears, extract the subtitle WITHOUT the "(Logo)" text - the logo will be overlaid separately.
 - asset: The ASSET filename (if mentioned)
-- logo_requested: true/false - Set to true if the specification explicitly requests a brand logo overlay (look for phrases like "(Logo)", "Intel Logo", "AMD Logo", "NVIDIA Logo", "add logo", "include logo" in the NOTES, COPY, or any other field)
-- logo_name: If logo_requested is true, extract the SPECIFIC brand/logo name (e.g., "Intel Core", "Intel Core Ultra", "AMD Ryzen", "NVIDIA 50 Series", "Hydro X & iCUE Link"). Set to null if no logo requested.
+- logo_requested: true/false - Set to true if ANY logos are requested for this specification
+- logo_names: ARRAY of logo names (e.g., ["Intel Core"], ["AMD Ryzen", "NVIDIA"], or [] if none). ALWAYS use an array, even for single logo.
 
 For the ai_prompt field, generate a plain text instruction using ONLY natural language (NO pixel values, NO CSS):
 
@@ -256,7 +432,7 @@ CRITICAL PROMPT RULES:
 
 Return ONLY a valid JSON array with ALL image variant specifications, no additional text.
 
-Example for document with variants and logo requests:
+Example for document with variants and multiple logo requests:
 [
   {
     "image_number": 1,
@@ -265,7 +441,7 @@ Example for document with variants and logo requests:
     "subtitle": "Premium Small Form Factor Gaming PC",
     "asset": "CORSAIR_ONE_i600_DARK_METAL_RENDER_01",
     "logo_requested": false,
-    "logo_name": null,
+    "logo_names": [],
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
@@ -275,47 +451,27 @@ Example for document with variants and logo requests:
     "subtitle": "Precision-engineered liquid cooling",
     "asset": "PC_COOLING_SHOT_01",
     "logo_requested": true,
-    "logo_name": "Hydro X & iCUE Link",
+    "logo_names": ["Hydro X & iCUE Link"],
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
-    "image_number": 5,
+    "image_number": 3,
     "variant": null,
-    "title": "INTEL CORE",
-    "subtitle": "Intel Core Ultra 9 processor",
+    "title": "ULTIMATE PERFORMANCE",
+    "subtitle": "Intel Core Ultra 9 with NVIDIA RTX graphics",
     "asset": "PC_INTERIOR_SHOT_01",
     "logo_requested": true,
-    "logo_name": "Intel Core",
+    "logo_names": ["Intel Core Ultra", "NVIDIA 50 Series"],
     "ai_prompt": "Add a dark gradient overlay..."
   },
   {
-    "image_number": 6,
+    "image_number": 4,
     "variant": null,
-    "title": "INTEL CORE ULTRA",
-    "subtitle": "Next-gen Intel performance",
-    "asset": "PC_ULTRA_SHOT_01",
-    "logo_requested": true,
-    "logo_name": "Intel Core Ultra",
-    "ai_prompt": "Add a dark gradient overlay..."
-  },
-  {
-    "image_number": 7,
-    "variant": null,
-    "title": "AMD RYZEN",
+    "title": "AMD POWER",
     "subtitle": "AMD Ryzen 9000-series processor",
     "asset": "PC_AMD_VARIANT_01",
     "logo_requested": true,
-    "logo_name": "AMD Ryzen",
-    "ai_prompt": "Add a dark gradient overlay..."
-  },
-  {
-    "image_number": 8,
-    "variant": null,
-    "title": "NVIDIA 50 SERIES",
-    "subtitle": "Ultimate gaming graphics",
-    "asset": "PC_GPU_SHOT_01",
-    "logo_requested": true,
-    "logo_name": "NVIDIA 50 Series",
+    "logo_names": ["AMD Ryzen"],
     "ai_prompt": "Add a dark gradient overlay..."
   }
 ]`
@@ -392,108 +548,178 @@ if (!Array.isArray(imageSpecs) || imageSpecs.length === 0) {
 }
 
 console.log('[DOCX Extraction] Successfully extracted', imageSpecs.length, 'image specifications');
-console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images');
+console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded images (product images + logos)');
 
-    // Separate logos from product images based on size
-    // Logos are typically smaller (under 50KB), product images are larger
-    const LOGO_SIZE_THRESHOLD = 50000; // 50KB threshold
-
-    const logoImages = [];
-    const productImages = [];
-
-    for (const img of extractedImages) {
-      if (img.buffer.length < LOGO_SIZE_THRESHOLD) {
-        // Convert logo to base64 for later use
-        const base64Data = img.buffer.toString('base64');
-        logoImages.push({
-          buffer: img.buffer,
-          contentType: img.contentType,
-          base64: `data:${img.contentType};base64,${base64Data}`,
-          size: img.buffer.length
-        });
-        console.log(`[DOCX Extraction] Detected logo image: ${img.buffer.length} bytes`);
-      } else {
-        productImages.push(img);
+    // Validate each image specification
+    console.log('[DOCX Extraction] Validating image specifications...');
+    const validationErrors = [];
+    imageSpecs.forEach((spec, index) => {
+      const error = validateImageSpec(spec, index);
+      if (error) {
+        validationErrors.push(error);
       }
+    });
+
+    if (validationErrors.length > 0) {
+      console.error('[DOCX Extraction] Validation errors:');
+      validationErrors.forEach(err => console.error(`  - ${err}`));
+      throw new Error(`Image specification validation failed:\n${validationErrors.join('\n')}`);
     }
 
-    console.log(`[DOCX Extraction] Separated: ${productImages.length} product images, ${logoImages.length} logo images`);
+    console.log('[DOCX Extraction] ✓ All specs validated successfully');
 
-    // Only take the number of product images we need for the specs
-    const imagesToProcess = productImages.slice(0, imageSpecs.length);
+    // Separate product images from logo images based on document structure
+    // In table-based briefs, images appear in order: first N images are products, rest are logos
+    // The number of product images should match the number of specs
+    const productImagesCount = imageSpecs.length;
+    const productImages = extractedImages.slice(0, productImagesCount);
+    const logoImages = extractedImages.slice(productImagesCount); // Logos come AFTER product images
 
-    console.log(`[DOCX Extraction] Final image count: ${imagesToProcess.length} (matching ${imageSpecs.length} specs)`);
+    console.log(`[DOCX Extraction] Separated by position: ${productImages.length} product images, ${logoImages.length} embedded logo images`);
 
-    if (imagesToProcess.length < imageSpecs.length) {
-      console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
+    // Validate image count matches spec count
+    if (productImages.length !== imageSpecs.length) {
+      const errorMsg = `Image count mismatch: Found ${productImages.length} product images but need ${imageSpecs.length} specifications. Each spec must have a corresponding product image.`;
+      console.error(`[DOCX Extraction] ❌ ${errorMsg}`);
+      throw new Error(errorMsg);
     }
 
-    // INTELLIGENT LOGO MATCHING using partner logos registry
-    // Instead of sequential assignment, use the logo_name to find the correct logo
-    console.log('[DOCX Extraction] Starting intelligent logo matching...');
-    
-    let matchedLogosCount = 0;
+    console.log(`[DOCX Extraction] ✓ Image count matches spec count (${imageSpecs.length})`);
+
+    // Convert logo images to base64 for easier handling
+    const logoImagesWithBase64 = logoImages.map((img, idx) => {
+      const base64Data = img.buffer.toString('base64');
+      return {
+        buffer: img.buffer,
+        contentType: img.contentType,
+        base64: `data:${img.contentType};base64,${base64Data}`,
+        size: img.size,
+        index: productImagesCount + idx // Track original position in document
+      };
+    });
+
+    // INTELLIGENT LOGO MATCHING - Support multiple logos per spec
+    console.log('[DOCX Extraction] Starting intelligent logo matching (supports multiple logos per image)...');
+
+    let totalLogosRequested = 0;
+    let totalLogosMatched = 0;
+    const unmatchedLogoNames = [];
+
     for (const spec of imageSpecs) {
-      if (spec.logo_requested === true && spec.logo_name) {
-        console.log(`[DOCX Extraction] Looking for logo: "${spec.logo_name}" for image "${spec.title}"`);
-        
-        const matchedLogo = findLogoByName(spec.logo_name);
-        
-        if (matchedLogo) {
-          spec.matchedPartnerLogo = {
-            key: matchedLogo.key,
-            name: matchedLogo.name,
-            driveId: matchedLogo.driveId,
-            localPath: matchedLogo.localPath,
-            matchScore: matchedLogo.matchScore
-          };
-          console.log(`[DOCX Extraction] ✓ Matched "${spec.logo_name}" to "${matchedLogo.name}" (score: ${matchedLogo.matchScore})`);
-          matchedLogosCount++;
-          
-          if (matchedLogo.driveId) {
-            try {
-              const logoBuffer = await downloadFileFromDrive(matchedLogo.driveId);
-              const base64Data = logoBuffer.toString('base64');
-              const contentType = 'image/png';
-              spec.logoBase64 = `data:${contentType};base64,${base64Data}`;
-              spec.logoContentType = contentType;
-              console.log(`[DOCX Extraction] ✓ Downloaded logo from Drive: ${matchedLogo.driveId}`);
-            } catch (driveErr) {
-              console.warn(`[DOCX Extraction] Could not download logo from Drive: ${driveErr.message}`);
+      // Initialize matched logos array for this spec
+      spec.matchedPartnerLogos = [];
+      spec.logoBase64Array = []; // Support multiple logos
+
+      if (spec.logo_requested === true && spec.logo_names && spec.logo_names.length > 0) {
+        console.log(`[DOCX Extraction] Processing ${spec.logo_names.length} logo(s) for "${spec.title}":`, spec.logo_names);
+
+        for (const logoName of spec.logo_names) {
+          totalLogosRequested++;
+          console.log(`  - Looking for logo: "${logoName}"`);
+
+          const matchedLogo = findLogoByName(logoName);
+
+          if (matchedLogo) {
+            spec.matchedPartnerLogos.push({
+              key: matchedLogo.key,
+              name: matchedLogo.name,
+              driveId: matchedLogo.driveId,
+              localPath: matchedLogo.localPath,
+              matchScore: matchedLogo.matchScore
+            });
+            console.log(`    ✓ Matched "${logoName}" to "${matchedLogo.name}" (score: ${matchedLogo.matchScore})`);
+            totalLogosMatched++;
+
+            // Download logo from Drive if available
+            if (matchedLogo.driveId) {
+              try {
+                const logoBuffer = await downloadFileFromDrive(matchedLogo.driveId);
+                const base64Data = logoBuffer.toString('base64');
+                const contentType = 'image/png';
+                spec.logoBase64Array.push({
+                  base64: `data:${contentType};base64,${base64Data}`,
+                  contentType: contentType,
+                  name: matchedLogo.name,
+                  source: 'drive'
+                });
+                console.log(`    ✓ Downloaded logo from Drive: ${matchedLogo.driveId}`);
+              } catch (driveErr) {
+                console.warn(`    ⚠ Could not download logo from Drive: ${driveErr.message}`);
+              }
+            }
+          } else {
+            console.warn(`    ⚠ No matching logo found for: "${logoName}"`);
+            unmatchedLogoNames.push({ spec: spec.title, logoName });
+
+            const detectedLogos = detectLogosInText(logoName);
+            if (detectedLogos.length > 0) {
+              console.log(`    Possible alternatives:`, detectedLogos.map(l => l.name).join(', '));
             }
           }
-        } else {
-          console.warn(`[DOCX Extraction] ⚠ No matching logo found for: "${spec.logo_name}"`);
-          const detectedLogos = detectLogosInText(spec.logo_name);
-          if (detectedLogos.length > 0) {
-            console.log(`[DOCX Extraction] Possible alternatives detected:`, detectedLogos.map(l => l.name));
-          }
         }
-      } else if (spec.logo_requested === true && !spec.logo_name) {
-        console.warn(`[DOCX Extraction] ⚠ Logo requested but no logo_name extracted for: "${spec.title}"`);
+      } else if (spec.logo_requested === true && (!spec.logo_names || spec.logo_names.length === 0)) {
+        console.warn(`[DOCX Extraction] ⚠ Logo requested but no logo_names provided for: "${spec.title}"`);
       }
     }
-    
-    console.log(`[DOCX Extraction] Matched ${matchedLogosCount} logos using intelligent matching`);
-    
-    if (logoImages.length > 0) {
-      console.log(`[DOCX Extraction] Found ${logoImages.length} embedded logos in document (available as fallback)`);
+
+    console.log(`[DOCX Extraction] Logo matching complete: ${totalLogosMatched}/${totalLogosRequested} logos matched`);
+
+    if (unmatchedLogoNames.length > 0) {
+      console.warn(`[DOCX Extraction] ⚠ Unmatched logos (${unmatchedLogoNames.length}):`);
+      unmatchedLogoNames.forEach(({ spec, logoName }) => {
+        console.warn(`  - "${logoName}" for "${spec}"`);
+      });
+    }
+
+    // Use embedded logos as fallback for unmatched logos
+    if (logoImagesWithBase64.length > 0 && unmatchedLogoNames.length > 0) {
+      console.log(`[DOCX Extraction] Attempting to use ${logoImagesWithBase64.length} embedded logo(s) as fallback...`);
+
       let fallbackLogoIndex = 0;
       for (const spec of imageSpecs) {
-        if (spec.logo_requested === true && !spec.logoBase64 && fallbackLogoIndex < logoImages.length) {
-          const fallbackLogo = logoImages[fallbackLogoIndex];
-          spec.logoBase64 = fallbackLogo.base64;
-          spec.logoContentType = fallbackLogo.contentType;
-          console.log(`[DOCX Extraction] Using embedded fallback logo for: "${spec.title}" (logo: ${spec.logo_name || 'unknown'})`);
-          fallbackLogoIndex++;
+        if (spec.logo_requested && spec.logo_names && spec.logo_names.length > 0) {
+          // For each logo name that wasn't matched, try to use embedded logos
+          const unmatchedForThisSpec = spec.logo_names.filter(name =>
+            !spec.matchedPartnerLogos.some(m =>
+              m.name.toLowerCase().includes(name.toLowerCase()) ||
+              name.toLowerCase().includes(m.name.toLowerCase())
+            )
+          );
+
+          for (const unmatchedName of unmatchedForThisSpec) {
+            if (fallbackLogoIndex < logoImagesWithBase64.length) {
+              const fallbackLogo = logoImagesWithBase64[fallbackLogoIndex];
+              spec.logoBase64Array.push({
+                base64: fallbackLogo.base64,
+                contentType: fallbackLogo.contentType,
+                name: unmatchedName,
+                source: 'embedded_fallback'
+              });
+              console.log(`  ✓ Using embedded logo #${fallbackLogoIndex + 1} as fallback for "${unmatchedName}" in "${spec.title}"`);
+              fallbackLogoIndex++;
+            } else {
+              console.warn(`  ⚠ No more embedded logos available for "${unmatchedName}" in "${spec.title}"`);
+            }
+          }
         }
       }
     }
+
+    // Log final logo assignment summary
+    console.log('[DOCX Extraction] Final logo assignment:');
+    imageSpecs.forEach((spec, idx) => {
+      if (spec.logo_requested && spec.logoBase64Array.length > 0) {
+        const logoSummary = spec.logoBase64Array.map(l => `${l.name} (${l.source})`).join(', ');
+        console.log(`  Spec #${idx + 1} "${spec.title}": ${spec.logoBase64Array.length} logo(s) - ${logoSummary}`);
+      } else if (spec.logo_requested) {
+        console.warn(`  Spec #${idx + 1} "${spec.title}": Logo requested but none assigned!`);
+      }
+    });
 
     return {
       imageSpecs,
-      extractedImages: imagesToProcess,
-      logoImages: logoImages
+      extractedImages: productImages,
+      logoImages: logoImagesWithBase64
     };
 
   } catch (error) {
@@ -1288,10 +1514,11 @@ async function processImagesWithGemini(jobId) {
         imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
       }
 
-      // Check if this spec requires a logo overlay
-      if (spec && spec.logoBase64 && spec.logo_requested === true) {
-        console.log(`[Logo] Applying ${spec.logo_name || 'brand'} logo to image ${i + 1}`);
-        imageBuffer = await overlayLogoOnImage(imageBuffer, spec.logoBase64, 'bottom-left');
+      // Check if this spec requires logo overlay(s)
+      if (spec && spec.logo_requested === true && spec.logoBase64Array && spec.logoBase64Array.length > 0) {
+        const logoNames = spec.logoBase64Array.map(l => l.name).join(', ');
+        console.log(`[Logo] Applying ${spec.logoBase64Array.length} logo(s) to image ${i + 1}: ${logoNames}`);
+        imageBuffer = await overlayMultipleLogos(imageBuffer, spec.logoBase64Array);
       }
 
       const originalNameWithoutExt = originalImage.originalName.replace(/\.[^/.]+$/, '');
@@ -1316,7 +1543,8 @@ async function processImagesWithGemini(jobId) {
         originalImageId: originalImage.driveId,
         originalName: originalImage.originalName,
         url: getPublicImageUrl(uploadedFile.id),
-        logoApplied: spec?.logo_requested === true && spec?.logoBase64 ? true : false
+        logoApplied: spec?.logo_requested === true && spec?.logoBase64Array?.length > 0 ? true : false,
+        logosCount: spec?.logoBase64Array?.length || 0
       };
     } else {
       console.error(`❌ [Save] No valid image URL in result ${i + 1}`);
