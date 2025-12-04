@@ -1,0 +1,179 @@
+/* ============================================
+   CORSAIR CORPORATE DESIGN SYSTEM
+   ============================================ */
+
+/* Import Saira Font Family */
+@import url('https://fonts.googleapis.com/css2?family=Saira:wght@300;400;500;600;700;800&display=swap');
+
+/* ============================================
+   CSS VARIABLES - DESIGN TOKENS
+   ============================================ */
+
+:root {
+  /* Corsair Brand Colors */
+  --corsair-indigo: #203F5B;
+  --corsair-blue: #18576c;
+  --corsair-grullo: #A5A08F;
+  --corsair-black: #1C1C1C;
+  
+  /* Neutral Colors */
+  --white: #FFFFFF;
+  --black: #000000;
+  --gray-50: #FAFAFA;
+  --gray-100: #F5F5F5;
+  --gray-200: #E5E5E5;
+  --gray-300: #D4D4D4;
+  --gray-400: #A3A3A3;
+  --gray-500: #737373;
+  --gray-600: #525252;
+  --gray-700: #404040;
+  --gray-800: #262626;
+  --gray-900: #171717;
+  
+  /* Functional Colors */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
+  
+  /* Typography */
+  --font-primary: 'Saira', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  
+  /* Font Sizes */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+  
+  /* Font Weights */
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+  
+  /* Spacing Scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* ============================================
+   GLOBAL RESETS & BASE STYLES
+   ============================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
+  color: var(--white);
+  background: var(--corsair-black);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Text Utilities */
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg { font-size: var(--text-lg); }
+.text-xl { font-size: var(--text-xl); }
+.text-2xl { font-size: var(--text-2xl); }
+.text-3xl { font-size: var(--text-3xl); }
+.text-4xl { font-size: var(--text-4xl); }
+
+.font-light { font-weight: var(--weight-light); }
+.font-regular { font-weight: var(--weight-regular); }
+.font-medium { font-weight: var(--weight-medium); }
+.font-semibold { font-weight: var(--weight-semibold); }
+.font-bold { font-weight: var(--weight-bold); }
+.font-extrabold { font-weight: var(--weight-extrabold); }
+
+/* Color Utilities */
+.text-white { color: var(--white); }
+.text-gray-400 { color: var(--gray-400); }
+.text-gray-500 { color: var(--gray-500); }
+.text-corsair-indigo { color: var(--corsair-indigo); }
+.text-corsair-blue { color: var(--corsair-blue); }
+
+.bg-corsair-indigo { background-color: var(--corsair-indigo); }
+.bg-corsair-black { background-color: var(--corsair-black); }
+.bg-gray-800 { background-color: var(--gray-800); }
+.bg-gray-900 { background-color: var(--gray-900); }
+
+/* Spacing Utilities */
+.p-4 { padding: var(--space-4); }
+.p-6 { padding: var(--space-6); }
+.p-8 { padding: var(--space-8); }
+
+.px-4 { padding-left: var(--space-4); padding-right: var(--space-4); }
+.px-6 { padding-left: var(--space-6); padding-right: var(--space-6); }
+.py-4 { padding-top: var(--space-4); padding-bottom: var(--space-4); }
+.py-6 { padding-top: var(--space-6); padding-bottom: var(--space-6); }
+
+.m-4 { margin: var(--space-4); }
+.m-6 { margin: var(--space-6); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-6 { margin-bottom: var(--space-6); }
+.mb-8 { margin-bottom: var(--space-8); }
+
+/* Border Utilities */
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded-md { border-radius: var(--radius-md); }
+.rounded-lg { border-radius: var(--radius-lg); }
+
+/* Shadow Utilities */
+.shadow-sm { box-shadow: var(--shadow-sm); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
