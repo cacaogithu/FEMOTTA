@@ -1144,7 +1144,8 @@ export async function uploadPDF(req, res) {
       // AI-POWERED LOGO ANALYSIS: Analyze brief text to determine accurate logo placement
       // Only run if we have valid brief text and image specs
       const briefText = docxResult.briefText || '';
-      if (briefText.length > 50 && imageSpecs && imageSpecs.length > 0) {
+      console.log(`[Upload Brief] Brief text length: ${briefText.length}, Specs count: ${imageSpecs ? imageSpecs.length : 0}`);
+      if (briefText && briefText.trim().length > 20 && imageSpecs && imageSpecs.length > 0) {
         console.log('[Upload Brief] Starting AI logo placement analysis...');
         try {
           const logoPlans = await analyzeLogoPlacement(
