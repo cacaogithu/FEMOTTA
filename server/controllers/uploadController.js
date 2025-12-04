@@ -568,45 +568,101 @@ console.log('[DOCX Extraction] Extracted', extractedImages.length, 'embedded ima
 
     console.log('[DOCX Extraction] ✓ All specs validated successfully');
 
-    // SIZE-BASED SEPARATION: Product images are LARGE (>50KB), logos are SMALL (<50KB)
-    // This is more reliable than assuming document order
-    const SIZE_THRESHOLD = 50 * 1024; // 50KB threshold
+    // MULTI-FACTOR IMAGE CLASSIFICATION using dimensions + size + pixel count
+    // Product images: high resolution (1000px+ width/height), high pixel count
+    // Logos: smaller dimensions, often square/wide aspect ratios
+    console.log('[DOCX Extraction] Classifying images using multi-factor analysis...');
     
-    console.log('[DOCX Extraction] Separating images by SIZE (threshold: 50KB)...');
+    const classifiedImages = [];
     
-    const productImages = [];
-    const logoImages = [];
-    
-    extractedImages.forEach((img, idx) => {
+    for (let idx = 0; idx < extractedImages.length; idx++) {
+      const img = extractedImages[idx];
       const sizeKB = Math.round(img.size / 1024);
-      if (img.size >= SIZE_THRESHOLD) {
-        productImages.push({ ...img, originalIndex: idx });
-        console.log(`  Image ${idx + 1}: ${sizeKB}KB → PRODUCT IMAGE`);
-      } else {
-        logoImages.push({ ...img, originalIndex: idx });
-        console.log(`  Image ${idx + 1}: ${sizeKB}KB → LOGO (small file)`);
+      
+      let metadata = { width: 0, height: 0 };
+      try {
+        metadata = await sharp(img.buffer).metadata();
+      } catch (e) {
+        console.warn(`  Image ${idx + 1}: Could not read metadata, using size-only classification`);
       }
-    });
+      
+      const width = metadata.width || 0;
+      const height = metadata.height || 0;
+      const pixelCount = width * height;
+      const aspectRatio = width > 0 && height > 0 ? Math.max(width/height, height/width) : 1;
+      
+      // Calculate product likelihood score (higher = more likely product image)
+      let productScore = 0;
+      
+      // Dimension scoring: larger images are more likely products
+      if (width >= 1000 || height >= 1000) productScore += 40;
+      else if (width >= 500 || height >= 500) productScore += 20;
+      else if (width < 300 && height < 300) productScore -= 30; // Small = likely logo
+      
+      // Pixel count scoring: high pixel count = product
+      if (pixelCount >= 1000000) productScore += 30; // 1MP+
+      else if (pixelCount >= 250000) productScore += 15; // 500x500+
+      else if (pixelCount < 100000) productScore -= 20; // Very small
+      
+      // File size scoring
+      if (img.size >= 500000) productScore += 20; // 500KB+
+      else if (img.size >= 100000) productScore += 10; // 100KB+
+      else if (img.size < 30000) productScore -= 15; // <30KB likely logo
+      
+      // Aspect ratio scoring: extreme ratios often indicate logos/banners
+      if (aspectRatio > 3) productScore -= 15; // Very wide/tall = likely logo/banner
+      
+      const isProduct = productScore >= 20;
+      
+      classifiedImages.push({
+        ...img,
+        originalIndex: idx,
+        width,
+        height,
+        pixelCount,
+        aspectRatio: aspectRatio.toFixed(2),
+        productScore,
+        isProduct
+      });
+      
+      console.log(`  Image ${idx + 1}: ${width}x${height} (${sizeKB}KB) score=${productScore} → ${isProduct ? 'PRODUCT' : 'LOGO'}`);
+    }
     
-    console.log(`[DOCX Extraction] Separated: ${productImages.length} product images, ${logoImages.length} logos`);
+    // Separate into product and logo arrays
+    const productImages = classifiedImages.filter(img => img.isProduct);
+    const logoImages = classifiedImages.filter(img => !img.isProduct);
     
-    // Validate we have enough product images for specs
+    console.log(`[DOCX Extraction] Classification result: ${productImages.length} product images, ${logoImages.length} logos`);
+    
+    // Fallback: if we have fewer product images than specs, reclassify top-scoring logos as products
     if (productImages.length < imageSpecs.length) {
-      console.warn(`[DOCX Extraction] ⚠ Only ${productImages.length} product images for ${imageSpecs.length} specs`);
+      const needed = imageSpecs.length - productImages.length;
+      console.warn(`[DOCX Extraction] ⚠ Need ${needed} more product images, reclassifying top-scoring logos...`);
+      
+      // Sort logos by score descending and move top ones to products
+      logoImages.sort((a, b) => b.productScore - a.productScore);
+      for (let i = 0; i < needed && logoImages.length > 0; i++) {
+        const reclassified = logoImages.shift();
+        reclassified.isProduct = true;
+        productImages.push(reclassified);
+        console.log(`    Reclassified image ${reclassified.originalIndex + 1} as product (score: ${reclassified.productScore})`);
+      }
+      
+      // Re-sort product images by original index to maintain document order
+      productImages.sort((a, b) => a.originalIndex - b.originalIndex);
     }
     
     // Create empty logos array for each spec (will be populated by intelligent matching later)
     const embeddedLogosForSpecs = imageSpecs.map(() => []);
     
     // Convert logoImages to the format expected by intelligent matching
-    logoImages.forEach((logo, idx) => {
+    logoImages.forEach((logo) => {
       const base64Data = logo.buffer.toString('base64');
       logo.base64 = `data:${logo.contentType};base64,${base64Data}`;
     });
     
-    console.log(`[DOCX Extraction] ✓ Product/logo separation complete`);
-    console.log(`[DOCX Extraction] Product images will be matched to specs by order (1:1)`);
-    console.log(`[DOCX Extraction] Logos will be matched using intelligent name matching`)
+    console.log(`[DOCX Extraction] ✓ Image classification complete`);
+    console.log(`[DOCX Extraction] Final: ${productImages.length} product images, ${logoImages.length} logos`)
 
     // INTELLIGENT LOGO MATCHING - Support multiple logos per spec
     console.log('[DOCX Extraction] Starting intelligent logo matching (supports multiple logos per image)...');
