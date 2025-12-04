@@ -4,6 +4,9 @@
 A professional, multi-tenant SaaS platform for AI-powered marketing image editing. This platform allows users to upload marketing briefs (PDF, DOCX, or text prompt) and product images for instant AI-powered editing. Key capabilities include brand-specific theming, interactive before/after image comparisons, an AI chat assistant for selective re-editing, and the ability to download layered PSD files with editable text. The system enhances efficiency and reduces the time required for marketing image production, with a vision to become the leading AI-powered image editing solution for marketing teams globally.
 
 ## Recent Changes
+- **December 2025**: Implemented intelligent partner logo matching system (`server/services/partnerLogos.js`) - matches logo names from briefs to predefined registry instead of sequential assignment
+- **December 2025**: Enhanced DOCX extraction with improved table parsing - better extraction of logo requirements from table-structured briefs
+- **December 2025**: Added admin endpoints for partner logo management (`/api/admin/partner-logos/*`) - upload, configure, and search logos
 - **December 2025**: Implemented parameter storage system (`server/services/imageParameters.js`) - stores font sizes, positions, gradient settings with each edited image
 - **December 2025**: Enhanced PSD generation to use stored parameters for precise text positioning and gradient configuration
 - **December 2025**: Added chat-based parameter editing via `adjustParameters` function - allows quick adjustments without full regeneration
@@ -54,6 +57,7 @@ The application is a multi-tenant SaaS platform built with a React.js frontend (
 - **Custom Google Drive Destinations**: Users can specify a custom Google Drive folder URL for output uploads with validation and folder ID extraction.
 - **PSD Export with Editable Text Layers**: Server-side PSD generation using ag-psd library. Creates true layered PSDs with fully editable text layers that work natively in Adobe Photoshop. Text layers reference Saira font family (Saira-Bold for titles, Saira-Regular for subtitles). The PSD download uses signed URLs via `/api/psd/signed-url/:jobId/:imageIndex` endpoint for reliable file delivery.
 - **Smart Logo Detection & Overlay**: Automatically detects logo requests in brief text using OpenAI extraction (`logo_requested: true/false`, `logo_name`). Small embedded images (<50KB) in DOCX are classified as logos. When a spec requests a logo, the system overlays it programmatically using Sharp with proportional sizing (15% of image width) and proper margins.
+- **Intelligent Partner Logo Matching**: Uses `server/services/partnerLogos.js` to match AI-extracted logo names to predefined partner logos (Intel Core, Intel Core Ultra, AMD Ryzen, NVIDIA 50 Series, Hydro X & iCUE Link). Supports fuzzy matching for partial names and variations. Admin API available at `/api/admin/partner-logos/*` for managing Drive IDs and uploading logos.
 - **Triple Input Modes**: Supports PDF, DOCX (with intelligent image filtering), or text prompts.
 - **AI Chat with Vision**: Chat assistant with vision capabilities for precise re-editing based on visual analysis and natural language commands. Currently uses GPT-4o, planned migration to Gemini Flash 1.5 for understanding with Nano Banana Pro for image generation.
 - **Google Gemini Image API**: Uses `@google/genai` SDK via `server/services/nanoBananaService.js` for true image editing that preserves original product images.
