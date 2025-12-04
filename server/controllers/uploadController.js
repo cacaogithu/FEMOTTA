@@ -38,9 +38,9 @@ async function extractPromptFromDOCX(docxBuffer, brand) {
     const result = await mammoth.convertToHtml({
       buffer: docxBuffer
     }, {
-      convertImage: mammoth.images.imgElement(function(image) {
+      convertImage: mammoth.images.imgElement(function (image) {
         // image.read() returns a Promise that resolves to the image buffer
-        return image.read("base64").then(function(imageBuffer) {
+        return image.read("base64").then(function (imageBuffer) {
           // Convert base64 string to Buffer
           const buffer = Buffer.from(imageBuffer, 'base64');
 
@@ -204,20 +204,20 @@ ${docxText}`
     // Filter out logos and non-product images
     // Strategy: Remove small images (logos are typically smaller) and only keep images needed for specs
     const MIN_IMAGE_SIZE = 50000; // 50KB minimum - logos are usually much smaller
-    
+
     // First, filter by size to remove obvious logos/icons
     const productImages = extractedImages.filter(img => img.buffer.length >= MIN_IMAGE_SIZE);
     console.log(`[DOCX Extraction] After size filtering (>=${MIN_IMAGE_SIZE} bytes): ${productImages.length} images`);
-    
+
     // Second, only take the number of images we need for the specs
     const imagesToProcess = productImages.slice(0, imageSpecs.length);
-    
+
     console.log(`[DOCX Extraction] Final image count: ${imagesToProcess.length} (matching ${imageSpecs.length} specs)`);
-    
+
     if (imagesToProcess.length < imageSpecs.length) {
       console.warn(`[DOCX Extraction] Warning: Found ${imagesToProcess.length} product images but need ${imageSpecs.length}. Some specs may not have matching images.`);
     }
-    
+
     if (extractedImages.length > imagesToProcess.length) {
       console.log(`[DOCX Extraction] Filtered out ${extractedImages.length - imagesToProcess.length} images (likely logos/icons)`);
     }
@@ -417,11 +417,11 @@ export async function uploadPDF(req, res) {
     }
 
     // Check file type by MIME type and file extension
-    const isPDF = req.file.mimetype === 'application/pdf' || 
-                  req.file.originalname.toLowerCase().endsWith('.pdf');
+    const isPDF = req.file.mimetype === 'application/pdf' ||
+      req.file.originalname.toLowerCase().endsWith('.pdf');
     const isDOCX = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-                   (req.file.mimetype === 'application/octet-stream' && req.file.originalname.toLowerCase().endsWith('.docx')) ||
-                   req.file.originalname.toLowerCase().endsWith('.docx');
+      (req.file.mimetype === 'application/octet-stream' && req.file.originalname.toLowerCase().endsWith('.docx')) ||
+      req.file.originalname.toLowerCase().endsWith('.docx');
 
     if (!isPDF && !isDOCX) {
       console.log('[Upload Brief] Invalid file type:', req.file.mimetype, 'for file:', req.file.originalname);
@@ -513,32 +513,32 @@ export async function uploadPDF(req, res) {
     if (uploadedImages.length > 0) {
       console.log('[Upload Brief] Starting automatic processing with embedded images...');
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         jobId,
         fileId: result.id,
         fileName: result.name,
         imageCount: imageSpecs.length,
         embeddedImageCount: uploadedImages.length,
-        message: `Brief uploaded with ${uploadedImages.length} embedded images. Processing started automatically.` 
+        message: `Brief uploaded with ${uploadedImages.length} embedded images. Processing started automatically.`
       });
 
       // Start processing in the background
       processImagesWithNanoBanana(jobId).catch(err => {
         console.error('Background processing error:', err);
-        updateJob(jobId, { 
+        updateJob(jobId, {
           status: 'failed',
           error: err.message
         });
       });
     } else {
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         jobId,
         fileId: result.id,
         fileName: result.name,
         imageCount: imageSpecs.length,
-        message: `Brief uploaded and ${imageSpecs.length} image specifications extracted successfully` 
+        message: `Brief uploaded and ${imageSpecs.length} image specifications extracted successfully`
       });
     }
 
@@ -547,9 +547,9 @@ export async function uploadPDF(req, res) {
 
     // Return user-friendly error messages
     const statusCode = error.message.includes('No brief') ? 400 : 500;
-    res.status(statusCode).json({ 
-      error: 'Brief upload failed', 
-      details: error.message 
+    res.status(statusCode).json({
+      error: 'Brief upload failed',
+      details: error.message
     });
   }
 }
@@ -604,16 +604,16 @@ export async function uploadImages(req, res) {
       imageCount: uploadedImages.length
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       count: uploadedImages.length,
       images: uploadedImages,
-      message: 'Images uploaded successfully, processing started' 
+      message: 'Images uploaded successfully, processing started'
     });
 
     processImagesWithNanoBanana(jobId).catch(err => {
       console.error('Background processing error:', err);
-      updateJob(jobId, { 
+      updateJob(jobId, {
         status: 'failed',
         error: err.message
       });
@@ -624,6 +624,277 @@ export async function uploadImages(req, res) {
     res.status(500).json({ error: 'Failed to upload images', details: error.message });
   }
 }
+
+export async function uploadStructuredBrief(req, res) {
+  try {
+    console.log('[Structured Brief] Request received');
+
+    // Parse JSON from multipart form
+    let imageSpecs;
+    try {
+      imageSpecs = JSON.parse(req.body.imageSpecs);
+    } catch (parseError) {
+      return res.status(400).json({ error: 'Invalid imageSpecs format - must be valid JSON' });
+    }
+
+    const projectName = req.body.projectName || 'Untitled Project';
+
+    // Import validation utilities
+    const { validateStructuredBrief, generateDefaultPrompt, sanitizeInput } = await import('../utils/briefValidation.js');
+
+    // Validate submission
+    const validation = validateStructuredBrief(imageSpecs, req.files);
+    if (!validation.valid) {
+      console.log('[Structured Brief] Validation failed:', validation.errors);
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: validation.errors
+      });
+    }
+
+    console.log(`[Structured Brief] Valid submission: ${imageSpecs.length} images, project: "${projectName}"`);
+
+    // Create job
+    const jobId = `job_${Date.now()}`;
+
+    // Upload images to Drive
+    console.log('[Structured Brief] Uploading images to Google Drive...');
+    const uploadedImages = [];
+
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+      const spec = imageSpecs[i];
+
+      const result = await uploadFileToDrive(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        req.brand.productImagesFolderId
+      );
+
+      console.log(`[Structured Brief] Uploaded ${file.originalname} to Drive, making public...`);
+      await makeFilePublic(result.id);
+      const publicUrl = getPublicImageUrl(result.id);
+
+      uploadedImages.push({
+        id: result.id,
+        name: file.originalname,
+        originalName: file.originalname,
+        driveId: result.id,
+        publicUrl: publicUrl,
+        title: sanitizeInput(spec.title),
+        subtitle: sanitizeInput(spec.subtitle),
+        asset: spec.asset ? sanitizeInput(spec.asset) : null,
+        variant: spec.variant ? sanitizeInput(spec.variant) : null
+      });
+    }
+
+    console.log('[Structured Brief] All images uploaded successfully');
+
+    // Generate AI prompts for specs
+    const specsWithPrompts = imageSpecs.map(spec => {
+      // Use custom prompt if provided and user wants to use it
+      if (spec.customPrompt && !spec.useDefaultPrompt) {
+        return {
+          ...spec,
+          ai_prompt: sanitizeInput(spec.customPrompt),
+          title: sanitizeInput(spec.title),
+          subtitle: sanitizeInput(spec.subtitle)
+        };
+      }
+
+      // Use default template
+      return {
+        ...spec,
+        title: sanitizeInput(spec.title),
+        subtitle: sanitizeInput(spec.subtitle),
+        ai_prompt: generateDefaultPrompt(spec.title, spec.subtitle)
+      };
+    });
+
+    console.log('[Structured Brief] Generated AI prompts for all specs');
+
+    // Create job in database
+    const startTime = new Date();
+    createJob({
+      id: jobId,
+      brandId: req.brand.id,
+      brandSlug: req.brand.slug,
+      briefType: 'structured_form',
+      projectName: sanitizeInput(projectName),
+      imageSpecs: specsWithPrompts,
+      images: uploadedImages,
+      status: 'processing',
+      createdAt: startTime,
+      startTime: startTime,
+      imageCount: uploadedImages.length,
+      submissionMetadata: {
+        method: 'structured_form',
+        hasCustomPrompts: imageSpecs.some(s => s.customPrompt && !s.useDefaultPrompt),
+        hasVariants: imageSpecs.some(s => s.variant),
+        hasAssetNames: imageSpecs.some(s => s.asset)
+      }
+    });
+
+    console.log('[Structured Brief] Job created:', jobId);
+
+    // Start processing
+    res.json({
+      success: true,
+      jobId,
+      imageCount: uploadedImages.length,
+      message: 'Structured brief submitted successfully. Processing started.'
+    });
+
+    // Background processing
+    processImagesWithNanoBanana(jobId).catch(err => {
+      console.error('[Structured Brief] Background processing error:', err);
+      updateJob(jobId, {
+        status: 'failed',
+        error: err.message
+      });
+    });
+
+  } catch (error) {
+    console.error('[Structured Brief] Error:', error);
+    res.status(500).json({
+      error: 'Failed to process structured brief',
+      details: error.message
+    });
+  }
+}
+
+export async function uploadPDFWithImages(req, res) {
+  try {
+    console.log('[PDF + Images] Request received');
+
+    if (!req.files || !req.files.pdf || !req.files.images) {
+      return res.status(400).json({
+        error: 'Both PDF and images are required',
+        details: 'Please upload a PDF brief and at least one image'
+      });
+    }
+
+    const pdfFile = req.files.pdf[0];
+    const imageFiles = req.files.images;
+
+    console.log(`[PDF + Images] PDF: ${pdfFile.originalname}, Images: ${imageFiles.length}`);
+
+    // Import validation utilities
+    const { validatePDFWithImages } = await import('../utils/briefValidation.js');
+
+    // First, extract specs from PDF to know how many images we need
+    console.log('[PDF + Images] Extracting specifications from PDF...');
+    const imageSpecs = await extractPromptFromPDF(pdfFile.buffer, req.brand);
+
+    console.log(`[PDF + Images] Extracted ${imageSpecs.length} specifications`);
+
+    // Now validate with the expected count
+    const validation = validatePDFWithImages(pdfFile, imageFiles, imageSpecs.length);
+    if (!validation.valid) {
+      console.log('[PDF + Images] Validation failed:', validation.errors);
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: validation.errors
+      });
+    }
+
+    // Create job
+    const jobId = `job_${Date.now()}`;
+    const fileName = `brief-${Date.now()}.pdf`;
+
+    // Upload PDF to Drive
+    console.log('[PDF + Images] Uploading PDF to Google Drive...');
+    const pdfResult = await uploadFileToDrive(
+      pdfFile.buffer,
+      fileName,
+      pdfFile.mimetype,
+      req.brand.briefFolderId
+    );
+    console.log('[PDF + Images] PDF uploaded to Drive, ID:', pdfResult.id);
+
+    // Upload images to Drive
+    console.log('[PDF + Images] Uploading images to Google Drive...');
+    const uploadedImages = [];
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+
+      const result = await uploadFileToDrive(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        req.brand.productImagesFolderId
+      );
+
+      console.log(`[PDF + Images] Uploaded ${file.originalname}, making public...`);
+      await makeFilePublic(result.id);
+      const publicUrl = getPublicImageUrl(result.id);
+
+      uploadedImages.push({
+        id: result.id,
+        name: file.originalname,
+        originalName: file.originalname,
+        driveId: result.id,
+        publicUrl: publicUrl
+      });
+    }
+
+    console.log('[PDF + Images] All files uploaded successfully');
+
+    // Create job in database
+    const startTime = new Date();
+    createJob({
+      id: jobId,
+      brandId: req.brand.id,
+      brandSlug: req.brand.slug,
+      briefType: 'pdf_with_images',
+      pdfId: pdfResult.id,
+      pdfName: pdfResult.name,
+      imageSpecs: imageSpecs,
+      images: uploadedImages,
+      status: 'processing',
+      createdAt: startTime,
+      startTime: startTime,
+      imageCount: uploadedImages.length,
+      submissionMetadata: {
+        method: 'pdf_with_images',
+        pdfFileName: pdfFile.originalname,
+        autoMatched: true // We match by order for now
+      }
+    });
+
+    console.log('[PDF + Images] Job created:', jobId);
+
+    // Start processing
+    res.json({
+      success: true,
+      jobId,
+      fileId: pdfResult.id,
+      fileName: pdfResult.name,
+      imageCount: imageSpecs.length,
+      uploadedImages: uploadedImages.length,
+      message: `PDF brief uploaded with ${uploadedImages.length} images. Processing started.`
+    });
+
+    // Background processing
+    processImagesWithNanoBanana(jobId).catch(err => {
+      console.error('[PDF + Images] Background processing error:', err);
+      updateJob(jobId, {
+        status: 'failed',
+        error: err.message
+      });
+    });
+
+  } catch (error) {
+    console.error('[PDF + Images] Error:', error);
+    res.status(500).json({
+      error: 'Failed to process PDF with images',
+      details: error.message
+    });
+  }
+}
+
 
 async function processImagesWithNanoBanana(jobId) {
   const job = getJob(jobId);
@@ -639,7 +910,7 @@ async function processImagesWithNanoBanana(jobId) {
 
   if (!job.imageSpecs || job.imageSpecs.length === 0) {
     console.error('No image specifications found for job:', jobId);
-    updateJob(jobId, { 
+    updateJob(jobId, {
       status: 'waiting_for_prompt',
       processingStep: 'Waiting for image specifications from PDF brief'
     });
@@ -687,7 +958,7 @@ async function processImagesWithNanoBanana(jobId) {
     }
   });
 
-  updateJob(jobId, { 
+  updateJob(jobId, {
     status: 'processing',
     processingStep: 'Processing images with individual prompts'
   });
@@ -719,7 +990,7 @@ async function processImagesWithNanoBanana(jobId) {
   const imageUrls = job.images.map(img => img.publicUrl);
   console.log('Image URLs to process:', imageUrls);
 
-  updateJob(jobId, { 
+  updateJob(jobId, {
     status: 'processing',
     processingStep: 'Editing images with AI (individual prompts per image)'
   });
@@ -809,7 +1080,7 @@ async function processImagesWithNanoBanana(jobId) {
 
   // Continue with existing result processing (remove old editMultipleImages call)
   const unusedProgressCallback = (progressInfo) => {
-      // This callback is no longer used
+    // This callback is no longer used
   };
 
   addWorkflowStep(jobId, {
@@ -827,7 +1098,7 @@ async function processImagesWithNanoBanana(jobId) {
 
   console.log(`Saving ${results.length} edited images to Drive (brand: ${job.brandSlug})...`);
 
-  updateJob(jobId, { 
+  updateJob(jobId, {
     processingStep: 'Saving edited images to cloud storage'
   });
 
@@ -899,7 +1170,7 @@ async function processImagesWithNanoBanana(jobId) {
   });
 
   console.log(`Successfully processed ${editedImages.length} images`);
-  updateJob(jobId, { 
+  updateJob(jobId, {
     status: 'completed',
     editedImages,
     processingStep: 'Complete',
@@ -952,12 +1223,12 @@ export async function uploadTextPrompt(req, res) {
       imageCount: 0
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       jobId,
       fileId: result.id,
       fileName: result.name,
-      message: 'Prompt uploaded successfully' 
+      message: 'Prompt uploaded successfully'
     });
   } catch (error) {
     console.error('Prompt upload error:', error);

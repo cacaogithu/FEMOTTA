@@ -1,15 +1,21 @@
 import { useState, useRef } from 'react';
 import { authenticatedFetch, postFormData, postJSON } from '../utils/api';
+import BriefMethodSelector from './BriefMethodSelector';
+import StructuredBriefForm from './StructuredBriefForm';
 import './UploadPage.css';
 
 function UploadPage({ onComplete }) {
+  // Method selection: null = not selected, 'document', 'pdf-images', 'form'
+  const [submissionMethod, setSubmissionMethod] = useState(null);
+
+  // Legacy state for document/text methods
   const [briefType, setBriefType] = useState('pdf');
   const [pdfFile, setPdfFile] = useState(null);
   const [textPrompt, setTextPrompt] = useState('');
   const [images, setImages] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const pdfInputRef = useRef(null);
   const imagesInputRef = useRef(null);
 
@@ -26,22 +32,22 @@ function UploadPage({ onComplete }) {
 
   const validatePdf = (file) => {
     if (!file) return;
-    
+
     const allowedTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
-    
+
     if (!allowedTypes.includes(file.type)) {
       setError('Please upload a PDF or DOCX file');
       return;
     }
-    
+
     if (file.size > 50 * 1024 * 1024) {
       setError('File must be less than 50MB');
       return;
     }
-    
+
     setPdfFile(file);
     setError('');
   };
@@ -70,7 +76,7 @@ function UploadPage({ onComplete }) {
       }
       return true;
     });
-    
+
     setImages([...images, ...validFiles]);
     setError('');
   };
@@ -79,42 +85,75 @@ function UploadPage({ onComplete }) {
     setImages(images.filter((_, i) => i !== index));
   };
 
+  const handleStructuredFormSubmit = async (formData) => {
+    setUploading(true);
+    setError('');
+
+    try {
+      // Create FormData for multipart upload
+      const multipartData = new FormData();
+      multipartData.append('projectName', formData.projectName);
+      multipartData.append('imageSpecs', JSON.stringify(formData.imageSpecs));
+
+      // Append images
+      formData.images.forEach(image => {
+        multipartData.append('images', image);
+      });
+
+      // Submit to API
+      const response = await postFormData('/api/upload/structured-brief', multipartData);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details?.join(', ') || errorData.error || 'Submission failed');
+      }
+
+      const data = await response.json();
+      onComplete(data.jobId);
+
+    } catch (err) {
+      console.error('Structured form submission error:', err);
+      setError(err.message || 'Submission failed. Please try again.');
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     // For DOCX, images are optional (will use embedded images)
     const isDOCX = pdfFile && pdfFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    
+
     if (!isDOCX && images.length === 0) return;
     if (briefType === 'pdf' && !pdfFile) return;
     if (briefType === 'text' && !textPrompt.trim()) return;
-    
+
     setUploading(true);
     setError('');
 
     try {
       let jobId;
       let pdfData, textData;
-      
+
       if (briefType === 'pdf') {
         const pdfFormData = new FormData();
         pdfFormData.append('pdf', pdfFile);
-        
+
         const pdfResponse = await postFormData('/api/upload/pdf', pdfFormData);
-        
+
         if (!pdfResponse.ok) {
           const errorData = await pdfResponse.json();
           throw new Error(errorData.error || errorData.details || 'PDF upload failed');
         }
-        
+
         pdfData = await pdfResponse.json();
         jobId = pdfData.jobId;
       } else {
         const textResponse = await postJSON('/api/upload/text-prompt', { prompt: textPrompt });
-        
+
         if (!textResponse.ok) {
           const errorData = await textResponse.json();
           throw new Error(errorData.error || errorData.details || 'Prompt upload failed');
         }
-        
+
         textData = await textResponse.json();
         jobId = textData.jobId;
       }
@@ -122,7 +161,7 @@ function UploadPage({ onComplete }) {
       // Check if this was a DOCX with embedded images
       const responseData = briefType === 'pdf' ? pdfData : textData;
       const hasEmbeddedImages = responseData?.embeddedImageCount > 0;
-      
+
       // Only upload separate images if we have them and didn't get embedded ones
       if (images.length > 0 && !hasEmbeddedImages) {
         const imagesFormData = new FormData();
@@ -130,15 +169,15 @@ function UploadPage({ onComplete }) {
           imagesFormData.append('images', image);
         });
         imagesFormData.append('jobId', jobId);
-        
+
         const imagesResponse = await postFormData('/api/upload/images', imagesFormData);
-        
+
         if (!imagesResponse.ok) {
           const errorData = await imagesResponse.json();
           throw new Error(errorData.error || errorData.details || 'Images upload failed');
         }
       }
-      
+
       onComplete(jobId);
     } catch (err) {
       console.error('Upload error:', err);
@@ -149,7 +188,7 @@ function UploadPage({ onComplete }) {
   };
 
   const isDOCX = pdfFile && pdfFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  
+
   const canSubmit = !uploading && (
     (briefType === 'pdf' && pdfFile && (isDOCX || images.length > 0)) ||
     (briefType === 'text' && textPrompt.trim() && images.length > 0)
@@ -160,9 +199,9 @@ function UploadPage({ onComplete }) {
       <div className="upload-container">
         <header className="header">
           <div className="logo-container">
-            <img 
-              src="/assets/corsair-logo.png" 
-              alt="CORSAIR" 
+            <img
+              src="/assets/corsair-logo.png"
+              alt="CORSAIR"
               className="corsair-logo"
             />
           </div>
@@ -170,155 +209,206 @@ function UploadPage({ onComplete }) {
           <p>Upload your creative brief and product images to get started</p>
         </header>
 
-        <div className="brief-type-toggle">
-          <button 
-            className={`toggle-btn ${briefType === 'pdf' ? 'active' : ''}`}
-            onClick={() => setBriefType('pdf')}
-          >
-            📄 Document Brief
-          </button>
-          <button 
-            className={`toggle-btn ${briefType === 'text' ? 'active' : ''}`}
-            onClick={() => setBriefType('text')}
-          >
-            ✍️ Text Prompt
-          </button>
-        </div>
+        {/* Show method selector if no method selected */}
+        {!submissionMethod ? (
+          <BriefMethodSelector
+            onMethodSelect={setSubmissionMethod}
+            currentMethod={submissionMethod}
+          />
+        ) : (
+          <>
+            {/* Back button to change method */}
+            <div style={{ marginBottom: '24px' }}>
+              <button
+                className="button button-secondary"
+                onClick={() => {
+                  setSubmissionMethod(null);
+                  setPdfFile(null);
+                  setImages([]);
+                  setTextPrompt('');
+                  setError('');
+                }}
+                disabled={uploading}
+              >
+                ← Change Submission Method
+              </button>
+            </div>
 
-        <div className="upload-panels">
-          {briefType === 'pdf' ? (
-            <div 
-              className="upload-panel"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handlePdfDrop}
-              onClick={() => pdfInputRef.current.click()}
-            >
-              <input
-                ref={pdfInputRef}
-                type="file"
-                accept=".pdf,.docx"
-                onChange={handlePdfSelect}
-                style={{ display: 'none' }}
+            {/* Render selected method's interface */}
+            {submissionMethod === 'form' && (
+              <StructuredBriefForm
+                onSubmit={handleStructuredFormSubmit}
+                uploading={uploading}
               />
-              <div className="panel-content">
-                <div className="icon">📄</div>
-                {pdfFile ? (
-                  <>
-                    <h3>{pdfFile.name}</h3>
-                    <p>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                    {pdfFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && (
-                      <p className="hint" style={{ color: '#4CAF50', marginTop: '8px' }}>
-                        ✓ Images will be extracted from DOCX
-                      </p>
-                    )}
-                    <button 
-                      className="button button-secondary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPdfFile(null);
-                      }}
+            )}
+
+            {submissionMethod === 'document' && (
+              <>
+                <div className="brief-type-toggle">
+                  <button
+                    className={`toggle-btn ${briefType === 'pdf' ? 'active' : ''}`}
+                    onClick={() => setBriefType('pdf')}
+                  >
+                    📄 Document Brief
+                  </button>
+                  <button
+                    className={`toggle-btn ${briefType === 'text' ? 'active' : ''}`}
+                    onClick={() => setBriefType('text')}
+                  >
+                    ✍️ Text Prompt
+                  </button>
+                </div>
+
+                <div className="upload-panels">
+                  {briefType === 'pdf' ? (
+                    <div
+                      className="upload-panel"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={handlePdfDrop}
+                      onClick={() => pdfInputRef.current.click()}
                     >
-                      Replace
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <h3>Upload Brief (PDF or DOCX)</h3>
-                    <p>Drag & drop or click to browse</p>
-                    <span className="hint">PDF or DOCX - Max 50MB</span>
-                    <span className="hint" style={{ marginTop: '4px' }}>DOCX files with embedded images will auto-extract them</span>
-                  </>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="upload-panel text-prompt-panel">
-              <div className="panel-content">
-                <div className="icon">✍️</div>
-                <h3>Enter Your Editing Instructions</h3>
-                <textarea
-                  className="text-prompt-input"
-                  placeholder="Describe how you want your images edited... (e.g., 'Make the background white, add a subtle shadow, and enhance the colors')"
-                  value={textPrompt}
-                  onChange={(e) => setTextPrompt(e.target.value)}
-                  rows={6}
-                />
-                <span className="hint">{textPrompt.length} characters</span>
-              </div>
-            </div>
-          )}
-
-          <div 
-            className="upload-panel"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleImagesDrop}
-            onClick={() => imagesInputRef.current.click()}
-            style={{ opacity: isDOCX ? 0.6 : 1 }}
-          >
-            <input
-              ref={imagesInputRef}
-              type="file"
-              accept=".jpg,.jpeg,.png"
-              multiple
-              onChange={handleImagesSelect}
-              style={{ display: 'none' }}
-              disabled={isDOCX}
-            />
-            <div className="panel-content">
-              <div className="icon">🖼️</div>
-              {isDOCX && images.length === 0 ? (
-                <>
-                  <h3>Images will be extracted from DOCX</h3>
-                  <p>No separate upload needed</p>
-                  <span className="hint">DOCX contains embedded images</span>
-                </>
-              ) : images.length > 0 ? (
-                <>
-                  <h3>{images.length} images uploaded</h3>
-                  <div className="image-grid">
-                    {images.map((img, idx) => (
-                      <div key={idx} className="image-thumb">
-                        <img src={URL.createObjectURL(img)} alt={img.name} />
-                        <button 
-                          className="remove-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeImage(idx);
-                          }}
-                        >
-                          ✕
-                        </button>
+                      <input
+                        ref={pdfInputRef}
+                        type="file"
+                        accept=".pdf,.docx"
+                        onChange={handlePdfSelect}
+                        style={{ display: 'none' }}
+                      />
+                      <div className="panel-content">
+                        <div className="icon">📄</div>
+                        {pdfFile ? (
+                          <>
+                            <h3>{pdfFile.name}</h3>
+                            <p>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                            {pdfFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && (
+                              <p className="hint" style={{ color: '#4CAF50', marginTop: '8px' }}>
+                                ✓ Images will be extracted from DOCX
+                              </p>
+                            )}
+                            <button
+                              className="button button-secondary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPdfFile(null);
+                              }}
+                            >
+                              Replace
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <h3>Upload Brief (PDF or DOCX)</h3>
+                            <p>Drag & drop or click to browse</p>
+                            <span className="hint">PDF or DOCX - Max 50MB</span>
+                            <span className="hint" style={{ marginTop: '4px' }}>DOCX files with embedded images will auto-extract them</span>
+                          </>
+                        )}
                       </div>
-                    ))}
+                    </div>
+                  ) : (
+                    <div className="upload-panel text-prompt-panel">
+                      <div className="panel-content">
+                        <div className="icon">✍️</div>
+                        <h3>Enter Your Editing Instructions</h3>
+                        <textarea
+                          className="text-prompt-input"
+                          placeholder="Describe how you want your images edited... (e.g., 'Make the background white, add a subtle shadow, and enhance the colors')"
+                          value={textPrompt}
+                          onChange={(e) => setTextPrompt(e.target.value)}
+                          rows={6}
+                        />
+                        <span className="hint">{textPrompt.length} characters</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    className="upload-panel"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleImagesDrop}
+                    onClick={() => imagesInputRef.current.click()}
+                    style={{ opacity: isDOCX ? 0.6 : 1 }}
+                  >
+                    <input
+                      ref={imagesInputRef}
+                      type="file"
+                      accept=".jpg,.jpeg,.png"
+                      multiple
+                      onChange={handleImagesSelect}
+                      style={{ display: 'none' }}
+                      disabled={isDOCX}
+                    />
+                    <div className="panel-content">
+                      <div className="icon">🖼️</div>
+                      {isDOCX && images.length === 0 ? (
+                        <>
+                          <h3>Images will be extracted from DOCX</h3>
+                          <p>No separate upload needed</p>
+                          <span className="hint">DOCX contains embedded images</span>
+                        </>
+                      ) : images.length > 0 ? (
+                        <>
+                          <h3>{images.length} images uploaded</h3>
+                          <div className="image-grid">
+                            {images.map((img, idx) => (
+                              <div key={idx} className="image-thumb">
+                                <img src={URL.createObjectURL(img)} alt={img.name} />
+                                <button
+                                  className="remove-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeImage(idx);
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <h3>Upload Product Images</h3>
+                          <p>Drag & drop or click to browse</p>
+                          <span className="hint">JPG, PNG - Max 20MB each</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </>
-              ) : (
-                <>
-                  <h3>Upload Product Images</h3>
-                  <p>Drag & drop or click to browse</p>
-                  <span className="hint">JPG, PNG - Max 20MB each</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+                </div>
 
-        {error && <div className="error-message">{error}</div>}
+                {error && <div className="error-message">{error}</div>}
 
-        <button 
-          className="button button-primary submit-button"
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-        >
-          {uploading ? (
-            <>
-              <span className="spinner"></span>
-              Uploading...
-            </>
-          ) : (
-            'Start AI Editing'
-          )}
-        </button>
+                <button
+                  className="button button-primary submit-button"
+                  onClick={handleSubmit}
+                  disabled={!canSubmit}
+                >
+                  {uploading ? (
+                    <>
+                      <span className="spinner"></span>
+                      Uploading...
+                    </>
+                  ) : (
+                    'Start AI Editing'
+                  )}
+                </button>
+              </>
+            )}
+
+            {submissionMethod === 'pdf-images' && (
+              <div className="coming-soon">
+                <h2>PDF + Images</h2>
+                <p>This method is coming soon! For now, please use the Structured Form or Document Brief method.</p>
+                <p className="hint">The PDF + Images method will allow you to upload a PDF brief with separate high-resolution images.</p>
+              </div>
+            )}
+
+            {error && submissionMethod !== 'document' && (
+              <div className="error-message">{error}</div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

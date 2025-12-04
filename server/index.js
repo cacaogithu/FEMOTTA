@@ -15,8 +15,14 @@ import brandRoutes from './routes/brand.js';
 import adminRoutes from './routes/admin.js';
 import subaccountsRoutes from './routes/subaccounts.js';
 import mlRoutes from './routes/ml.js';
+import { runStartupMigration } from './utils/autoMigrate.js';
 
 dotenv.config();
+
+// Run database migration on startup
+runStartupMigration().catch(err => {
+  console.error('[Startup] Migration error:', err);
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

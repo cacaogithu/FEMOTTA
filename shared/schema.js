@@ -7,45 +7,45 @@ export const brands = pgTable('brands', {
   name: text('name').notNull().unique(),
   displayName: text('display_name').notNull(),
   slug: text('slug').notNull().unique(),
-  
+
   // Parent brand for sub-accounts (e.g., LifeTrek Medical under Corsair)
   parentBrandId: integer('parent_brand_id').references(() => brands.id),
   brandType: text('brand_type').default('primary'), // 'primary' or 'sub_account'
-  
+
   // Branding assets
   logoUrl: text('logo_url'),
   brandbookUrl: text('brandbook_url'), // URL to uploaded brandbook PDF
   websiteUrl: text('website_url'), // Original website for reference
   primaryColor: text('primary_color').default('#FFC107'),
   secondaryColor: text('secondary_color').default('#FF6F00'),
-  
+
   // Google Drive folder configuration
   briefFolderId: text('brief_folder_id'),
   productImagesFolderId: text('product_images_folder_id'),
   editedResultsFolderId: text('edited_results_folder_id'),
-  
+
   // Default prompts and settings
   defaultPromptTemplate: text('default_prompt_template'),
   aiSettings: jsonb('ai_settings'),
-  
+
   // API keys (encrypted in production)
   wavespeedApiKey: text('wavespeed_api_key'),
   openaiApiKey: text('openai_api_key'),
-  
+
   // Brand-specific authentication (separate from admin)
   authPassword: text('auth_password'), // Hashed password for brand login
-  
+
   // CRM Features - User Management
   seatsPurchased: integer('seats_purchased').default(1), // How many users allowed
   seatsUsed: integer('seats_used').default(0), // How many users currently active
-  
+
   // CRM Features - Workflow Customization
   workflowConfig: jsonb('workflow_config'), // JSON schema for UI workflow customization
-  
+
   // CRM Features - Usage Limits & Tracking
   monthlyJobLimit: integer('monthly_job_limit').default(100),
   monthlyImageLimit: integer('monthly_image_limit').default(1000),
-  
+
   active: boolean('active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
@@ -59,7 +59,7 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash'),
   role: text('role').notNull().default('user'), // 'admin', 'brand_admin', 'user'
   brandId: integer('brand_id').references(() => brands.id),
-  
+
   active: boolean('active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   lastLoginAt: timestamp('last_login_at')
@@ -71,27 +71,32 @@ export const jobs = pgTable('jobs', {
   jobId: text('job_id').notNull().unique(),
   brandId: integer('brand_id').notNull().references(() => brands.id),
   userId: integer('user_id').references(() => users.id),
-  
+
   // Job data
   status: text('status').notNull().default('pending'),
   briefText: text('brief_text'),
   briefFileId: text('brief_file_id'),
   promptText: text('prompt_text'), // Current editing prompt
   processingStep: text('processing_step'), // Current step description
-  
+
+  // Brief submission tracking
+  briefType: text('brief_type'), // 'pdf', 'docx', 'structured_form', 'pdf_with_images', 'text_prompt'
+  projectName: text('project_name'), // User-provided project name
+  submissionMetadata: jsonb('submission_metadata'), // Additional metadata about submission
+
   // Processing metadata
   imageSpecs: jsonb('image_specs'),
   workflowSteps: jsonb('workflow_steps'),
   imagesData: jsonb('images_data'), // Array of original images with metadata
   editedImagesData: jsonb('edited_images_data'), // Array of edited images with metadata
   imageProgress: jsonb('image_progress'), // Real-time progress tracking
-  
+
   // Time tracking
   startTime: timestamp('start_time'),
   endTime: timestamp('end_time'),
   processingTimeSeconds: integer('processing_time_seconds'),
   estimatedManualTimeMinutes: integer('estimated_manual_time_minutes'),
-  
+
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });
@@ -101,22 +106,22 @@ export const images = pgTable('images', {
   id: serial('id').primaryKey(),
   jobId: integer('job_id').notNull().references(() => jobs.id),
   brandId: integer('brand_id').notNull().references(() => brands.id),
-  
+
   // Original image
   originalName: text('original_name').notNull(),
   originalDriveId: text('original_drive_id').notNull(),
   originalPublicUrl: text('original_public_url'),
-  
+
   // Edited image
   editedName: text('edited_name'),
   editedDriveId: text('edited_drive_id'),
   editedPublicUrl: text('edited_public_url'),
-  
+
   // Metadata
   promptUsed: text('prompt_used'),
   title: text('title'),
   subtitle: text('subtitle'),
-  
+
   createdAt: timestamp('created_at').defaultNow()
 });
 
@@ -126,14 +131,14 @@ export const editedImages = pgTable('edited_images', {
   jobId: integer('job_id').notNull().references(() => jobs.id),
   imageId: integer('image_id').notNull().references(() => images.id),
   brandId: integer('brand_id').notNull().references(() => brands.id),
-  
+
   editedDriveId: text('edited_drive_id').notNull(),
   editedPublicUrl: text('edited_public_url'),
   promptUsed: text('prompt_used'),
   promptVersionId: integer('prompt_version_id').references(() => promptVersions.id),
-  
+
   processingTimeMs: integer('processing_time_ms'),
-  
+
   createdAt: timestamp('created_at').defaultNow()
 });
 
@@ -143,16 +148,16 @@ export const feedback = pgTable('feedback', {
   jobId: integer('job_id').notNull().references(() => jobs.id),
   brandId: integer('brand_id').notNull().references(() => brands.id),
   editedImageId: integer('edited_image_id').references(() => editedImages.id),
-  
+
   rating: integer('rating').notNull(), // 1-5 stars
   feedbackText: text('feedback_text'),
   improvementSuggestions: text('improvement_suggestions'),
-  
+
   // Detailed metrics
   goalAlignment: integer('goal_alignment'), // 1-5 rating
   creativityScore: integer('creativity_score'), // 1-5 rating
   technicalQuality: integer('technical_quality'), // 1-5 rating
-  
+
   createdAt: timestamp('created_at').defaultNow()
 });
 
@@ -163,16 +168,16 @@ export const subaccountUsers = pgTable('subaccount_users', {
   email: text('email').notNull(),
   username: text('username').notNull(),
   passwordHash: text('password_hash').notNull(),
-  
+
   // Role-based access control
   role: text('role').notNull().default('member'), // 'owner', 'admin', 'member', 'viewer'
-  
+
   // Invitation system
   invitationToken: text('invitation_token'),
   invitedBy: integer('invited_by').references(() => subaccountUsers.id),
   invitedAt: timestamp('invited_at'),
   acceptedAt: timestamp('accepted_at'),
-  
+
   active: boolean('active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   lastLoginAt: timestamp('last_login_at')
@@ -182,18 +187,18 @@ export const subaccountUsers = pgTable('subaccount_users', {
 export const subaccountPrompts = pgTable('subaccount_prompts', {
   id: serial('id').primaryKey(),
   brandId: integer('brand_id').notNull().references(() => brands.id),
-  
+
   name: text('name').notNull(),
   description: text('description'),
   category: text('category'), // 'product', 'lifestyle', 'social', 'email', etc.
-  
+
   // Current active version
   activeVersionId: integer('active_version_id'),
-  
+
   // Metadata
   createdBy: integer('created_by').references(() => subaccountUsers.id),
   isDefault: boolean('is_default').default(false),
-  
+
   active: boolean('active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
@@ -203,18 +208,18 @@ export const subaccountPrompts = pgTable('subaccount_prompts', {
 export const promptVersions = pgTable('prompt_versions', {
   id: serial('id').primaryKey(),
   promptId: integer('prompt_id').notNull().references(() => subaccountPrompts.id),
-  
+
   versionNumber: integer('version_number').notNull(),
   promptTemplate: text('prompt_template').notNull(),
   aiSettings: jsonb('ai_settings'), // Model, temperature, etc.
-  
+
   // Performance tracking
   usageCount: integer('usage_count').default(0),
   averageRating: integer('average_rating'),
-  
+
   // Status
   status: text('status').notNull().default('draft'), // 'draft', 'active', 'deprecated'
-  
+
   createdBy: integer('created_by').references(() => subaccountUsers.id),
   createdAt: timestamp('created_at').defaultNow(),
   activatedAt: timestamp('activated_at')
@@ -225,27 +230,27 @@ export const subaccountUsageDaily = pgTable('subaccount_usage_daily', {
   id: serial('id').primaryKey(),
   brandId: integer('brand_id').notNull().references(() => brands.id),
   date: timestamp('date').notNull(),
-  
+
   // Job metrics
   jobsCreated: integer('jobs_created').default(0),
   jobsCompleted: integer('jobs_completed').default(0),
   jobsFailed: integer('jobs_failed').default(0),
-  
+
   // Image metrics
   imagesUploaded: integer('images_uploaded').default(0),
   imagesProcessed: integer('images_processed').default(0),
-  
+
   // API usage
   wavespeedApiCalls: integer('wavespeed_api_calls').default(0),
   openaiApiCalls: integer('openai_api_calls').default(0),
-  
+
   // Cost tracking (in cents)
   estimatedCostCents: integer('estimated_cost_cents').default(0),
-  
+
   // Time metrics
   totalProcessingSeconds: integer('total_processing_seconds').default(0),
   totalTimeSavedSeconds: integer('total_time_saved_seconds').default(0),
-  
+
   createdAt: timestamp('created_at').defaultNow()
 });
 
