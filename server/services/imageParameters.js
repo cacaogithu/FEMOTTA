@@ -240,19 +240,24 @@ Subtitle: "${subtitle}"
 IMPORTANT: The title and subtitle text above must be rendered EXACTLY as shown - do not change spelling, do not add or remove letters.
 
 TITLE SPECIFICATIONS:
-- Font: Saira Bold (geometric sans-serif, sharp angular terminals)
-- Size: ${titleFontSize}px
+- Font: Saira Bold, weight 700 (geometric sans-serif with sharp angular terminals)
+- CRITICAL: Use exactly weight 700 - not semi-bold (600), not extra-bold (800), exactly 700
+- Size: ${titleFontSize}px (consistent across all images)
 - Case: UPPERCASE
-- Color: white (#FFFFFF)
+- Color: pure white (#FFFFFF)
+- Letter spacing: normal (0em)
 - Line height: 1.1
 - Max width: 85% of image width
 - Text shadow: ${shadowOffsetY}px vertical offset, ${shadowBlur}px blur, rgba(0, 0, 0, ${shadowOpacity})
+- Stroke width: consistent medium-bold weight, uniform across all letterforms
 
 SUBTITLE SPECIFICATIONS:
-- Font: Saira Regular (same geometric family, lighter weight)
+- Font: Saira Regular, weight 400 (same geometric family, lighter weight)
+- CRITICAL: Use exactly weight 400 - consistent light weight for subtitles
 - Size: ${subtitleFontSize}px
 - Case: as provided (do not modify)
-- Color: white (#FFFFFF)
+- Color: pure white (#FFFFFF)
+- Letter spacing: normal (0em)
 - Line height: 1.3
 - Max width: 85% of image width
 - Text shadow: ${shadowOffsetY}px vertical offset, ${shadowBlur}px blur, rgba(0, 0, 0, ${shadowOpacity})
